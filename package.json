@@ -1,0 +1,40 @@
+{
+  "name": "harlo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "video:studio": "remotion studio remotion/index.ts",
+    "video:render": "remotion render remotion/index.ts HarloMarketing out/harlo-marketing.mp4",
+    "video:still": "remotion still remotion/index.ts HarloMarketing out/harlo-marketing-frame.png --frame=120 --scale=0.5"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.10.2",
+    "@supabase/supabase-js": "^2.49.4",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.468.0",
+    "next": "^15.0.4",
+    "openai": "^4.73.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "stripe": "^17.4.0"
+  },
+  "devDependencies": {
+    "@remotion/cli": "4.0.456",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.2",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.16.0",
+    "eslint-config-next": "^15.0.4",
+    "postcss": "^8.4.49",
+    "remotion": "4.0.456",
+    "tailwindcss": "^3.4.16",
+    "typescript": "^5.7.2",
+    "zod": "4.3.6"
+  }
+}
