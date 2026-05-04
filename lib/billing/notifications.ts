@@ -195,7 +195,7 @@ function getEmailHtml({
   const usagePercent = creditLimit > 0 ? Math.min(100, Math.round((creditsUsed / creditLimit) * 100)) : 100;
   const escapedBillingUrl = escapeHtml(billingUrl);
   const assetBaseUrl = process.env.NEXT_PUBLIC_EMAIL_ASSET_URL ?? "https://harloai.co";
-  const emailIconVersion = "20260503-transparent-logo";
+  const emailIconVersion = "20260503-logo-outline-3";
   const sparklesIconUrl = `${assetBaseUrl.replace(/\/$/, "")}/email/harlo-sparkles.png?v=${emailIconVersion}`;
   const autoRechargeIconUrl = `${assetBaseUrl.replace(/\/$/, "")}/email/auto-recharge.png?v=${emailIconVersion}`;
 
@@ -209,8 +209,8 @@ function getEmailHtml({
             <td style="padding:24px 26px;background:#087f95;color:#ffffff;">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                 <tr>
-                  <td width="48" valign="top" style="padding:0 12px 20px 0;">
-                    <img src="${escapeHtml(sparklesIconUrl)}" width="36" height="36" alt="Harlo" style="display:block;width:36px;height:36px;border-radius:8px;border:0;">
+                  <td width="42" valign="top" style="padding:0 6px 20px 0;">
+                    <img src="${escapeHtml(sparklesIconUrl)}" width="36" height="36" alt="Harlo" style="display:block;width:36px;height:36px;border-radius:8px;border:2px solid rgba(255,255,255,.58);box-shadow:inset 0 1px 0 rgba(255,255,255,.24);">
                   </td>
                   <td valign="top" style="padding:0 0 20px 0;">
                     <div style="font-size:20px;font-weight:800;line-height:1;color:#ffffff;">Harlo</div>

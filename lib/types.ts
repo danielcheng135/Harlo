@@ -2,6 +2,7 @@ export type BotConfig = {
   id: string;
   name: string;
   organizationId: string;
+  businessName: string;
   greeting: string;
   fallbackMessage: string;
   tone: "calm" | "friendly" | "concise";

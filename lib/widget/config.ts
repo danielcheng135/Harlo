@@ -5,7 +5,7 @@ export async function getPublicBotConfig(botId: string): Promise<BotConfig> {
   const supabase = createSupabaseServiceClient();
   const { data: bot, error } = await supabase
     .from("bots")
-    .select("id, organization_id, name, greeting, fallback_message, allowed_domains, widget_themes(accent, launcher_position, title, welcome_prompts)")
+    .select("id, organization_id, name, greeting, fallback_message, allowed_domains, organizations(name), widget_themes(accent, launcher_position, title, welcome_prompts)")
     .eq("id", botId)
     .single();
 
@@ -14,11 +14,13 @@ export async function getPublicBotConfig(botId: string): Promise<BotConfig> {
   }
 
   const theme = Array.isArray(bot.widget_themes) ? bot.widget_themes[0] : bot.widget_themes;
+  const organization = Array.isArray(bot.organizations) ? bot.organizations[0] : bot.organizations;
 
   return {
     id: bot.id,
     name: bot.name,
     organizationId: bot.organization_id,
+    businessName: organization?.name ?? bot.name,
     greeting: bot.greeting,
     fallbackMessage: bot.fallback_message,
     tone: "calm",

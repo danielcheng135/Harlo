@@ -22,23 +22,25 @@ export function GET() {
   document.body.appendChild(root);
 
   var style = document.createElement("style");
-  style.textContent = ".harlo-launcher{position:fixed;right:24px;bottom:24px;width:56px;height:56px;border-radius:999px;border:0;background:#111827;color:#fff;box-shadow:0 18px 45px rgba(15,23,42,.18);z-index:2147483000;cursor:pointer;display:grid;place-items:center}.harlo-icon{display:block;width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}.harlo-panel{position:fixed;right:24px;bottom:92px;width:min(390px,calc(100vw - 32px));height:min(620px,calc(100vh - 124px));border:1px solid #e2e8ee;border-radius:12px;background:#fff;box-shadow:0 18px 45px rgba(15,23,42,.16);z-index:2147483000;display:none;overflow:hidden;font-family:Inter,system-ui,-apple-system,sans-serif}.harlo-panel[data-open=true]{display:flex;flex-direction:column}.harlo-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px;border-bottom:0;background:var(--harlo-accent,#087f95);color:var(--harlo-accent-text,#fff)}.harlo-head-inner{display:flex;align-items:center;gap:10px;min-width:0}.harlo-mark{width:38px;height:38px;display:grid;place-items:center;border-radius:10px;background:var(--harlo-accent,#087f95);color:var(--harlo-accent-text,#fff);font-weight:800}.harlo-mark .harlo-icon{width:20px;height:20px}.harlo-title{font-weight:800;color:var(--harlo-accent-text,#fff);font-size:14px}.harlo-subtitle{font-size:12px;color:color-mix(in srgb,var(--harlo-accent-text,#fff) 78%,transparent);margin-top:2px}.harlo-close{border:0;background:transparent;font-size:22px;line-height:1;color:var(--harlo-accent-text,#fff);cursor:pointer}.harlo-body{flex:1;overflow:auto;padding:16px;background:#fff;color:#111827;font-size:14px}.harlo-entry{margin:0 0 10px}.harlo-entry[data-role=user]{display:flex;flex-direction:column;align-items:flex-end}.harlo-entry[data-role=assistant]{display:block}.harlo-assistant-row{display:flex;align-items:flex-start;gap:9px;max-width:92%}.harlo-avatar{width:28px;height:28px;flex:0 0 28px;border-radius:8px;background:var(--harlo-accent,#087f95);color:var(--harlo-accent-text,#fff);display:grid;place-items:center;margin-top:1px}.harlo-avatar .harlo-icon{width:15px;height:15px}.harlo-message{display:table;width:fit-content;max-width:86%;padding:11px 12px;border-radius:10px;line-height:1.45;white-space:normal}.harlo-message[data-role=assistant]{background:#eef3f4;color:#111827}.harlo-message[data-role=user]{margin-left:auto;background:var(--harlo-accent,#087f95);color:var(--harlo-accent-text,#fff)}.harlo-message[data-kind=billing-limit],.harlo-message[data-kind=billing-limit-sent]{display:block;width:auto;max-width:100%;padding:0;background:transparent;color:#111827}.harlo-limit-card{border:1px solid rgba(8,127,149,.16);background:linear-gradient(180deg,#ffffff 0%,#f8fbfc 100%);border-radius:14px;padding:14px;box-shadow:0 14px 34px rgba(15,23,42,.07)}.harlo-limit-head{display:flex;align-items:center;gap:10px;margin-bottom:9px}.harlo-limit-icon{width:28px;height:28px;border-radius:10px;display:grid;place-items:center;background:color-mix(in srgb,var(--harlo-accent,#087f95) 11%,#fff);color:var(--harlo-accent,#087f95)}.harlo-limit-icon .harlo-icon{width:15px;height:15px;stroke-width:2.2}.harlo-limit-title{font-weight:800;color:#111827;font-size:13px;letter-spacing:0}.harlo-limit-copy{color:#4b5b68;font-size:13px;line-height:1.45;margin:0}.harlo-limit-note{display:inline-flex;align-items:center;gap:6px;margin-top:11px;border:0;border-radius:999px;background:color-mix(in srgb,var(--harlo-accent,#087f95) 10%,#fff);padding:6px 9px;color:#087f95;font-size:12px;font-weight:800}.harlo-limit-note:before{content:'';width:6px;height:6px;border-radius:999px;background:var(--harlo-accent,#087f95)}.harlo-message .harlo-limit-copy{margin:0}.harlo-message-time{font-size:11px;color:#7c8986;margin-top:5px}.harlo-entry[data-role=assistant] .harlo-message-time{margin-left:37px}.harlo-entry[data-role=user] .harlo-message-time{text-align:right;margin-right:2px}.harlo-typing{display:flex;align-items:center;gap:4px;min-width:34px;height:20px}.harlo-typing span{width:6px;height:6px;border-radius:999px;background:var(--harlo-accent,#087f95);opacity:.35;animation:harloTyping 1s infinite ease-in-out}.harlo-typing span:nth-child(2){animation-delay:.14s}.harlo-typing span:nth-child(3){animation-delay:.28s}@keyframes harloTyping{0%,80%,100%{transform:translateY(0);opacity:.35}40%{transform:translateY(-3px);opacity:1}}.harlo-message p{margin:0 0 8px}.harlo-message p:last-child{margin-bottom:0}.harlo-message ul{display:block;list-style-type:disc!important;list-style-position:outside!important;margin:7px 0 0 0!important;padding-left:22px!important}.harlo-message li{display:list-item!important;list-style-type:disc!important;margin:3px 0;padding-left:2px}.harlo-prompts{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.harlo-prompt{border:1px solid #e2e8ee;background:#fff;border-radius:999px;padding:7px 10px;font-size:12px;color:#111827;cursor:pointer}.harlo-meta{font-size:11px;color:#5f6876;margin-top:8px}.harlo-input{display:flex;gap:8px;padding:12px;border-top:1px solid #e2e8ee;background:#fff}.harlo-input input{flex:1;min-width:0;border:1px solid #e2e8ee;border-radius:8px;padding:10px;font-size:14px;outline:none}.harlo-input input:focus{border-color:var(--harlo-accent,#087f95);box-shadow:0 0 0 3px color-mix(in srgb,var(--harlo-accent,#087f95) 16%,transparent)}.harlo-input button{width:46px;height:42px;display:grid;place-items:center;border:0;border-radius:8px;background:#087f95;color:white;padding:0;cursor:pointer}.harlo-input button .harlo-icon{width:18px;height:18px}.harlo-input button:disabled{opacity:.6;cursor:wait}@media(max-width:480px){.harlo-panel{right:12px;left:12px;bottom:84px;width:auto}.harlo-launcher{right:18px;bottom:18px}}";
+  style.textContent = ".harlo-launcher{position:fixed;right:24px;bottom:24px;width:56px;height:56px;border-radius:999px;border:0;background:#111827;color:#fff;box-shadow:0 18px 45px rgba(15,23,42,.18);z-index:2147483000;cursor:pointer;display:grid;place-items:center}.harlo-icon{display:block;width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}.harlo-panel{position:fixed;right:24px;bottom:92px;width:min(390px,calc(100vw - 32px));height:min(620px,calc(100vh - 124px));border:1px solid #e2e8ee;border-radius:12px;background:#fff;box-shadow:0 18px 45px rgba(15,23,42,.16);z-index:2147483000;display:none;overflow:hidden;font-family:Inter,system-ui,-apple-system,sans-serif}.harlo-panel[data-open=true]{display:flex;flex-direction:column}.harlo-head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:72px;padding:18px 16px;border-bottom:0;background:var(--harlo-accent,#087f95);color:var(--harlo-accent-text,#fff)}.harlo-head-inner{display:flex;align-items:center;gap:8px;min-width:0}.harlo-mark{width:38px;height:38px;display:grid;place-items:center;border-radius:10px;background:var(--harlo-accent,#087f95);color:var(--harlo-accent-text,#fff);border:2px solid color-mix(in srgb,var(--harlo-accent-text,#fff) 58%,transparent);box-shadow:inset 0 1px 0 color-mix(in srgb,var(--harlo-accent-text,#fff) 24%,transparent);font-weight:800}.harlo-mark .harlo-icon{width:20px;height:20px}.harlo-title{font-weight:800;color:var(--harlo-accent-text,#fff);font-size:14px}.harlo-subtitle{font-size:12px;color:color-mix(in srgb,var(--harlo-accent-text,#fff) 78%,transparent);margin-top:2px}.harlo-close{width:34px;height:30px;border:0;background:transparent;color:var(--harlo-accent-text,#fff);cursor:pointer;padding:0;display:grid;place-items:center}.harlo-close::before{content:'';width:20px;height:2px;border-radius:999px;background:currentColor;opacity:.9}.harlo-body{flex:1;overflow:auto;padding:16px;background:#fff;color:#111827;font-size:14px}.harlo-entry{margin:0 0 10px}.harlo-entry[data-role=user]{display:flex;flex-direction:column;align-items:flex-end}.harlo-entry[data-role=assistant]{display:block}.harlo-assistant-row{display:flex;align-items:flex-start;gap:9px;max-width:92%}.harlo-avatar{width:28px;height:28px;flex:0 0 28px;border-radius:8px;background:var(--harlo-accent,#087f95);color:var(--harlo-accent-text,#fff);display:grid;place-items:center;margin-top:1px}.harlo-avatar .harlo-icon{width:15px;height:15px}.harlo-message{display:table;width:fit-content;max-width:86%;padding:11px 12px;border-radius:10px;line-height:1.45;white-space:normal}.harlo-message[data-role=assistant]{background:#f4f4f4;color:#111827}.harlo-message[data-role=user]{margin-left:auto;background:var(--harlo-accent,#087f95);color:var(--harlo-accent-text,#fff)}.harlo-message[data-kind=billing-limit],.harlo-message[data-kind=billing-limit-sent]{display:block;width:auto;max-width:100%;padding:0;background:transparent;color:#111827}.harlo-limit-card{position:relative;overflow:hidden;border:1px solid color-mix(in srgb,var(--harlo-accent,#087f95) 24%,#e2e8ee);background:#fff;border-radius:14px;padding:14px;box-shadow:0 14px 34px rgba(15,23,42,.07)}.harlo-limit-card:before{content:'';position:absolute;left:0;right:0;top:0;height:4px;background:var(--harlo-accent,#087f95)}.harlo-limit-head{display:flex;align-items:center;gap:10px;margin:2px 0 10px}.harlo-limit-icon{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:var(--harlo-accent,#087f95);color:var(--harlo-accent-text,#fff)}.harlo-limit-icon .harlo-icon{width:15px;height:15px;stroke-width:2.2}.harlo-limit-title{font-weight:800;color:#111827;font-size:14px;letter-spacing:0}.harlo-limit-copy{color:#4b5b68;font-size:13px;line-height:1.5;margin:0}.harlo-limit-note{display:inline-flex;align-items:center;gap:6px;margin-top:12px;border:0;border-radius:999px;background:color-mix(in srgb,var(--harlo-accent,#087f95) 10%,#fff);padding:6px 9px;color:var(--harlo-accent,#087f95);font-size:12px;font-weight:800}.harlo-limit-note:before{content:'';width:6px;height:6px;border-radius:999px;background:var(--harlo-accent,#087f95)}.harlo-message .harlo-limit-copy{margin:0}.harlo-message-time{font-size:11px;color:#7c8986;margin-top:5px}.harlo-entry[data-role=assistant] .harlo-message-time{margin-left:37px}.harlo-entry[data-role=user] .harlo-message-time{text-align:right;margin-right:2px}.harlo-typing{display:flex;align-items:center;gap:4px;min-width:34px;height:20px}.harlo-typing span{width:6px;height:6px;border-radius:999px;background:var(--harlo-accent,#087f95);opacity:.35;animation:harloTyping 1s infinite ease-in-out}.harlo-typing span:nth-child(2){animation-delay:.14s}.harlo-typing span:nth-child(3){animation-delay:.28s}@keyframes harloTyping{0%,80%,100%{transform:translateY(0);opacity:.35}40%{transform:translateY(-3px);opacity:1}}.harlo-message p{margin:0 0 8px}.harlo-message p:last-child{margin-bottom:0}.harlo-message ul{display:block;list-style-type:disc!important;list-style-position:outside!important;margin:7px 0 0 0!important;padding-left:22px!important}.harlo-message li{display:list-item!important;list-style-type:disc!important;margin:3px 0;padding-left:2px}.harlo-suggestions{display:none;background:#fff;padding:0 12px 2px}.harlo-suggestions[data-visible=true]{display:block}.harlo-suggestion-shell{display:grid;grid-template-columns:28px minmax(0,1fr) 28px;align-items:center;gap:6px}.harlo-suggestion-nav{width:28px;height:28px;border-radius:999px;border:1px solid #e2e8ee;background:#fff;color:#5f6876;display:grid;place-items:center;cursor:pointer;font-size:18px;line-height:1;box-shadow:0 2px 7px rgba(15,23,42,.05)}.harlo-suggestion-nav:hover{border-color:var(--harlo-accent,#087f95);color:var(--harlo-accent,#087f95)}.harlo-prompts{display:flex;flex-wrap:nowrap;gap:8px;margin:0;padding:8px 0 6px;overflow-x:auto;scroll-behavior:smooth;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}.harlo-prompts::-webkit-scrollbar{display:none}.harlo-prompt{flex:0 0 auto;max-width:210px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;scroll-snap-align:start;border:1px solid #e2e8ee;background:#fff;border-radius:999px;padding:7px 10px;font-size:12px;color:#111827;cursor:pointer}.harlo-meta{font-size:11px;color:#5f6876;margin-top:8px}.harlo-input{display:flex;gap:8px;padding:10px 12px 8px;border-top:0;background:#fff}.harlo-input input{flex:1;min-width:0;border:1px solid #e2e8ee;border-radius:8px;padding:10px;font-size:14px;outline:none}.harlo-input input:focus{border-color:var(--harlo-accent,#087f95);box-shadow:0 0 0 3px color-mix(in srgb,var(--harlo-accent,#087f95) 16%,transparent)}.harlo-input button{width:46px;height:42px;display:grid;place-items:center;border:0;border-radius:8px;background:#087f95;color:white;padding:0;cursor:pointer}.harlo-input button .harlo-icon{width:18px;height:18px}.harlo-input button:disabled{opacity:.6;cursor:wait}.harlo-powered{padding:0 12px 12px;background:#fff;text-align:center;font-size:11px;color:#7c8986}.harlo-powered strong{font-weight:800;color:#5f6876}@media(max-width:480px){.harlo-panel{right:12px;left:12px;bottom:84px;width:auto}.harlo-launcher{right:18px;bottom:18px}}";
   document.head.appendChild(style);
 
   var brandIcon = '<svg class="harlo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"></path><path d="M20 3v4"></path><path d="M22 5h-4"></path><path d="M4 17v2"></path><path d="M5 18H3"></path></svg>';
   var messageIcon = '<svg class="harlo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path></svg>';
   var sendIcon = '<svg class="harlo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path></svg>';
   var alertIcon = '<svg class="harlo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>';
-  root.innerHTML = '<section class="harlo-panel" aria-label="Harlo chat"><div class="harlo-head"><div class="harlo-head-inner"><div class="harlo-mark">' + brandIcon + '</div><div><div class="harlo-title">Ask Harlo</div><div class="harlo-subtitle">Usually replies instantly</div></div></div><button class="harlo-close" aria-label="Close chat">×</button></div><div class="harlo-body"></div><form class="harlo-input"><input aria-label="Message" placeholder="Ask a question..." autocomplete="off" /><button aria-label="Send message">' + sendIcon + '</button></form></section><button class="harlo-launcher" aria-label="Open Harlo chat">' + messageIcon + '</button>';
+  root.innerHTML = '<section class="harlo-panel" aria-label="Harlo chat"><div class="harlo-head"><div class="harlo-head-inner"><div class="harlo-mark">' + brandIcon + '</div><div><div class="harlo-title">Ask Harlo</div><div class="harlo-subtitle">Usually replies instantly</div></div></div><button class="harlo-close" aria-label="Minimize chat"></button></div><div class="harlo-body"></div><div class="harlo-suggestions"></div><form class="harlo-input"><input aria-label="Message" placeholder="Ask a question..." autocomplete="off" /><button aria-label="Send message">' + sendIcon + '</button></form><div class="harlo-powered">Powered by <strong>Harlo</strong></div></section><button class="harlo-launcher" aria-label="Open Harlo chat">' + messageIcon + '</button>';
 
   var panel = root.querySelector(".harlo-panel");
   var launcher = root.querySelector(".harlo-launcher");
   var close = root.querySelector(".harlo-close");
   var body = root.querySelector(".harlo-body");
+  var suggestions = root.querySelector(".harlo-suggestions");
   var form = root.querySelector(".harlo-input");
   var input = root.querySelector(".harlo-input input");
   var submit = root.querySelector(".harlo-input button");
   var title = root.querySelector(".harlo-title");
+  var subtitle = root.querySelector(".harlo-subtitle");
   var mark = root.querySelector(".harlo-mark");
 
   launcher.addEventListener("click", function () {
@@ -56,6 +58,22 @@ export function GET() {
     if (!text) return;
     sendMessage(text);
   });
+
+  function setPausedInput() {
+    input.value = "";
+    input.placeholder = "Assistant is paused";
+    input.disabled = true;
+    submit.disabled = true;
+    suggestions.setAttribute("data-visible", "false");
+    suggestions.innerHTML = "";
+  }
+
+  function setActiveInput() {
+    input.disabled = false;
+    submit.disabled = false;
+    input.placeholder = "Ask a question...";
+    input.focus();
+  }
 
   function setAccent(accent) {
     var color = accent || "#087f95";
@@ -125,21 +143,7 @@ export function GET() {
       body.appendChild(entry);
     });
 
-    if (messages.length === 1 && config && config.theme && config.theme.welcomePrompts) {
-      var prompts = document.createElement("div");
-      prompts.className = "harlo-prompts";
-      config.theme.welcomePrompts.forEach(function (prompt) {
-        var button = document.createElement("button");
-        button.className = "harlo-prompt";
-        button.type = "button";
-        button.textContent = prompt;
-        button.addEventListener("click", function () {
-          sendMessage(prompt);
-        });
-        prompts.appendChild(button);
-      });
-      body.appendChild(prompts);
-    }
+    renderSuggestions();
 
     if (scrollToBottom) {
       body.scrollTop = body.scrollHeight;
@@ -151,6 +155,56 @@ export function GET() {
       render(false);
     }
   }, 15000);
+
+
+  function renderSuggestions() {
+    suggestions.innerHTML = "";
+    var promptsToShow = config && config.theme && Array.isArray(config.theme.welcomePrompts) && messages.length === 1
+      ? config.theme.welcomePrompts
+      : [];
+
+    if (!promptsToShow.length) {
+      suggestions.setAttribute("data-visible", "false");
+      return;
+    }
+
+    suggestions.setAttribute("data-visible", "true");
+    var shell = document.createElement("div");
+    shell.className = "harlo-suggestion-shell";
+    var previous = document.createElement("button");
+    previous.className = "harlo-suggestion-nav";
+    previous.type = "button";
+    previous.setAttribute("aria-label", "Previous suggested questions");
+    previous.textContent = "‹";
+    var next = document.createElement("button");
+    next.className = "harlo-suggestion-nav";
+    next.type = "button";
+    next.setAttribute("aria-label", "Next suggested questions");
+    next.textContent = "›";
+    var prompts = document.createElement("div");
+    prompts.className = "harlo-prompts";
+    prompts.setAttribute("aria-label", "Suggested questions");
+    promptsToShow.forEach(function (prompt) {
+      var button = document.createElement("button");
+      button.className = "harlo-prompt";
+      button.type = "button";
+      button.textContent = prompt;
+      button.addEventListener("click", function () {
+        sendMessage(prompt);
+      });
+      prompts.appendChild(button);
+    });
+    previous.addEventListener("click", function () {
+      prompts.scrollBy({ left: -Math.max(160, prompts.clientWidth - 34), behavior: "smooth" });
+    });
+    next.addEventListener("click", function () {
+      prompts.scrollBy({ left: Math.max(160, prompts.clientWidth - 34), behavior: "smooth" });
+    });
+    shell.appendChild(previous);
+    shell.appendChild(prompts);
+    shell.appendChild(next);
+    suggestions.appendChild(shell);
+  }
 
   function addMessage(role, content, kind) {
     messages.push({ role: role, content: content, kind: kind || "message", createdAt: Date.now(), loading: false });
@@ -260,6 +314,7 @@ export function GET() {
 
 
   function formatBillingLimitMessage(content, kind) {
+    var businessName = config && (config.businessName || config.name) ? (config.businessName || config.name) : "the business";
     var card = document.createElement("div");
     card.className = "harlo-limit-card";
     var head = document.createElement("div");
@@ -269,12 +324,12 @@ export function GET() {
     icon.innerHTML = alertIcon;
     var titleText = document.createElement("div");
     titleText.className = "harlo-limit-title";
-    titleText.textContent = "Temporarily unavailable";
+    titleText.textContent = "Assistant paused";
     head.appendChild(icon);
     head.appendChild(titleText);
     var copy = document.createElement("p");
     copy.className = "harlo-limit-copy";
-    copy.textContent = String(content || "The chatbot cannot reply right now. Please contact the business directly for help.");
+    copy.textContent = String(content || "This assistant is temporarily paused. " + businessName + " has been notified and can help directly for now.");
     var note = document.createElement("div");
     note.className = "harlo-limit-note";
     note.textContent = kind === "billing-limit-sent" ? "Business notified" : "Contact the business directly";
@@ -292,9 +347,11 @@ export function GET() {
     addLoadingMessage();
 
     function finish() {
-      input.disabled = false;
-      submit.disabled = false;
-      input.focus();
+      setActiveInput();
+    }
+
+    function pauseAfterMessage() {
+      setPausedInput();
     }
 
     fetch(baseUrl + "/api/chat", {
@@ -324,7 +381,7 @@ export function GET() {
           window.localStorage.removeItem("harlo:conversation:" + botId);
         }
         if (result.json.billingLimitReached) {
-          revealAssistantMessage(result.json.answer, finish, result.json.billingAlertSent ? "billing-limit-sent" : "billing-limit");
+          revealAssistantMessage(result.json.answer, pauseAfterMessage, result.json.billingAlertSent ? "billing-limit-sent" : "billing-limit");
           return;
         }
         revealAssistantMessage(result.json.answer, finish);
@@ -343,6 +400,7 @@ export function GET() {
       }
       config = result.json;
       title.textContent = config.theme.title || config.name || "Ask Harlo";
+      subtitle.textContent = "AI assistant for " + (config.businessName || config.name || "this business");
       setAccent(config.theme.accent);
       setLauncherPosition(config.theme.launcherPosition);
       addMessage("assistant", config.greeting || "Hi, I can help answer questions about this business.");
