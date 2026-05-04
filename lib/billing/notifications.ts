@@ -195,7 +195,7 @@ function getEmailHtml({
   const usagePercent = creditLimit > 0 ? Math.min(100, Math.round((creditsUsed / creditLimit) * 100)) : 100;
   const escapedBillingUrl = escapeHtml(billingUrl);
   const assetBaseUrl = process.env.NEXT_PUBLIC_EMAIL_ASSET_URL ?? "https://harloai.co";
-  const emailIconVersion = "20260503-line-icons";
+  const emailIconVersion = "20260503-transparent-logo";
   const sparklesIconUrl = `${assetBaseUrl.replace(/\/$/, "")}/email/harlo-sparkles.png?v=${emailIconVersion}`;
   const autoRechargeIconUrl = `${assetBaseUrl.replace(/\/$/, "")}/email/auto-recharge.png?v=${emailIconVersion}`;
 
