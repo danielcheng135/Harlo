@@ -2,12 +2,11 @@ import Link from "next/link";
 import { Zap } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
-import { getCurrentBillingPlan, getInitials, getMonthlyCreditUsage, getWorkspaceOrRedirect } from "@/lib/harlo/data";
+import { getBillingOverview, getInitials, getWorkspaceOrRedirect } from "@/lib/harlo/data";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const workspace = await getWorkspaceOrRedirect();
-  const creditUsage = await getMonthlyCreditUsage(workspace);
-  const billingPlan = getCurrentBillingPlan(workspace);
+  const billingOverview = await getBillingOverview(workspace);
   const initials = getInitials(workspace.user.email);
 
   return (
@@ -18,7 +17,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <SidebarNav />
         </div>
         <div className="mt-auto space-y-3">
-          <CreditUsageIndicator used={creditUsage.used} limit={creditUsage.limit} month={creditUsage.label} />
+          <CreditUsageIndicator
+            used={billingOverview.creditsUsed}
+            limit={billingOverview.creditLimit}
+            title={billingOverview.status === "trialing" ? "Trial credits" : "Credits"}
+          />
           <button className="flex w-full items-center gap-3 rounded-lg border border-harlo-line bg-harlo-canvas p-3 text-left text-sm font-semibold text-harlo-ink transition hover:border-harlo-teal">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-harlo-ink text-xs text-white">{initials}</span>
             <span className="min-w-0">
@@ -34,7 +37,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <BusinessNamePill name={workspace.organization.name} />
           </div>
           <div className="flex items-center gap-3">
-            {billingPlan.hasHigherTier ? (
+            {billingOverview.hasHigherTier ? (
               <Link
                 href="/dashboard/billing#plans"
                 className="hidden h-10 items-center justify-center rounded-lg bg-harlo-ink px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-harlo-navy sm:inline-flex"
@@ -60,7 +63,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   );
 }
 
-function CreditUsageIndicator({ used, limit, month }: { used: number; limit: number; month: string }) {
+function CreditUsageIndicator({ used, limit, title }: { used: number; limit: number; title: string }) {
   const formatter = new Intl.NumberFormat("en");
   const percent = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
 
@@ -72,7 +75,7 @@ function CreditUsageIndicator({ used, limit, month }: { used: number; limit: num
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-harlo-muted">{month} credits</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-harlo-muted">{title}</p>
             <p className="text-xs font-semibold text-harlo-teal">{percent}%</p>
           </div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-harlo-line">

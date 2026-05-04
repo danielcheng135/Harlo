@@ -7,6 +7,16 @@ import {
   Sparkles,
   Users
 } from "lucide-react";
+import {
+  BILLING_ADD_ONS,
+  getBillingPlan,
+  getPlanCreditLimit,
+  hasHigherTier,
+  type AddOnKey,
+  type BillingInterval,
+  type BillingPlanKey,
+  type BillingStatus
+} from "@/lib/billing/plans";
 import { normalizeLeadFields, normalizeLeadMetadata, type LeadCaptureField } from "@/lib/lead-fields";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -91,9 +101,30 @@ export type LeadRow = {
   };
 };
 
-export type BillingPlanName = "Starter" | "Growth" | "Pro" | "Enterprise";
-
-const billingPlanOrder: BillingPlanName[] = ["Starter", "Growth", "Pro", "Enterprise"];
+export type BillingOverview = {
+  planKey: BillingPlanKey;
+  interval: BillingInterval;
+  status: BillingStatus;
+  trialStart: string | null;
+  trialEnd: string | null;
+  periodStart: string;
+  periodEnd: string;
+  cancelAtPeriodEnd: boolean;
+  creditsUsed: number;
+  creditLimit: number;
+  percentUsed: number;
+  hasHigherTier: boolean;
+  plan: ReturnType<typeof getBillingPlan>;
+  addOns: Array<{
+    key: AddOnKey;
+    name: string;
+    enabled: boolean;
+    quantity: number;
+    price: number;
+    unit: string;
+    description: string;
+  }>;
+};
 
 export async function getWorkspaceOrRedirect(): Promise<Workspace> {
   const supabase = await createSupabaseServerClient();
@@ -199,32 +230,81 @@ export async function getDashboardStats(workspace: Workspace) {
   ];
 }
 
-export async function getMonthlyCreditUsage(workspace: Workspace) {
+export async function getBillingOverview(workspace: Workspace): Promise<BillingOverview> {
   const supabase = await createSupabaseServerClient();
-  const billingMonthStart = new Date();
-  billingMonthStart.setDate(1);
-  billingMonthStart.setHours(0, 0, 0, 0);
+  const { data: billing } = await supabase
+    .from("organization_billing")
+    .select("plan_key, billing_interval, status, trial_start, trial_end, current_period_start, current_period_end, cancel_at_period_end")
+    .eq("organization_id", workspace.organization.id)
+    .maybeSingle();
+  const fallbackPeriod = getFallbackBillingPeriod();
+  const planKey = normalizePlanKey(billing?.plan_key);
+  const status = normalizeBillingStatus(billing?.status);
+  const interval = normalizeBillingInterval(billing?.billing_interval);
+  const periodStart = typeof billing?.current_period_start === "string" ? billing.current_period_start : fallbackPeriod.start;
+  const periodEnd = typeof billing?.current_period_end === "string" ? billing.current_period_end : fallbackPeriod.end;
+  const creditLimit = getPlanCreditLimit(planKey, status);
 
-  const { count } = await supabase
-    .from("messages")
-    .select("id, conversations!inner(organization_id)", { count: "exact", head: true })
-    .eq("conversations.organization_id", workspace.organization.id)
-    .gte("created_at", billingMonthStart.toISOString());
+  const [{ data: usageEvents }, { data: addOnRows }] = await Promise.all([
+    supabase
+      .from("usage_events")
+      .select("credits")
+      .eq("organization_id", workspace.organization.id)
+      .gte("created_at", periodStart)
+      .lt("created_at", periodEnd),
+    supabase
+      .from("organization_add_ons")
+      .select("add_on_key, enabled, quantity")
+      .eq("organization_id", workspace.organization.id)
+  ]);
+  const creditsUsed = ((usageEvents ?? []) as Array<{ credits: number }>).reduce((total, event) => total + event.credits, 0);
+  const addOnsByKey = new Map(
+    ((addOnRows ?? []) as Array<{ add_on_key: AddOnKey; enabled: boolean; quantity: number }>).map((row) => [row.add_on_key, row])
+  );
 
   return {
-    used: count ?? 0,
-    limit: 1000,
-    label: billingMonthStart.toLocaleDateString("en", { month: "long" })
+    planKey,
+    interval,
+    status,
+    trialStart: typeof billing?.trial_start === "string" ? billing.trial_start : null,
+    trialEnd: typeof billing?.trial_end === "string" ? billing.trial_end : null,
+    periodStart,
+    periodEnd,
+    cancelAtPeriodEnd: billing?.cancel_at_period_end === true,
+    creditsUsed,
+    creditLimit,
+    percentUsed: creditLimit > 0 ? Math.min(100, Math.round((creditsUsed / creditLimit) * 100)) : 0,
+    hasHigherTier: hasHigherTier(planKey),
+    plan: getBillingPlan(planKey),
+    addOns: BILLING_ADD_ONS.map((addOn) => {
+      const row = addOnsByKey.get(addOn.key);
+
+      return {
+        ...addOn,
+        enabled: row?.enabled ?? false,
+        quantity: row?.quantity ?? 0
+      };
+    })
   };
 }
 
-export function getCurrentBillingPlan(_workspace: Workspace) {
-  const name: BillingPlanName = "Starter";
-  const currentIndex = billingPlanOrder.indexOf(name);
+export async function getMonthlyCreditUsage(workspace: Workspace) {
+  const overview = await getBillingOverview(workspace);
+  const periodStart = new Date(overview.periodStart);
 
   return {
-    name,
-    hasHigherTier: currentIndex >= 0 && currentIndex < billingPlanOrder.length - 1
+    used: overview.creditsUsed,
+    limit: overview.creditLimit,
+    label: overview.status === "trialing" ? "Trial" : periodStart.toLocaleDateString("en", { month: "long" })
+  };
+}
+
+export async function getCurrentBillingPlan(workspace: Workspace) {
+  const overview = await getBillingOverview(workspace);
+
+  return {
+    name: overview.plan.name,
+    hasHigherTier: overview.hasHigherTier
   };
 }
 
@@ -402,4 +482,31 @@ async function getCount(table: "conversations" | "leads" | "knowledge_sources", 
     .eq("organization_id", organizationId);
 
   return count ?? 0;
+}
+
+function normalizePlanKey(value: unknown): BillingPlanKey {
+  return value === "growth" || value === "pro" ? value : "starter";
+}
+
+function normalizeBillingInterval(value: unknown): BillingInterval {
+  return value === "annual" ? "annual" : "monthly";
+}
+
+function normalizeBillingStatus(value: unknown): BillingStatus {
+  return value === "trialing" || value === "past_due" || value === "canceled" || value === "incomplete"
+    ? value
+    : "active";
+}
+
+function getFallbackBillingPeriod() {
+  const start = new Date();
+  start.setDate(1);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + 1);
+
+  return {
+    start: start.toISOString(),
+    end: end.toISOString()
+  };
 }

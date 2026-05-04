@@ -1,20 +1,14 @@
-import { CheckCircle2 } from "lucide-react";
+import { BillingControls, BillingWorkspace } from "@/components/billing/billing-workspace";
+import { TRIAL_CONFIG } from "@/lib/billing/plans";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { getCurrentBillingPlan, getMonthlyCreditUsage, getWorkspaceOrRedirect } from "@/lib/harlo/data";
-
-const plans = [
-  { name: "Starter", price: "$39", credits: "1,000 credits", description: "For owner-led sites getting started." },
-  { name: "Growth", price: "$89", credits: "5,000 credits", description: "For growing teams with more conversations." },
-  { name: "Pro", price: "$249", credits: "20,000 credits", description: "For higher-volume support and lead capture." }
-];
+import { getBillingOverview, getWorkspaceOrRedirect } from "@/lib/harlo/data";
 
 export default async function BillingPage() {
   const workspace = await getWorkspaceOrRedirect();
-  const usage = await getMonthlyCreditUsage(workspace);
-  const currentPlan = getCurrentBillingPlan(workspace);
-  const percent = usage.limit > 0 ? Math.min(100, Math.round((usage.used / usage.limit) * 100)) : 0;
+  const billing = await getBillingOverview(workspace);
   const formatter = new Intl.NumberFormat("en");
+  const periodEnd = new Date(billing.periodEnd);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -32,54 +26,40 @@ export default async function BillingPage() {
           <CardBody>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-3xl font-semibold text-harlo-ink">{currentPlan.name}</p>
-                <p className="mt-2 text-sm text-harlo-muted">{usage.label} credit usage</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-3xl font-semibold text-harlo-ink">{billing.plan.name}</p>
+                  <Badge>{formatBillingStatus(billing.status)}</Badge>
+                </div>
+                <p className="mt-2 text-sm text-harlo-muted">
+                  {billing.status === "trialing" ? `${TRIAL_CONFIG.credits} trial credits` : `${billing.plan.monthlyCredits.toLocaleString()} monthly credits`} · Renews {formatDate(periodEnd)}
+                </p>
               </div>
               <div className="rounded-lg border border-harlo-line bg-harlo-canvas px-4 py-3 text-sm font-semibold text-harlo-ink">
-                {formatter.format(usage.used)} / {formatter.format(usage.limit)} used
+                {formatter.format(billing.creditsUsed)} / {formatter.format(billing.creditLimit)} used
               </div>
             </div>
             <div className="mt-6 h-2 overflow-hidden rounded-full bg-harlo-line">
-              <div className="h-full rounded-full bg-harlo-teal" style={{ width: `${percent}%` }} />
+              <div className="h-full rounded-full bg-harlo-teal" style={{ width: `${billing.percentUsed}%` }} />
             </div>
           </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <h2 className="text-lg font-semibold text-harlo-ink">Subscription</h2>
-          </CardHeader>
-          <CardBody>
-            <p className="text-sm leading-6 text-harlo-muted">
-              Stripe checkout and customer portal will connect here when billing is implemented.
-            </p>
-          </CardBody>
-        </Card>
+        <BillingControls billing={billing} />
       </section>
 
-      <section id="plans" className="grid gap-4 lg:grid-cols-3">
-        {plans.map((plan) => {
-          const isCurrent = plan.name === currentPlan.name;
-
-          return (
-            <Card key={plan.name} className={isCurrent ? "border-harlo-teal" : ""}>
-              <CardBody>
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-lg font-semibold text-harlo-ink">{plan.name}</p>
-                  {isCurrent ? <Badge>Current</Badge> : null}
-                </div>
-                <p className="mt-4 text-3xl font-semibold text-harlo-ink">{plan.price}</p>
-                <p className="mt-2 text-sm font-medium text-harlo-teal">{plan.credits}</p>
-                <p className="mt-3 text-sm leading-6 text-harlo-muted">{plan.description}</p>
-                <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-harlo-muted">
-                  <CheckCircle2 size={16} className="text-harlo-teal" />
-                  Monthly billing
-                </div>
-              </CardBody>
-            </Card>
-          );
-        })}
-      </section>
+      <BillingWorkspace billing={billing} />
     </div>
   );
+}
+
+function formatBillingStatus(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1).replace("_", " ");
+}
+
+function formatDate(value: Date) {
+  return value.toLocaleDateString("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  });
 }

@@ -5,6 +5,8 @@ import {
 } from "@/lib/ai/lead-capture";
 import { classifyVisitorIntent } from "@/lib/ai/intent";
 import { generateAnswer, retrieveKnowledgeChunks } from "@/lib/ai/rag";
+import { sendCreditLimitEmail } from "@/lib/billing/notifications";
+import { getCreditUsageStatus, recordAssistantMessageUsage } from "@/lib/billing/usage";
 import {
   buildConfiguredLeadReply,
   configuredLeadMetadata,
@@ -33,14 +35,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Chatbot not found." }, { status: 404 });
   }
 
+  const botId = bot.id;
+  const organizationId = bot.organization_id;
   let conversationId = body.conversationId;
 
   if (!conversationId) {
     const { data: conversation, error: conversationError } = await supabase
       .from("conversations")
       .insert({
-        organization_id: bot.organization_id,
-        bot_id: bot.id,
+        organization_id: organizationId,
+        bot_id: botId,
         visitor_id: body.visitor?.anonymousId,
         page_url: body.visitor?.pageUrl
       })
@@ -54,8 +58,39 @@ export async function POST(request: NextRequest) {
     conversationId = conversation.id;
   }
 
+  if (!conversationId) {
+    return NextResponse.json({ error: "Could not initialize conversation." }, { status: 500 });
+  }
+
+  const activeConversationId = conversationId;
+
+  async function saveAssistantReply(content: string, metadata: Record<string, unknown>, options: { recordUsage?: boolean } = {}) {
+    const { data: assistantMessage, error: assistantMessageError } = await supabase.from("messages").insert({
+      conversation_id: activeConversationId,
+      role: "assistant",
+      content,
+      metadata
+    }).select("id").single();
+
+    if (assistantMessageError || !assistantMessage) {
+      return NextResponse.json({ error: assistantMessageError?.message ?? "Could not save assistant message." }, { status: 500 });
+    }
+
+    if (options.recordUsage !== false) {
+      await recordAssistantMessageUsage({
+        supabase,
+        organizationId,
+        botId,
+        conversationId: activeConversationId,
+        messageId: assistantMessage.id
+      });
+    }
+
+    return null;
+  }
+
   await supabase.from("messages").insert({
-    conversation_id: conversationId,
+    conversation_id: activeConversationId,
     role: "user",
     content: body.message,
     metadata: {
@@ -64,10 +99,49 @@ export async function POST(request: NextRequest) {
     }
   });
 
+  const creditUsage = await getCreditUsageStatus(supabase, organizationId);
+
+  if (!creditUsage.canReply) {
+    const answer = getCreditLimitReply(creditUsage.reason);
+    const saveError = await saveAssistantReply(answer, {
+      billing_limit_reached: true,
+      billing_reason: creditUsage.reason,
+      credits_used: creditUsage.creditsUsed,
+      credit_limit: creditUsage.creditLimit
+    }, {
+      recordUsage: false
+    });
+
+    if (saveError) {
+      return saveError;
+    }
+
+    const creditLimitEmail = await sendCreditLimitEmail({
+      supabase,
+      organizationId,
+      reason: creditUsage.reason,
+      creditsUsed: creditUsage.creditsUsed,
+      creditLimit: creditUsage.creditLimit
+    }).catch((error) => {
+      console.error("Could not send credit limit email", error);
+      return { sent: false, skipped: "send_failed" };
+    });
+
+    return NextResponse.json({
+      conversationId: activeConversationId,
+      answer,
+      fallback: false,
+      leadCaptured: false,
+      billingLimitReached: true,
+      billingAlertSent: creditLimitEmail.sent === true,
+      retrieval: []
+    });
+  }
+
   const { data: recentMessages } = await supabase
     .from("messages")
     .select("role, content")
-    .eq("conversation_id", conversationId)
+    .eq("conversation_id", activeConversationId)
     .order("created_at", { ascending: false })
     .limit(8);
   const conversationContext = (recentMessages ?? [])
@@ -90,7 +164,7 @@ export async function POST(request: NextRequest) {
     const { data: leadMessages } = await supabase
       .from("messages")
       .select("role, content")
-      .eq("conversation_id", conversationId)
+      .eq("conversation_id", activeConversationId)
       .order("created_at", { ascending: true })
       .limit(50);
     const leadConversationMessages = (leadMessages ?? []).map((message) => ({
@@ -103,19 +177,18 @@ export async function POST(request: NextRequest) {
     const invalidEmailReply = getInvalidEmailReply(body.message);
 
     if (invalidEmailReply) {
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: invalidEmailReply,
-        metadata: {
-          lead_partial: true,
-          invalid_email: true,
-          intent
-        }
+      const saveError = await saveAssistantReply(invalidEmailReply, {
+        lead_partial: true,
+        invalid_email: true,
+        intent
       });
 
+      if (saveError) {
+        return saveError;
+      }
+
       return NextResponse.json({
-        conversationId,
+        conversationId: activeConversationId,
         answer: invalidEmailReply,
         fallback: false,
         leadCaptured: false,
@@ -132,12 +205,12 @@ export async function POST(request: NextRequest) {
       const { data: existingLead } = await supabase
         .from("leads")
         .select("id, metadata")
-        .eq("conversation_id", conversationId)
+        .eq("conversation_id", activeConversationId)
         .maybeSingle();
       const leadPayload = {
-        organization_id: bot.organization_id,
-        bot_id: bot.id,
-        conversation_id: conversationId,
+        organization_id: organizationId,
+        bot_id: botId,
+        conversation_id: activeConversationId,
         name: draft.name ?? "Website visitor",
         email: draft.email,
         question: originalQuestion,
@@ -151,18 +224,17 @@ export async function POST(request: NextRequest) {
         await supabase.from("leads").insert(leadPayload);
       }
 
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: answer,
-        metadata: {
-          lead_captured: true,
-          intent
-        }
+      const saveError = await saveAssistantReply(answer, {
+        lead_captured: true,
+        intent
       });
 
+      if (saveError) {
+        return saveError;
+      }
+
       return NextResponse.json({
-        conversationId,
+        conversationId: activeConversationId,
         answer,
         fallback: false,
         leadCaptured: true,
@@ -170,18 +242,17 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    await supabase.from("messages").insert({
-      conversation_id: conversationId,
-      role: "assistant",
-      content: answer,
-      metadata: {
-        lead_partial: true,
-        intent
-      }
+    const saveError = await saveAssistantReply(answer, {
+      lead_partial: true,
+      intent
     });
 
+    if (saveError) {
+      return saveError;
+    }
+
     return NextResponse.json({
-      conversationId,
+      conversationId: activeConversationId,
       answer,
       fallback: false,
       leadCaptured: false,
@@ -201,23 +272,22 @@ export async function POST(request: NextRequest) {
     intent: intent.intent
   });
 
-  await supabase.from("messages").insert({
-    conversation_id: conversationId,
-    role: "assistant",
-    content: answer,
-    metadata: {
-      fallback: chunks.length === 0,
-      intent,
-      retrieval: chunks.map((chunk) => ({
-        id: chunk.id,
-        sourceTitle: chunk.sourceTitle,
-        similarity: chunk.similarity
-      }))
-    }
+  const saveError = await saveAssistantReply(answer, {
+    fallback: chunks.length === 0,
+    intent,
+    retrieval: chunks.map((chunk) => ({
+      id: chunk.id,
+      sourceTitle: chunk.sourceTitle,
+      similarity: chunk.similarity
+    }))
   });
 
+  if (saveError) {
+    return saveError;
+  }
+
   return NextResponse.json({
-    conversationId,
+    conversationId: activeConversationId,
     answer,
     fallback: chunks.length === 0,
     retrieval: chunks.map((chunk) => ({
@@ -225,4 +295,9 @@ export async function POST(request: NextRequest) {
       similarity: chunk.similarity
     }))
   });
+}
+
+
+function getCreditLimitReply(_reason: "past_due" | "inactive" | "limit_reached" | "ok") {
+  return "I cannot answer messages right now. Please contact the business directly for help.";
 }

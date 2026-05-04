@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { TRIAL_CONFIG } from "@/lib/billing/plans";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 
 type OnboardingRequest = {
@@ -70,6 +71,24 @@ export async function POST(request: NextRequest) {
 
   if (membershipError) {
     return NextResponse.json({ error: membershipError.message }, { status: 500 });
+  }
+
+  const trialStart = new Date();
+  const trialEnd = new Date(trialStart);
+  trialEnd.setDate(trialEnd.getDate() + TRIAL_CONFIG.days);
+  const { error: billingError } = await serviceClient.from("organization_billing").insert({
+    organization_id: organization.id,
+    plan_key: TRIAL_CONFIG.convertsToPlan,
+    billing_interval: "monthly",
+    status: "trialing",
+    trial_start: trialStart.toISOString(),
+    trial_end: trialEnd.toISOString(),
+    current_period_start: trialStart.toISOString(),
+    current_period_end: trialEnd.toISOString()
+  });
+
+  if (billingError) {
+    return NextResponse.json({ error: billingError.message }, { status: 500 });
   }
 
   const { error: themeError } = await serviceClient.from("widget_themes").insert({
