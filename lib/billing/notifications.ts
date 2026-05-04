@@ -208,8 +208,8 @@ function getEmailHtml({
             <td style="padding:24px 26px;background:#087f95;color:#ffffff;">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                 <tr>
-                  <td width="44" valign="top" style="padding:0 12px 20px 0;">
-                    <img src="${escapeHtml(sparklesIconUrl)}" width="38" height="38" alt="Harlo" style="display:block;width:38px;height:38px;border-radius:12px;border:0;">
+                  <td width="48" valign="top" style="padding:0 12px 20px 0;">
+                    <img src="${escapeHtml(sparklesIconUrl)}" width="36" height="36" alt="Harlo" style="display:block;width:36px;height:36px;border-radius:8px;border:0;">
                   </td>
                   <td valign="top" style="padding:0 0 20px 0;">
                     <div style="font-size:20px;font-weight:800;line-height:1;color:#ffffff;">Harlo</div>
@@ -251,8 +251,8 @@ function getEmailHtml({
 
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border:1px solid #dce8ec;border-radius:14px;background:#ffffff;margin:0 0 20px;">
                 <tr>
-                  <td width="40" valign="top" style="padding:15px 0 15px 16px;">
-                    <img src="${escapeHtml(autoRechargeIconUrl)}" width="30" height="30" alt="Auto recharge" style="display:block;width:30px;height:30px;border-radius:9px;border:0;">
+                  <td width="56" valign="top" style="padding:15px 0 15px 16px;">
+                    <img src="${escapeHtml(autoRechargeIconUrl)}" width="40" height="40" alt="Auto recharge" style="display:block;width:40px;height:40px;border-radius:8px;border:0;">
                   </td>
                   <td style="padding:14px 16px 14px 10px;">
                     <div style="font-size:14px;font-weight:800;color:#111827;margin-bottom:4px;">Prevent pauses with add-on credits</div>
