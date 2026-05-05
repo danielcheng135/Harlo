@@ -112,6 +112,23 @@ export type BillingOverview = {
   cancelAtPeriodEnd: boolean;
   creditsUsed: number;
   creditLimit: number;
+  planCreditLimit: number;
+  planCreditsUsed: number;
+  addOnCreditsUsed: number;
+  addOnCreditsAvailable: number;
+  autoRechargeFailure: {
+    reason: string;
+    failedAt: string;
+  } | null;
+  activeCreditGrants: Array<{
+    id: string;
+    source: string;
+    creditsGranted: number;
+    creditsUsed: number;
+    creditsRemaining: number;
+    grantedAt: string;
+    expiresAt: string;
+  }>;
   percentUsed: number;
   hasHigherTier: boolean;
   plan: ReturnType<typeof getBillingPlan>;
@@ -243,24 +260,66 @@ export async function getBillingOverview(workspace: Workspace): Promise<BillingO
   const interval = normalizeBillingInterval(billing?.billing_interval);
   const periodStart = typeof billing?.current_period_start === "string" ? billing.current_period_start : fallbackPeriod.start;
   const periodEnd = typeof billing?.current_period_end === "string" ? billing.current_period_end : fallbackPeriod.end;
-  const creditLimit = getPlanCreditLimit(planKey, status);
+  const planCreditLimit = getPlanCreditLimit(planKey, status);
 
-  const [{ data: usageEvents }, { data: addOnRows }] = await Promise.all([
+  const [{ data: usageEvents }, { data: grantUsages }, { data: creditGrants }, { data: addOnRows }] = await Promise.all([
     supabase
       .from("usage_events")
+      .select("credits")
+      .eq("organization_id", workspace.organization.id)
+      .eq("event_type", "assistant_message")
+      .gte("created_at", periodStart)
+      .lt("created_at", periodEnd),
+    supabase
+      .from("credit_grant_usages")
       .select("credits")
       .eq("organization_id", workspace.organization.id)
       .gte("created_at", periodStart)
       .lt("created_at", periodEnd),
     supabase
+      .from("credit_grants")
+      .select("id, source, credits_granted, credits_used, granted_at, expires_at")
+      .eq("organization_id", workspace.organization.id)
+      .gt("expires_at", new Date().toISOString()),
+    supabase
       .from("organization_add_ons")
-      .select("add_on_key, enabled, quantity")
+      .select("add_on_key, enabled, quantity, metadata")
       .eq("organization_id", workspace.organization.id)
   ]);
   const creditsUsed = ((usageEvents ?? []) as Array<{ credits: number }>).reduce((total, event) => total + event.credits, 0);
+  const addOnCreditsUsed = ((grantUsages ?? []) as Array<{ credits: number }>).reduce((total, event) => total + event.credits, 0);
+  const activeCreditGrants = ((creditGrants ?? []) as Array<{
+    id: string;
+    source: string;
+    credits_granted: number;
+    credits_used: number;
+    granted_at: string;
+    expires_at: string;
+  }>).map((grant) => ({
+    id: grant.id,
+    source: grant.source,
+    creditsGranted: grant.credits_granted,
+    creditsUsed: grant.credits_used,
+    creditsRemaining: Math.max(0, grant.credits_granted - grant.credits_used),
+    grantedAt: grant.granted_at,
+    expiresAt: grant.expires_at
+  }));
+  const addOnCreditsAvailable = activeCreditGrants.reduce((total, grant) => total + grant.creditsRemaining, 0);
+  const planCreditsUsed = Math.max(0, creditsUsed - addOnCreditsUsed);
+  const creditLimit = planCreditLimit + addOnCreditsUsed + addOnCreditsAvailable;
   const addOnsByKey = new Map(
-    ((addOnRows ?? []) as Array<{ add_on_key: AddOnKey; enabled: boolean; quantity: number }>).map((row) => [row.add_on_key, row])
+    ((addOnRows ?? []) as Array<{ add_on_key: AddOnKey; enabled: boolean; quantity: number; metadata?: Record<string, unknown> | null }>).map((row) => [row.add_on_key, row])
   );
+  const autoRechargeRow = addOnsByKey.get("auto_recharge_credits");
+  const autoRechargeMetadata = isRecord(autoRechargeRow?.metadata) ? autoRechargeRow.metadata : {};
+  const autoRechargeFailure = autoRechargeRow?.enabled === true &&
+    typeof autoRechargeMetadata.last_failure_reason === "string" &&
+    typeof autoRechargeMetadata.last_failed_at === "string"
+      ? {
+        reason: autoRechargeMetadata.last_failure_reason,
+        failedAt: autoRechargeMetadata.last_failed_at
+      }
+      : null;
 
   return {
     planKey,
@@ -273,6 +332,12 @@ export async function getBillingOverview(workspace: Workspace): Promise<BillingO
     cancelAtPeriodEnd: billing?.cancel_at_period_end === true,
     creditsUsed,
     creditLimit,
+    planCreditLimit,
+    planCreditsUsed,
+    addOnCreditsUsed,
+    addOnCreditsAvailable,
+    autoRechargeFailure,
+    activeCreditGrants,
     percentUsed: creditLimit > 0 ? Math.min(100, Math.round((creditsUsed / creditLimit) * 100)) : 0,
     hasHigherTier: hasHigherTier(planKey),
     plan: getBillingPlan(planKey),
@@ -482,6 +547,10 @@ async function getCount(table: "conversations" | "leads" | "knowledge_sources", 
     .eq("organization_id", organizationId);
 
   return count ?? 0;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function normalizePlanKey(value: unknown): BillingPlanKey {

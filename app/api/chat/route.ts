@@ -5,7 +5,8 @@ import {
 } from "@/lib/ai/lead-capture";
 import { classifyVisitorIntent } from "@/lib/ai/intent";
 import { generateAnswer, retrieveKnowledgeChunks } from "@/lib/ai/rag";
-import { sendCreditLimitEmail } from "@/lib/billing/notifications";
+import { attemptAutoRecharge, isAutoRechargeFailureReason } from "@/lib/billing/auto-recharge";
+import { sendAutoRechargeFailedEmail, sendCreditLimitEmail } from "@/lib/billing/notifications";
 import { getCreditUsageStatus, recordAssistantMessageUsage } from "@/lib/billing/usage";
 import {
   buildConfiguredLeadReply,
@@ -99,7 +100,19 @@ export async function POST(request: NextRequest) {
     }
   });
 
-  const creditUsage = await getCreditUsageStatus(supabase, organizationId);
+  let creditUsage = await getCreditUsageStatus(supabase, organizationId);
+  let autoRechargeSkipped: string | null = null;
+  let autoRechargePaymentIntentId: string | null = null;
+
+  if (!creditUsage.canReply && creditUsage.reason === "limit_reached") {
+    const autoRecharge = await attemptAutoRecharge({ supabase, organizationId });
+    autoRechargeSkipped = autoRecharge.skipped;
+    autoRechargePaymentIntentId = autoRecharge.paymentIntentId ?? null;
+
+    if (autoRecharge.recharged) {
+      creditUsage = await getCreditUsageStatus(supabase, organizationId);
+    }
+  }
 
   if (!creditUsage.canReply) {
     const answer = getCreditLimitReply(creditUsage.reason);
@@ -107,7 +120,9 @@ export async function POST(request: NextRequest) {
       billing_limit_reached: true,
       billing_reason: creditUsage.reason,
       credits_used: creditUsage.creditsUsed,
-      credit_limit: creditUsage.creditLimit
+      credit_limit: creditUsage.creditLimit,
+      auto_recharge_skipped: autoRechargeSkipped,
+      auto_recharge_payment_intent_id: autoRechargePaymentIntentId
     }, {
       recordUsage: false
     });
@@ -116,16 +131,27 @@ export async function POST(request: NextRequest) {
       return saveError;
     }
 
-    const creditLimitEmail = await sendCreditLimitEmail({
-      supabase,
-      organizationId,
-      reason: creditUsage.reason,
-      creditsUsed: creditUsage.creditsUsed,
-      creditLimit: creditUsage.creditLimit
-    }).catch((error) => {
-      console.error("Could not send credit limit email", error);
-      return { sent: false, skipped: "send_failed" };
-    });
+    const billingAlert = isAutoRechargeFailureReason(autoRechargeSkipped)
+      ? await sendAutoRechargeFailedEmail({
+        supabase,
+        organizationId,
+        reason: autoRechargeSkipped,
+        creditsUsed: creditUsage.creditsUsed,
+        creditLimit: creditUsage.creditLimit
+      }).catch((error) => {
+        console.error("Could not send auto-recharge failure email", error);
+        return { sent: false, skipped: "send_failed" };
+      })
+      : await sendCreditLimitEmail({
+        supabase,
+        organizationId,
+        reason: creditUsage.reason,
+        creditsUsed: creditUsage.creditsUsed,
+        creditLimit: creditUsage.creditLimit
+      }).catch((error) => {
+        console.error("Could not send credit limit email", error);
+        return { sent: false, skipped: "send_failed" };
+      });
 
     return NextResponse.json({
       conversationId: activeConversationId,
@@ -133,7 +159,8 @@ export async function POST(request: NextRequest) {
       fallback: false,
       leadCaptured: false,
       billingLimitReached: true,
-      billingAlertSent: creditLimitEmail.sent === true,
+      billingAlertSent: billingAlert.sent === true,
+      autoRechargeSkipped,
       retrieval: []
     });
   }

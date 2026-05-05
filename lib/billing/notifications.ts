@@ -9,10 +9,29 @@ type MembershipRow = {
   role: string;
 };
 
+type CreditAlertEmailKind = "limit" | "low";
+
+type AutoRechargeFailureReason =
+  | "stripe_not_configured"
+  | "missing_stripe_customer"
+  | "missing_payment_method"
+  | "payment_failed"
+  | `payment_${string}`;
+
 type CreditLimitEmailInput = {
   supabase: SupabaseServiceClient;
   organizationId: string;
   reason: CreditUsageStatus["reason"];
+  creditsUsed: number;
+  creditLimit: number;
+  kind?: CreditAlertEmailKind;
+};
+
+
+type AutoRechargeFailedEmailInput = {
+  supabase: SupabaseServiceClient;
+  organizationId: string;
+  reason: string | null;
   creditsUsed: number;
   creditLimit: number;
 };
@@ -24,9 +43,10 @@ export async function sendCreditLimitEmail({
   organizationId,
   reason,
   creditsUsed,
-  creditLimit
+  creditLimit,
+  kind = "limit"
 }: CreditLimitEmailInput) {
-  if (reason === "ok") {
+  if (reason === "ok" && kind !== "low") {
     return { sent: false, skipped: "credits_available" };
   }
 
@@ -45,7 +65,7 @@ export async function sendCreditLimitEmail({
       .maybeSingle(),
     supabase
       .from("organization_billing")
-      .select("last_credit_limit_email_at, current_period_end")
+      .select("last_credit_limit_email_at, last_low_credit_email_at, current_period_end")
       .eq("organization_id", organizationId)
       .maybeSingle(),
     supabase
@@ -54,8 +74,10 @@ export async function sendCreditLimitEmail({
       .eq("organization_id", organizationId)
   ]);
 
-  const lastSentAt = typeof billing?.last_credit_limit_email_at === "string"
-    ? new Date(billing.last_credit_limit_email_at).getTime()
+  const emailColumn = kind === "low" ? "last_low_credit_email_at" : "last_credit_limit_email_at";
+  const lastEmailAt = kind === "low" ? billing?.last_low_credit_email_at : billing?.last_credit_limit_email_at;
+  const lastSentAt = typeof lastEmailAt === "string"
+    ? new Date(lastEmailAt).getTime()
     : 0;
 
   if (lastSentAt && Date.now() - lastSentAt < ALERT_THROTTLE_MS) {
@@ -72,13 +94,14 @@ export async function sendCreditLimitEmail({
   const renewsAt = typeof billing?.current_period_end === "string"
     ? formatDate(billing.current_period_end)
     : "your next billing period";
-  const subject = getSubject(reason, organizationName);
+  const subject = getSubject(reason, organizationName, kind);
   const bodyText = getEmailText({
     reason,
     organizationName,
     creditsUsed,
     creditLimit,
-    renewsAt
+    renewsAt,
+    kind
   });
 
   const response = await fetch("https://api.resend.com/emails", {
@@ -98,7 +121,8 @@ export async function sendCreditLimitEmail({
         creditsUsed,
         creditLimit,
         renewsAt,
-        bodyText
+        bodyText,
+        kind
       })
     })
   });
@@ -110,7 +134,94 @@ export async function sendCreditLimitEmail({
 
   await supabase
     .from("organization_billing")
-    .update({ last_credit_limit_email_at: new Date().toISOString() })
+    .update({ [emailColumn]: new Date().toISOString() })
+    .eq("organization_id", organizationId);
+
+  return { sent: true, skipped: null };
+}
+
+
+export async function sendAutoRechargeFailedEmail({
+  supabase,
+  organizationId,
+  reason,
+  creditsUsed,
+  creditLimit
+}: AutoRechargeFailedEmailInput) {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const from = process.env.BILLING_ALERT_FROM_EMAIL;
+
+  if (!resendApiKey || !from) {
+    return { sent: false, skipped: "email_not_configured" };
+  }
+
+  const [{ data: organization }, { data: billing }, { data: memberships }] = await Promise.all([
+    supabase
+      .from("organizations")
+      .select("name")
+      .eq("id", organizationId)
+      .maybeSingle(),
+    supabase
+      .from("organization_billing")
+      .select("last_auto_recharge_failed_email_at, current_period_end")
+      .eq("organization_id", organizationId)
+      .maybeSingle(),
+    supabase
+      .from("memberships")
+      .select("user_id, role")
+      .eq("organization_id", organizationId)
+  ]);
+
+  const lastEmailAt = billing?.last_auto_recharge_failed_email_at;
+  const lastSentAt = typeof lastEmailAt === "string" ? new Date(lastEmailAt).getTime() : 0;
+
+  if (lastSentAt && Date.now() - lastSentAt < ALERT_THROTTLE_MS) {
+    return { sent: false, skipped: "recently_sent" };
+  }
+
+  const recipients = await getRecipientEmails(supabase, (memberships ?? []) as MembershipRow[]);
+
+  if (recipients.length === 0) {
+    return { sent: false, skipped: "no_recipients" };
+  }
+
+  const organizationName = organization?.name ?? "your Harlo workspace";
+  const renewsAt = typeof billing?.current_period_end === "string"
+    ? formatDate(billing.current_period_end)
+    : "your next billing period";
+  const reasonLabel = getAutoRechargeFailureReasonLabel(reason);
+  const bodyText = `${organizationName} ran out of message credits, but Harlo could not auto-recharge credits. Reason: ${reasonLabel}. The website chatbot is paused until payment details are updated, credits renew on ${renewsAt}, or the plan is upgraded.`;
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${resendApiKey}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      from,
+      to: recipients,
+      subject: `Auto-recharge failed for ${organizationName}`,
+      text: bodyText,
+      html: getAutoRechargeFailedEmailHtml({
+        organizationName,
+        reasonLabel,
+        creditsUsed,
+        creditLimit,
+        renewsAt,
+        bodyText
+      })
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Auto-recharge failure email failed with ${response.status}: ${errorText}`);
+  }
+
+  await supabase
+    .from("organization_billing")
+    .update({ last_auto_recharge_failed_email_at: new Date().toISOString() })
     .eq("organization_id", organizationId);
 
   return { sent: true, skipped: null };
@@ -129,7 +240,11 @@ async function getRecipientEmails(supabase: SupabaseServiceClient, memberships: 
   return Array.from(new Set(emails.filter((email): email is string => Boolean(email))));
 }
 
-function getSubject(reason: CreditUsageStatus["reason"], organizationName: string) {
+function getSubject(reason: CreditUsageStatus["reason"], organizationName: string, kind: CreditAlertEmailKind) {
+  if (kind === "low") {
+    return `${organizationName} is running low on Harlo credits`;
+  }
+
   if (reason === "past_due") {
     return `Billing update needed for ${organizationName}`;
   }
@@ -146,14 +261,20 @@ function getEmailText({
   organizationName,
   creditsUsed,
   creditLimit,
-  renewsAt
+  renewsAt,
+  kind = "limit"
 }: {
   reason: CreditUsageStatus["reason"];
   organizationName: string;
   creditsUsed: number;
   creditLimit: number;
   renewsAt: string;
+  kind?: CreditAlertEmailKind;
 }) {
+  if (kind === "low") {
+    return `${organizationName} has used ${creditsUsed.toLocaleString()} of ${creditLimit.toLocaleString()} message credits for the current billing period. The website chatbot is still active, but credits are running low. Open billing to upgrade, review add-ons, or turn on auto-recharge credits before visitors are paused.`;
+  }
+
   if (reason === "past_due") {
     return `Harlo needs a billing update for ${organizationName}. The website chatbot is temporarily paused until billing is updated. Open billing to update payment details, change plans, or review add-ons.`;
   }
@@ -171,7 +292,8 @@ function getEmailHtml({
   creditsUsed,
   creditLimit,
   renewsAt,
-  bodyText
+  bodyText,
+  kind = "limit"
 }: {
   reason: CreditUsageStatus["reason"];
   organizationName: string;
@@ -179,16 +301,19 @@ function getEmailHtml({
   creditLimit: number;
   renewsAt: string;
   bodyText: string;
+  kind?: CreditAlertEmailKind;
 }) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const billingUrl = `${appUrl.replace(/\/$/, "")}/dashboard/billing`;
   const isCreditLimit = reason === "limit_reached";
-  const title = isCreditLimit
-    ? "Message credits are used up"
-    : reason === "past_due"
-      ? "Billing needs attention"
-      : "Subscription is inactive";
-  const badge = isCreditLimit ? "Credit limit reached" : reason === "past_due" ? "Billing update needed" : "Subscription inactive";
+  const title = kind === "low"
+    ? "Message credits are running low"
+    : isCreditLimit
+      ? "Message credits are used up"
+      : reason === "past_due"
+        ? "Billing needs attention"
+        : "Subscription is inactive";
+  const badge = kind === "low" ? "Low credit warning" : isCreditLimit ? "Credit limit reached" : reason === "past_due" ? "Billing update needed" : "Subscription inactive";
   const usageLabel = creditLimit > 0
     ? `${creditsUsed.toLocaleString()} / ${creditLimit.toLocaleString()} credits used`
     : `${creditsUsed.toLocaleString()} credits used`;
@@ -220,7 +345,7 @@ function getEmailHtml({
               </table>
               <div style="display:inline-block;border:1px solid rgba(255,255,255,.36);background:rgba(255,255,255,.14);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800;color:#ffffff;margin-bottom:12px;">${escapeHtml(badge)}</div>
               <h1 style="font-size:28px;line-height:1.12;margin:0 0 10px;font-weight:800;color:#ffffff;letter-spacing:0;">${escapeHtml(title)}</h1>
-              <p style="font-size:15px;line-height:1.55;margin:0;color:#e8fbfd;">${escapeHtml(organizationName)} needs attention so the website chatbot can keep replying to visitors.</p>
+              <p style="font-size:15px;line-height:1.55;margin:0;color:#e8fbfd;">${escapeHtml(organizationName)} ${kind === "low" ? "is approaching its monthly credit limit." : "needs attention so the website chatbot can keep replying to visitors."}</p>
             </td>
           </tr>
 
@@ -262,6 +387,120 @@ function getEmailHtml({
                 </tr>
               </table>
 
+              <a href="${escapedBillingUrl}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;border-radius:10px;padding:12px 16px;font-size:14px;font-weight:800;">Open billing</a>
+              <p style="font-size:12px;line-height:1.5;color:#64748b;margin:18px 0 0;">This alert is sent at most once every 24 hours.</p>
+            </td>
+          </tr>
+        </table>
+        <div style="text-align:center;color:#94a3b8;font-size:12px;margin-top:16px;">Sent by Harlo · <a href="https://harloai.co" style="color:#087f95;text-decoration:none;">harloai.co</a></div>
+      </td>
+    </tr>
+  </table>
+</div>`;
+}
+
+
+function getAutoRechargeFailureReasonLabel(reason: string | null) {
+  if (reason === "missing_payment_method") {
+    return "no saved payment method is available";
+  }
+
+  if (reason === "payment_failed") {
+    return "the payment attempt failed";
+  }
+
+  if (reason === "missing_stripe_customer") {
+    return "no Stripe customer is linked to this workspace";
+  }
+
+  if (reason === "stripe_not_configured") {
+    return "billing payments are not configured";
+  }
+
+  if (reason?.startsWith("payment_")) {
+    return reason.replace("payment_", "payment status: ").replaceAll("_", " ");
+  }
+
+  return "the recharge could not be completed";
+}
+
+function getAutoRechargeFailedEmailHtml({
+  organizationName,
+  reasonLabel,
+  creditsUsed,
+  creditLimit,
+  renewsAt,
+  bodyText
+}: {
+  organizationName: string;
+  reasonLabel: string;
+  creditsUsed: number;
+  creditLimit: number;
+  renewsAt: string;
+  bodyText: string;
+}) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const billingUrl = `${appUrl.replace(/\/$/, "")}/dashboard/billing`;
+  const escapedBillingUrl = escapeHtml(billingUrl);
+  const usagePercent = creditLimit > 0 ? Math.min(100, Math.round((creditsUsed / creditLimit) * 100)) : 100;
+  const usageLabel = creditLimit > 0
+    ? `${creditsUsed.toLocaleString()} / ${creditLimit.toLocaleString()} credits used`
+    : `${creditsUsed.toLocaleString()} credits used`;
+  const assetBaseUrl = process.env.NEXT_PUBLIC_EMAIL_ASSET_URL ?? "https://harloai.co";
+  const emailIconVersion = "20260503-logo-outline-3";
+  const sparklesIconUrl = `${assetBaseUrl.replace(/\/$/, "")}/email/harlo-sparkles.png?v=${emailIconVersion}`;
+  const autoRechargeIconUrl = `${assetBaseUrl.replace(/\/$/, "")}/email/auto-recharge.png?v=${emailIconVersion}`;
+
+  return `
+<div style="margin:0;padding:0;background:#f4f8f9;font-family:Inter,Arial,sans-serif;color:#111827;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#f4f8f9;">
+    <tr>
+      <td align="center" style="padding:34px 16px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;max-width:600px;background:#ffffff;border:1px solid #dce8ec;border-radius:18px;overflow:hidden;box-shadow:0 18px 50px rgba(15,23,42,.08);">
+          <tr>
+            <td style="padding:24px 26px;background:#087f95;color:#ffffff;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                <tr>
+                  <td width="42" valign="top" style="padding:0 6px 20px 0;">
+                    <img src="${escapeHtml(sparklesIconUrl)}" width="36" height="36" alt="Harlo" style="display:block;width:36px;height:36px;border-radius:8px;border:2px solid rgba(255,255,255,.58);box-shadow:inset 0 1px 0 rgba(255,255,255,.24);">
+                  </td>
+                  <td valign="top" style="padding:0 0 20px 0;">
+                    <div style="font-size:20px;font-weight:800;line-height:1;color:#ffffff;">Harlo</div>
+                    <div style="font-size:12px;color:#d7f1f4;margin-top:5px;">AI chatbot billing alert</div>
+                  </td>
+                </tr>
+              </table>
+              <div style="display:inline-block;border:1px solid rgba(255,255,255,.36);background:rgba(255,255,255,.14);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800;color:#ffffff;margin-bottom:12px;">Auto-recharge failed</div>
+              <h1 style="font-size:28px;line-height:1.12;margin:0 0 10px;font-weight:800;color:#ffffff;letter-spacing:0;">Credits could not be added</h1>
+              <p style="font-size:15px;line-height:1.55;margin:0;color:#e8fbfd;">${escapeHtml(organizationName)} needs a billing update so Harlo can keep replying to visitors.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:26px;">
+              <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#334155;">${escapeHtml(bodyText)}</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border:1px solid #dce8ec;border-radius:14px;background:#f8fbfc;margin:0 0 18px;">
+                <tr>
+                  <td style="padding:16px;">
+                    <div style="font-size:12px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.08em;">Current usage</div>
+                    <div style="font-size:22px;line-height:1.2;font-weight:800;color:#111827;margin-top:5px;">${escapeHtml(usageLabel)}</div>
+                    <div style="height:8px;background:#e2e8ee;border-radius:999px;overflow:hidden;line-height:8px;margin-top:14px;">
+                      <div style="height:8px;width:${usagePercent}%;background:#087f95;border-radius:999px;line-height:8px;">&nbsp;</div>
+                    </div>
+                    <div style="font-size:12px;color:#64748b;margin-top:10px;">Credits renew on ${escapeHtml(renewsAt)}.</div>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border:1px solid #dce8ec;border-radius:14px;background:#ffffff;margin:0 0 20px;">
+                <tr>
+                  <td width="56" valign="top" style="padding:15px 0 15px 16px;">
+                    <img src="${escapeHtml(autoRechargeIconUrl)}" width="40" height="40" alt="Auto recharge" style="display:block;width:40px;height:40px;border-radius:8px;border:0;">
+                  </td>
+                  <td style="padding:14px 16px 14px 10px;">
+                    <div style="font-size:14px;font-weight:800;color:#111827;margin-bottom:4px;">Recharge issue</div>
+                    <div style="font-size:13px;line-height:1.5;color:#52616f;">${escapeHtml(reasonLabel)}. Open Billing to update the payment method or choose a higher plan.</div>
+                  </td>
+                </tr>
+              </table>
               <a href="${escapedBillingUrl}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;border-radius:10px;padding:12px 16px;font-size:14px;font-weight:800;">Open billing</a>
               <p style="font-size:12px;line-height:1.5;color:#64748b;margin:18px 0 0;">This alert is sent at most once every 24 hours.</p>
             </td>

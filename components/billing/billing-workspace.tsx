@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { BadgeCheck, Bot, CheckCircle2, CreditCard, Sparkles, UserPlus, Zap } from "lucide-react";
 import {
   BILLING_ADD_ONS,
@@ -123,6 +123,7 @@ export function BillingControls({ billing }: BillingWorkspaceProps) {
 }
 
 export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const checkoutNoticeShown = useRef(false);
   const [interval, setInterval] = useState<BillingInterval>(billing.interval);
@@ -191,6 +192,32 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
       window.location.assign(payload.url);
     } catch {
       showToast("error", "Billing portal could not be opened.");
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  async function toggleAutoRecharge(enabled: boolean) {
+    const actionLabel = enabled ? "Enable auto-recharge" : "Disable auto-recharge";
+    setPendingAction(actionLabel);
+
+    try {
+      const response = await fetch("/api/billing/add-ons", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addOnKey: "auto_recharge_credits", enabled })
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        showToast("error", payload.error ?? "Auto-recharge could not be updated.");
+        return;
+      }
+
+      showToast("success", enabled ? "Auto-recharge is on." : "Auto-recharge is off.");
+      router.refresh();
+    } catch {
+      showToast("error", "Auto-recharge could not be updated.");
     } finally {
       setPendingAction(null);
     }
@@ -348,9 +375,25 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
                 <div className="mt-auto pt-5">
                   <p className="text-sm font-semibold text-harlo-ink">{formatPrice(addOn.price)}</p>
                   <p className="mt-1 text-xs font-medium text-harlo-muted">{addOn.unit}</p>
-                  <Button type="button" variant="secondary" className="mt-4 w-full group-hover:border-harlo-teal group-hover:text-harlo-teal" onClick={() => openBillingPortal("Manage billing")}>
-                    {activeAddOn?.enabled ? "Manage" : addOnCtas[addOn.key]}
-                  </Button>
+                  {addOn.key === "auto_recharge_credits" ? (
+                    <Button
+                      type="button"
+                      variant={activeAddOn?.enabled ? "secondary" : "primary"}
+                      className="mt-4 w-full group-hover:border-harlo-teal group-hover:text-harlo-teal"
+                      onClick={() => toggleAutoRecharge(!(activeAddOn?.enabled ?? false))}
+                      disabled={pendingAction === "Enable auto-recharge" || pendingAction === "Disable auto-recharge"}
+                    >
+                      {pendingAction === "Enable auto-recharge" || pendingAction === "Disable auto-recharge"
+                        ? "Saving..."
+                        : activeAddOn?.enabled
+                          ? "Turn off"
+                          : "Turn on"}
+                    </Button>
+                  ) : (
+                    <Button type="button" variant="secondary" className="mt-4 w-full group-hover:border-harlo-teal group-hover:text-harlo-teal" onClick={() => openBillingPortal("Manage billing")}>
+                      {activeAddOn?.enabled ? "Manage" : addOnCtas[addOn.key]}
+                    </Button>
+                  )}
                 </div>
               </div>
             );
