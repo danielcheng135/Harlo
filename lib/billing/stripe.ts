@@ -1,6 +1,8 @@
 import Stripe from "stripe";
 import {
+  BILLING_ADD_ONS,
   BILLING_PLANS,
+  type AddOnKey,
   type BillingInterval,
   type BillingPlanKey
 } from "@/lib/billing/plans";
@@ -37,6 +39,22 @@ export function getPlanKeyByProductId(productId: string) {
   return BILLING_PLANS.find((plan) => getPlanProductId(plan.key) === productId)?.key ?? null;
 }
 
+export function getAddOnPriceId(addOnKey: AddOnKey) {
+  const envKey = `STRIPE_PRICE_ADDON_${addOnKey.toUpperCase()}`;
+
+  return process.env[envKey] ?? null;
+}
+
+export function getAddOnProductId(addOnKey: AddOnKey) {
+  const envKey = `STRIPE_PRODUCT_ADDON_${addOnKey.toUpperCase()}`;
+
+  return process.env[envKey] ?? null;
+}
+
+export function getAddOnKeyByProductId(productId: string) {
+  return BILLING_ADD_ONS.find((addOn) => getAddOnProductId(addOn.key) === productId)?.key ?? null;
+}
+
 export async function resolvePlanPriceId(
   stripe: Stripe,
   planKey: BillingPlanKey,
@@ -62,6 +80,35 @@ export async function resolvePlanPriceId(
   });
   const targetInterval = interval === "annual" ? "year" : "month";
   const price = prices.data.find((item) => item.recurring?.interval === targetInterval);
+
+  return price?.id ?? null;
+}
+
+export async function resolveAddOnPriceId(stripe: Stripe, addOnKey: AddOnKey) {
+  const explicitPriceId = getAddOnPriceId(addOnKey);
+
+  if (explicitPriceId) {
+    return explicitPriceId;
+  }
+
+  const productId = getAddOnProductId(addOnKey);
+
+  if (!productId) {
+    return null;
+  }
+
+  const prices = await stripe.prices.list({
+    active: true,
+    product: productId,
+    type: addOnKey === "auto_recharge_credits" ? "one_time" : "recurring",
+    limit: 100
+  });
+
+  if (addOnKey === "auto_recharge_credits") {
+    return prices.data[0]?.id ?? null;
+  }
+
+  const price = prices.data.find((item) => item.recurring?.interval === "month");
 
   return price?.id ?? null;
 }

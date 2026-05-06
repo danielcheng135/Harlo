@@ -1,8 +1,11 @@
+import type { Route } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AuthForm } from "@/components/auth/auth-form";
 
-export default function SignInPage() {
+export default async function SignInPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  const { next } = await searchParams;
+  const signUpHref = next ? `/auth/sign-up?next=${encodeURIComponent(next)}` : "/auth/sign-up";
   return (
     <div className="mt-10">
       <h1 className="text-3xl font-semibold tracking-tight text-harlo-ink">Welcome back</h1>
@@ -14,7 +17,7 @@ export default function SignInPage() {
       </div>
       <p className="mt-6 text-sm text-harlo-muted">
         New to Harlo?{" "}
-        <Link href="/auth/sign-up" className="font-semibold text-harlo-teal">
+        <Link href={signUpHref as Route} className="font-semibold text-harlo-teal">
           Create an account
         </Link>
       </p>

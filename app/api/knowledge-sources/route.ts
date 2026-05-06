@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
 
   const { data: membership } = await supabase
     .from("memberships")
-    .select("organization_id")
+    .select("organization_id, role")
     .eq("user_id", user.id)
     .order("created_at", { ascending: true })
     .limit(1)
@@ -46,6 +46,10 @@ export async function POST(request: NextRequest) {
 
   if (!membership) {
     return NextResponse.json({ error: "Finish onboarding before adding knowledge." }, { status: 409 });
+  }
+
+  if (membership.role !== "owner" && membership.role !== "admin") {
+    return NextResponse.json({ error: "Only owners and admins can manage knowledge." }, { status: 403 });
   }
 
   const { data: bot } = await supabase

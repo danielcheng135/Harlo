@@ -15,6 +15,12 @@ export async function getPublicBotConfig(botId: string): Promise<BotConfig> {
 
   const theme = Array.isArray(bot.widget_themes) ? bot.widget_themes[0] : bot.widget_themes;
   const organization = Array.isArray(bot.organizations) ? bot.organizations[0] : bot.organizations;
+  const { data: removeBrandingAddOn } = await supabase
+    .from("organization_add_ons")
+    .select("enabled")
+    .eq("organization_id", bot.organization_id)
+    .eq("add_on_key", "remove_branding")
+    .maybeSingle();
 
   return {
     id: bot.id,
@@ -25,6 +31,7 @@ export async function getPublicBotConfig(botId: string): Promise<BotConfig> {
     fallbackMessage: bot.fallback_message,
     tone: "calm",
     allowedDomains: bot.allowed_domains ?? [],
+    removeBranding: removeBrandingAddOn?.enabled === true,
     theme: {
       accent: theme?.accent ?? "#087f95",
       launcherPosition: theme?.launcher_position ?? "bottom-right",

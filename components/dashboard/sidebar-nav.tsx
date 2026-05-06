@@ -5,12 +5,12 @@ import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import { navItems } from "@/lib/mock-data";
 
-export function SidebarNav() {
+export function SidebarNav({ role }: { role: string }) {
   const pathname = usePathname();
 
   return (
     <nav className="mt-8 space-y-1">
-      {navItems.map((item) => {
+      {navItems.filter((item) => !("adminOnly" in item && item.adminOnly) || role === "owner" || role === "admin").map((item) => {
         const isActive =
           item.href === "/dashboard"
             ? pathname === "/dashboard"

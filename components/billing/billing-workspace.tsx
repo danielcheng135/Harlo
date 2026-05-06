@@ -197,30 +197,63 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
     }
   }
 
-  async function toggleAutoRecharge(enabled: boolean) {
-    const actionLabel = enabled ? "Enable auto-recharge" : "Disable auto-recharge";
+  async function updateAddOn({
+    addOnKey,
+    enabled,
+    quantity,
+    actionLabel,
+    successMessage
+  }: {
+    addOnKey: AddOnKey;
+    enabled?: boolean;
+    quantity?: number;
+    actionLabel: string;
+    successMessage: string;
+  }) {
     setPendingAction(actionLabel);
 
     try {
       const response = await fetch("/api/billing/add-ons", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ addOnKey: "auto_recharge_credits", enabled })
+        body: JSON.stringify({ addOnKey, enabled, quantity })
       });
       const payload = await response.json();
 
       if (!response.ok) {
-        showToast("error", payload.error ?? "Auto-recharge could not be updated.");
+        showToast("error", payload.error ?? "Add-on could not be updated.");
         return;
       }
 
-      showToast("success", enabled ? "Auto-recharge is on." : "Auto-recharge is off.");
+      showToast("success", successMessage);
       router.refresh();
     } catch {
-      showToast("error", "Auto-recharge could not be updated.");
+      showToast("error", "Add-on could not be updated.");
     } finally {
       setPendingAction(null);
     }
+  }
+
+  function toggleAddOn(addOnKey: AddOnKey, enabled: boolean) {
+    const label = `${enabled ? "Enable" : "Disable"} ${addOnKey}`;
+
+    updateAddOn({
+      addOnKey,
+      enabled,
+      actionLabel: label,
+      successMessage: enabled ? "Add-on is on." : "Add-on is off."
+    });
+  }
+
+  function setQuantityAddOn(addOnKey: AddOnKey, quantity: number) {
+    const nextQuantity = Math.max(0, quantity);
+
+    updateAddOn({
+      addOnKey,
+      quantity: nextQuantity,
+      actionLabel: `Update ${addOnKey}`,
+      successMessage: nextQuantity > 0 ? "Add-on quantity updated." : "Add-on removed."
+    });
   }
 
   return (
@@ -375,23 +408,43 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
                 <div className="mt-auto pt-5">
                   <p className="text-sm font-semibold text-harlo-ink">{formatPrice(addOn.price)}</p>
                   <p className="mt-1 text-xs font-medium text-harlo-muted">{addOn.unit}</p>
-                  {addOn.key === "auto_recharge_credits" ? (
+                  {addOn.key === "extra_agent" || addOn.key === "extra_seat" ? (
+                    <div className="mt-4 flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-harlo-line bg-white text-lg font-semibold text-harlo-ink transition hover:border-harlo-teal hover:text-harlo-teal disabled:cursor-not-allowed disabled:opacity-50"
+                        onClick={() => setQuantityAddOn(addOn.key, Math.max(0, (activeAddOn?.quantity ?? 0) - 1))}
+                        disabled={(activeAddOn?.quantity ?? 0) <= 0 || pendingAction === `Update ${addOn.key}`}
+                        aria-label={`Remove ${addOn.name}`}
+                      >
+                        -
+                      </button>
+                      <div className="flex h-10 min-w-0 flex-1 items-center justify-center rounded-lg border border-harlo-line bg-harlo-canvas px-3 text-sm font-semibold text-harlo-ink">
+                        {pendingAction === `Update ${addOn.key}` ? "Saving..." : `${activeAddOn?.quantity ?? 0} active`}
+                      </div>
+                      <button
+                        type="button"
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-harlo-line bg-white text-lg font-semibold text-harlo-ink transition hover:border-harlo-teal hover:text-harlo-teal disabled:cursor-not-allowed disabled:opacity-50"
+                        onClick={() => setQuantityAddOn(addOn.key, (activeAddOn?.quantity ?? 0) + 1)}
+                        disabled={pendingAction === `Update ${addOn.key}`}
+                        aria-label={`Add ${addOn.name}`}
+                      >
+                        +
+                      </button>
+                    </div>
+                  ) : (
                     <Button
                       type="button"
                       variant={activeAddOn?.enabled ? "secondary" : "primary"}
-                      className="mt-4 w-full group-hover:border-harlo-teal group-hover:text-harlo-teal"
-                      onClick={() => toggleAutoRecharge(!(activeAddOn?.enabled ?? false))}
-                      disabled={pendingAction === "Enable auto-recharge" || pendingAction === "Disable auto-recharge"}
+                      className={`mt-4 w-full group-hover:border-harlo-teal ${activeAddOn?.enabled ? "hover:!text-harlo-ink" : "hover:!text-white"}`}
+                      onClick={() => toggleAddOn(addOn.key, !(activeAddOn?.enabled ?? false))}
+                      disabled={pendingAction === `Enable ${addOn.key}` || pendingAction === `Disable ${addOn.key}`}
                     >
-                      {pendingAction === "Enable auto-recharge" || pendingAction === "Disable auto-recharge"
+                      {pendingAction === `Enable ${addOn.key}` || pendingAction === `Disable ${addOn.key}`
                         ? "Saving..."
                         : activeAddOn?.enabled
                           ? "Turn off"
-                          : "Turn on"}
-                    </Button>
-                  ) : (
-                    <Button type="button" variant="secondary" className="mt-4 w-full group-hover:border-harlo-teal group-hover:text-harlo-teal" onClick={() => openBillingPortal("Manage billing")}>
-                      {activeAddOn?.enabled ? "Manage" : addOnCtas[addOn.key]}
+                          : addOnCtas[addOn.key]}
                     </Button>
                   )}
                 </div>

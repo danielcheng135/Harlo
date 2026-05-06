@@ -5,10 +5,11 @@ import { SourceActions } from "@/components/knowledge/source-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { getKnowledgeSources, getWorkspaceOrRedirect } from "@/lib/harlo/data";
+import { getKnowledgeSources, getWorkspaceOrRedirect, requireWorkspaceAdmin } from "@/lib/harlo/data";
 
 export default async function KnowledgePage() {
   const workspace = await getWorkspaceOrRedirect();
+  requireWorkspaceAdmin(workspace);
   const sources = await getKnowledgeSources(workspace);
 
   return (

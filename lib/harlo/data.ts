@@ -18,7 +18,7 @@ import {
   type BillingStatus
 } from "@/lib/billing/plans";
 import { normalizeLeadFields, normalizeLeadMetadata, type LeadCaptureField } from "@/lib/lead-fields";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 
 export type Workspace = {
   user: {
@@ -101,6 +101,35 @@ export type LeadRow = {
   };
 };
 
+export type TeamMemberRow = {
+  id: string;
+  userId: string;
+  email: string;
+  role: string;
+  joinedAt: string;
+  isCurrentUser: boolean;
+  canRemove: boolean;
+};
+
+export type TeamInvitationRow = {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  inviteUrl: string;
+  expiresAt: string;
+  createdAt: string;
+  canCancel: boolean;
+};
+
+export type TeamOverview = {
+  members: TeamMemberRow[];
+  invitations: TeamInvitationRow[];
+  seatCapacity: BillingOverview["capacity"]["seats"];
+  canInvite: boolean;
+  canInviteAdmins: boolean;
+};
+
 export type BillingOverview = {
   planKey: BillingPlanKey;
   interval: BillingInterval;
@@ -141,6 +170,23 @@ export type BillingOverview = {
     unit: string;
     description: string;
   }>;
+  capacity: {
+    agents: {
+      included: number;
+      extra: number;
+      used: number;
+      limit: number;
+      remaining: number;
+    };
+    seats: {
+      included: number;
+      extra: number;
+      used: number;
+      pending: number;
+      limit: number;
+      remaining: number;
+    };
+  };
 };
 
 export async function getWorkspaceOrRedirect(): Promise<Workspace> {
@@ -203,6 +249,16 @@ export async function getWorkspaceOrRedirect(): Promise<Workspace> {
   };
 }
 
+export function isWorkspaceAdmin(role: string) {
+  return role === "owner" || role === "admin";
+}
+
+export function requireWorkspaceAdmin(workspace: Workspace) {
+  if (!isWorkspaceAdmin(workspace.role)) {
+    redirect("/dashboard");
+  }
+}
+
 function normalizeWidgetTheme(theme: unknown): Workspace["bot"]["widget_theme"] {
   const rawTheme = Array.isArray(theme) ? theme[0] : theme;
   const themeRecord = rawTheme && typeof rawTheme === "object" ? rawTheme as Record<string, unknown> : {};
@@ -249,6 +305,7 @@ export async function getDashboardStats(workspace: Workspace) {
 
 export async function getBillingOverview(workspace: Workspace): Promise<BillingOverview> {
   const supabase = await createSupabaseServerClient();
+  const service = createSupabaseServiceClient();
   const { data: billing } = await supabase
     .from("organization_billing")
     .select("plan_key, billing_interval, status, trial_start, trial_end, current_period_start, current_period_end, cancel_at_period_end")
@@ -262,7 +319,15 @@ export async function getBillingOverview(workspace: Workspace): Promise<BillingO
   const periodEnd = typeof billing?.current_period_end === "string" ? billing.current_period_end : fallbackPeriod.end;
   const planCreditLimit = getPlanCreditLimit(planKey, status);
 
-  const [{ data: usageEvents }, { data: grantUsages }, { data: creditGrants }, { data: addOnRows }] = await Promise.all([
+  const [
+    { data: usageEvents },
+    { data: grantUsages },
+    { data: creditGrants },
+    { data: addOnRows },
+    botCount,
+    memberCount,
+    pendingInviteCount
+  ] = await Promise.all([
     supabase
       .from("usage_events")
       .select("credits")
@@ -284,7 +349,10 @@ export async function getBillingOverview(workspace: Workspace): Promise<BillingO
     supabase
       .from("organization_add_ons")
       .select("add_on_key, enabled, quantity, metadata")
-      .eq("organization_id", workspace.organization.id)
+      .eq("organization_id", workspace.organization.id),
+    getServiceCount(service, "bots", workspace.organization.id),
+    getServiceCount(service, "memberships", workspace.organization.id),
+    getPendingInvitationCount(service, workspace.organization.id)
   ]);
   const creditsUsed = ((usageEvents ?? []) as Array<{ credits: number }>).reduce((total, event) => total + event.credits, 0);
   const addOnCreditsUsed = ((grantUsages ?? []) as Array<{ credits: number }>).reduce((total, event) => total + event.credits, 0);
@@ -311,6 +379,10 @@ export async function getBillingOverview(workspace: Workspace): Promise<BillingO
     ((addOnRows ?? []) as Array<{ add_on_key: AddOnKey; enabled: boolean; quantity: number; metadata?: Record<string, unknown> | null }>).map((row) => [row.add_on_key, row])
   );
   const autoRechargeRow = addOnsByKey.get("auto_recharge_credits");
+  const extraAgentQuantity = getEnabledAddOnQuantity(addOnsByKey.get("extra_agent"));
+  const extraSeatQuantity = getEnabledAddOnQuantity(addOnsByKey.get("extra_seat"));
+  const agentLimit = getBillingPlan(planKey).includedAgents + extraAgentQuantity;
+  const seatLimit = getBillingPlan(planKey).seats + extraSeatQuantity;
   const autoRechargeMetadata = isRecord(autoRechargeRow?.metadata) ? autoRechargeRow.metadata : {};
   const autoRechargeFailure = autoRechargeRow?.enabled === true &&
     typeof autoRechargeMetadata.last_failure_reason === "string" &&
@@ -349,7 +421,78 @@ export async function getBillingOverview(workspace: Workspace): Promise<BillingO
         enabled: row?.enabled ?? false,
         quantity: row?.quantity ?? 0
       };
-    })
+    }),
+    capacity: {
+      agents: {
+        included: getBillingPlan(planKey).includedAgents,
+        extra: extraAgentQuantity,
+        used: botCount,
+        limit: agentLimit,
+        remaining: Math.max(0, agentLimit - botCount)
+      },
+      seats: {
+        included: getBillingPlan(planKey).seats,
+        extra: extraSeatQuantity,
+        used: memberCount,
+        pending: pendingInviteCount,
+        limit: seatLimit,
+        remaining: Math.max(0, seatLimit - memberCount - pendingInviteCount)
+      }
+    }
+  };
+}
+
+function getEnabledAddOnQuantity(row: { enabled: boolean; quantity: number } | undefined) {
+  return row?.enabled ? Math.max(0, row.quantity ?? 0) : 0;
+}
+
+export async function getTeamOverview(workspace: Workspace, billing: BillingOverview): Promise<TeamOverview> {
+  const service = createSupabaseServiceClient();
+  const [{ data: memberships }, { data: invitations }] = await Promise.all([
+    service
+      .from("memberships")
+      .select("id, user_id, role, created_at")
+      .eq("organization_id", workspace.organization.id)
+      .order("created_at", { ascending: true }),
+    service
+      .from("team_invitations")
+      .select("id, email, role, status, token, expires_at, created_at")
+      .eq("organization_id", workspace.organization.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+  ]);
+
+  const memberRows = (memberships ?? []) as Array<{ id: string; user_id: string; role: string; created_at: string }>;
+  const memberEmails = await Promise.all(memberRows.map(async (member) => {
+    const { data } = await service.auth.admin.getUserById(member.user_id);
+
+    return data.user?.email ?? "Unknown user";
+  }));
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+
+  return {
+    members: memberRows.map((member, index) => ({
+      id: member.id,
+      userId: member.user_id,
+      email: memberEmails[index] ?? "Unknown user",
+      role: member.role,
+      joinedAt: member.created_at,
+      isCurrentUser: member.user_id === workspace.user.id,
+      canRemove: canManageMember(workspace.role, member.role, member.user_id === workspace.user.id)
+    })),
+    invitations: ((invitations ?? []) as Array<{ id: string; email: string; role: string; status: string; token: string; expires_at: string; created_at: string }>).map((invitation) => ({
+      id: invitation.id,
+      email: invitation.email,
+      role: invitation.role,
+      status: invitation.status,
+      inviteUrl: `${appUrl}/invite/${invitation.token}`,
+      expiresAt: invitation.expires_at,
+      createdAt: invitation.created_at,
+      canCancel: canManageInvite(workspace.role, invitation.role)
+    })),
+    seatCapacity: billing.capacity.seats,
+    canInvite: workspace.role === "owner" || workspace.role === "admin",
+    canInviteAdmins: workspace.role === "owner"
   };
 }
 
@@ -539,9 +682,53 @@ export const analyticsCards = [
   { label: "Analytics", icon: BarChart3 }
 ];
 
-async function getCount(table: "conversations" | "leads" | "knowledge_sources", organizationId: string) {
+async function getCount(table: "bots" | "conversations" | "leads" | "knowledge_sources" | "memberships", organizationId: string) {
   const supabase = await createSupabaseServerClient();
   const { count } = await supabase
+    .from(table)
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId);
+
+  return count ?? 0;
+}
+
+function canManageMember(currentRole: string, targetRole: string, isCurrentUser: boolean) {
+  if (isCurrentUser || targetRole === "owner") {
+    return false;
+  }
+
+  if (currentRole === "owner") {
+    return targetRole === "admin" || targetRole === "member";
+  }
+
+  return currentRole === "admin" && targetRole === "member";
+}
+
+function canManageInvite(currentRole: string, inviteRole: string) {
+  if (currentRole === "owner") {
+    return inviteRole === "admin" || inviteRole === "member";
+  }
+
+  return currentRole === "admin" && inviteRole === "member";
+}
+
+async function getPendingInvitationCount(service: ReturnType<typeof createSupabaseServiceClient>, organizationId: string) {
+  const { count } = await service
+    .from("team_invitations")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
+    .eq("status", "pending")
+    .gt("expires_at", new Date().toISOString());
+
+  return count ?? 0;
+}
+
+async function getServiceCount(
+  service: ReturnType<typeof createSupabaseServiceClient>,
+  table: "bots" | "memberships",
+  organizationId: string
+) {
+  const { count } = await service
     .from(table)
     .select("id", { count: "exact", head: true })
     .eq("organization_id", organizationId);

@@ -188,7 +188,7 @@ async function getWorkspaceAuth(): Promise<{ organizationId: string } | { respon
 
   const { data: membership } = await supabase
     .from("memberships")
-    .select("organization_id")
+    .select("organization_id, role")
     .eq("user_id", user.id)
     .order("created_at", { ascending: true })
     .limit(1)
@@ -196,6 +196,10 @@ async function getWorkspaceAuth(): Promise<{ organizationId: string } | { respon
 
   if (!membership) {
     return { response: NextResponse.json({ error: "Finish onboarding before editing knowledge." }, { status: 409 }) };
+  }
+
+  if (membership.role !== "owner" && membership.role !== "admin") {
+    return { response: NextResponse.json({ error: "Only owners and admins can edit knowledge." }, { status: 403 }) };
   }
 
   return { organizationId: membership.organization_id };

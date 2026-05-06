@@ -110,8 +110,19 @@ async function markSubscriptionCanceled(subscription: Stripe.Subscription) {
 }
 
 async function resolveSubscriptionPlan(stripe: Stripe, subscription: Stripe.Subscription) {
-  const item = subscription.items.data[0];
-  const price = item?.price;
+  for (const item of subscription.items.data) {
+    const plan = await resolveSubscriptionPlanItem(stripe, item);
+
+    if (plan) {
+      return plan;
+    }
+  }
+
+  return null;
+}
+
+async function resolveSubscriptionPlanItem(stripe: Stripe, item: Stripe.SubscriptionItem) {
+  const price = item.price;
   const productId = getStripeId(price?.product);
   const interval = price?.recurring?.interval ? getBillingIntervalFromStripeInterval(price.recurring.interval) : null;
 

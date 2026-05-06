@@ -42,6 +42,7 @@ export function GET() {
   var title = root.querySelector(".harlo-title");
   var subtitle = root.querySelector(".harlo-subtitle");
   var mark = root.querySelector(".harlo-mark");
+  var powered = root.querySelector(".harlo-powered");
 
   launcher.addEventListener("click", function () {
     var nextOpen = panel.getAttribute("data-open") === "true" ? "false" : "true";
@@ -403,6 +404,7 @@ export function GET() {
       subtitle.textContent = "AI assistant for " + (config.businessName || config.name || "this business");
       setAccent(config.theme.accent);
       setLauncherPosition(config.theme.launcherPosition);
+      if (powered && config.removeBranding) powered.style.display = "none";
       addMessage("assistant", config.greeting || "Hi, I can help answer questions about this business.");
     })
     .catch(function (error) {

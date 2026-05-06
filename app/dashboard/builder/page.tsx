@@ -1,9 +1,10 @@
 import { BuilderForm } from "@/components/builder/builder-form";
 import { Badge } from "@/components/ui/badge";
-import { getWorkspaceOrRedirect } from "@/lib/harlo/data";
+import { getWorkspaceOrRedirect, requireWorkspaceAdmin } from "@/lib/harlo/data";
 
 export default async function BuilderPage() {
   const workspace = await getWorkspaceOrRedirect();
+  requireWorkspaceAdmin(workspace);
 
   return (
     <div className="space-y-6">

@@ -1,9 +1,10 @@
 import { WidgetInstallPanel } from "@/components/settings/widget-install-panel";
 import { Badge } from "@/components/ui/badge";
-import { getWorkspaceOrRedirect } from "@/lib/harlo/data";
+import { getWorkspaceOrRedirect, requireWorkspaceAdmin } from "@/lib/harlo/data";
 
 export default async function WidgetPage() {
   const workspace = await getWorkspaceOrRedirect();
+  requireWorkspaceAdmin(workspace);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

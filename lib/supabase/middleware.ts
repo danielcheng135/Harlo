@@ -35,6 +35,7 @@ export async function updateSession(request: NextRequest) {
   const isDashboardRoute = request.nextUrl.pathname.startsWith("/dashboard");
   const isOnboardingRoute = request.nextUrl.pathname.startsWith("/onboarding");
   const isAuthRoute = request.nextUrl.pathname.startsWith("/auth");
+  const isAuthCallbackRoute = request.nextUrl.pathname === "/auth/callback";
 
   if (!user && (isDashboardRoute || isOnboardingRoute)) {
     const redirectUrl = request.nextUrl.clone();
@@ -43,7 +44,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (user && isAuthRoute) {
+  if (user && isAuthRoute && !isAuthCallbackRoute) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/dashboard";
     redirectUrl.search = "";

@@ -7,17 +7,19 @@ import {
   Library,
   MessageSquare,
   Sparkles,
+  UserPlus,
   Users
 } from "lucide-react";
 
 export const navItems = [
   { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Builder", href: "/dashboard/builder", icon: Bot },
-  { label: "Knowledge", href: "/dashboard/knowledge", icon: Library },
+  { label: "Builder", href: "/dashboard/builder", icon: Bot, adminOnly: true },
+  { label: "Knowledge", href: "/dashboard/knowledge", icon: Library, adminOnly: true },
   { label: "Conversations", href: "/dashboard/conversations", icon: MessageSquare },
   { label: "Leads", href: "/dashboard/leads", icon: Users },
   { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
-  { label: "Widget", href: "/dashboard/widget", icon: Code2 }
+  { label: "Team", href: "/dashboard/team", icon: UserPlus, adminOnly: true },
+  { label: "Widget", href: "/dashboard/widget", icon: Code2, adminOnly: true }
 ] as const;
 
 export const stats = [

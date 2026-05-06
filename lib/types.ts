@@ -7,6 +7,7 @@ export type BotConfig = {
   fallbackMessage: string;
   tone: "calm" | "friendly" | "concise";
   allowedDomains: string[];
+  removeBranding: boolean;
   theme: {
     accent: string;
     launcherPosition: "bottom-right" | "bottom-left";
