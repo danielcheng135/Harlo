@@ -41,7 +41,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <span className="hidden max-w-32 truncate md:inline">{workspace.user.email ?? "Account"}</span>
           </button>
         </header>
-        <main className="min-w-0 overflow-x-hidden p-6">
+        <main className="min-w-0 overflow-x-clip p-6">
           <AutoRechargeFailureBanner failure={billingOverview.autoRechargeFailure} />
           <CreditUsageBanner used={billingOverview.creditsUsed} limit={billingOverview.creditLimit} />
           {children}

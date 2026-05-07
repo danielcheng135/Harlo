@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, TriangleAlert, X } from "lucide-react";
+import { CheckCircle2, Info, TriangleAlert, X } from "lucide-react";
 
 export type ToastMessage = {
   id: number;
-  tone: "success" | "error";
+  tone: "success" | "error" | "info";
   message: string;
 };
 
@@ -77,7 +77,12 @@ export function ToastViewport({
     return null;
   }
 
-  const Icon = visibleToast.tone === "success" ? CheckCircle2 : TriangleAlert;
+  const Icon = visibleToast.tone === "success" ? CheckCircle2 : visibleToast.tone === "info" ? Info : TriangleAlert;
+  const iconClass = visibleToast.tone === "success"
+    ? "text-harlo-teal"
+    : visibleToast.tone === "info"
+      ? "text-sky-600"
+      : "text-red-600";
 
   return (
     <div
@@ -87,7 +92,7 @@ export function ToastViewport({
       role={visibleToast.tone === "error" ? "alert" : "status"}
     >
       <div className="flex items-start gap-3 rounded-lg border border-harlo-line bg-white p-4 text-sm text-harlo-ink shadow-soft">
-        <span className={visibleToast.tone === "success" ? "text-harlo-teal" : "text-red-600"}>
+        <span className={iconClass}>
           <Icon size={18} />
         </span>
         <p className="flex-1 leading-5">{visibleToast.message}</p>

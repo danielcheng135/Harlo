@@ -115,7 +115,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_460px]">
+    <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_460px]">
       <ToastViewport toast={toast} onDismiss={dismissToast} />
       <form onSubmit={handleSubmit} className="space-y-6">
         <section className="rounded-lg border border-harlo-line bg-white">
@@ -336,7 +336,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
         </div>
       </form>
 
-      <aside className="xl:sticky xl:top-20 xl:self-start">
+      <aside className="xl:sticky xl:top-6 xl:self-start">
         <ChatWidgetPreview
           title={widgetTitle}
           greeting={greeting}

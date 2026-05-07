@@ -44,6 +44,30 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   return NextResponse.json({ lead: data });
 }
 
+export async function DELETE(_request: NextRequest, context: RouteContext) {
+  const { leadId } = await context.params;
+  const auth = await getWorkspaceAuth();
+
+  if ("response" in auth) {
+    return auth.response;
+  }
+
+  const serviceClient = createSupabaseServiceClient();
+  const { data, error } = await serviceClient
+    .from("leads")
+    .delete()
+    .eq("id", leadId)
+    .eq("organization_id", auth.organizationId)
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    return NextResponse.json({ error: error?.message ?? "Lead not found." }, { status: 404 });
+  }
+
+  return NextResponse.json({ status: "deleted" });
+}
+
 async function getWorkspaceAuth(): Promise<{ organizationId: string } | { response: NextResponse }> {
   const supabase = await createSupabaseServerClient();
   const {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { embedText } from "@/lib/ai/rag";
 import { chunkKnowledgeText, formatEmbeddingForPgvector } from "@/lib/knowledge/chunking";
+import { reingestUrlSource } from "@/lib/knowledge/ingestion";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -10,6 +11,7 @@ type RouteContext = {
 };
 
 type UpdateSourceRequest = {
+  action?: "sync";
   name?: string;
   content?: string;
 };
@@ -40,6 +42,37 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   if (sourceError || !source) {
     return NextResponse.json({ error: "Knowledge source not found." }, { status: 404 });
+  }
+
+  if (body.action === "sync") {
+    if (source.source_type !== "url") {
+      return NextResponse.json({ error: "Only URL sources can be synced." }, { status: 400 });
+    }
+
+    const metadata = source.metadata && typeof source.metadata === "object" ? source.metadata as Record<string, unknown> : {};
+    const url = typeof metadata.url === "string" ? metadata.url : "";
+
+    if (!url) {
+      return NextResponse.json({ error: "This URL source is missing its website URL." }, { status: 400 });
+    }
+
+    try {
+      const result = await reingestUrlSource({
+        serviceClient,
+        organizationId: source.organization_id,
+        botId: source.bot_id,
+        sourceId: source.id,
+        name,
+        url
+      });
+
+      return NextResponse.json(result);
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "Could not sync website source." },
+        { status: 500 }
+      );
+    }
   }
 
   if (source.source_type !== "manual") {

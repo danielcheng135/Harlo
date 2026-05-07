@@ -1,39 +1,116 @@
 import { NextRequest, NextResponse } from "next/server";
-import { embedText } from "@/lib/ai/rag";
-import { chunkKnowledgeText, formatEmbeddingForPgvector } from "@/lib/knowledge/chunking";
+import {
+  createPendingUrlSource,
+  ingestTextSource,
+  parseUploadedTextFile
+} from "@/lib/knowledge/ingestion";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 
-type ManualKnowledgeRequest = {
+type KnowledgeSourceRequest = {
   name?: string;
   content?: string;
+  url?: string;
+  sourceType?: "manual" | "url";
+};
+
+type WorkspaceAuth = {
+  organizationId: string;
+  botId: string;
 };
 
 export async function POST(request: NextRequest) {
-  const body = (await request.json()) as ManualKnowledgeRequest;
-  const name = body.name?.trim();
-  const content = body.content?.trim();
+  const auth = await getWorkspaceAuth();
 
-  if (!name || !content) {
-    return NextResponse.json({ error: "Source name and content are required." }, { status: 400 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
-  const chunks = chunkKnowledgeText(content);
+  try {
+    const contentType = request.headers.get("content-type") ?? "";
+    const serviceClient = createSupabaseServiceClient();
 
-  if (chunks.length === 0) {
-    return NextResponse.json({ error: "Content is too short to ingest." }, { status: 400 });
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      const file = formData.get("file");
+      const rawName = String(formData.get("name") ?? "").trim();
+
+      if (!(file instanceof File)) {
+        return NextResponse.json({ error: "Choose a file to upload." }, { status: 400 });
+      }
+
+      const name = rawName || file.name;
+      const content = await parseUploadedTextFile(file);
+      const result = await ingestTextSource({
+        serviceClient,
+        organizationId: auth.organizationId,
+        botId: auth.botId,
+        name,
+        sourceType: "file",
+        content,
+        metadata: {
+          file_name: file.name,
+          file_type: file.type || "text/plain",
+          file_size: file.size
+        }
+      });
+
+      return NextResponse.json(result);
+    }
+
+    const body = (await request.json()) as KnowledgeSourceRequest;
+    const sourceType = body.sourceType ?? "manual";
+
+    if (sourceType === "url") {
+      const url = body.url?.trim();
+
+      if (!url) {
+        return NextResponse.json({ error: "Website URL is required." }, { status: 400 });
+      }
+
+      const result = await createPendingUrlSource({
+        serviceClient,
+        organizationId: auth.organizationId,
+        botId: auth.botId,
+        name: body.name?.trim() || url,
+        url
+      });
+
+      return NextResponse.json(result);
+    }
+
+    const name = body.name?.trim();
+    const content = body.content?.trim();
+
+    if (!name || !content) {
+      return NextResponse.json({ error: "Source name and content are required." }, { status: 400 });
+    }
+
+    const result = await ingestTextSource({
+      serviceClient,
+      organizationId: auth.organizationId,
+      botId: auth.botId,
+      name,
+      sourceType: "manual",
+      content
+    });
+
+    return NextResponse.json(result);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Could not ingest source." },
+      { status: 500 }
+    );
   }
+}
 
-  if (chunks.length > 80) {
-    return NextResponse.json({ error: "Manual sources are limited to 80 chunks for v1." }, { status: 400 });
-  }
-
+async function getWorkspaceAuth(): Promise<WorkspaceAuth | { response: NextResponse }> {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+    return { response: NextResponse.json({ error: "You must be signed in." }, { status: 401 }) };
   }
 
   const { data: membership } = await supabase
@@ -45,11 +122,11 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (!membership) {
-    return NextResponse.json({ error: "Finish onboarding before adding knowledge." }, { status: 409 });
+    return { response: NextResponse.json({ error: "Finish onboarding before adding knowledge." }, { status: 409 }) };
   }
 
   if (membership.role !== "owner" && membership.role !== "admin") {
-    return NextResponse.json({ error: "Only owners and admins can manage knowledge." }, { status: 403 });
+    return { response: NextResponse.json({ error: "Only owners and admins can manage knowledge." }, { status: 403 }) };
   }
 
   const { data: bot } = await supabase
@@ -61,90 +138,11 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (!bot) {
-    return NextResponse.json({ error: "No chatbot found for this workspace." }, { status: 409 });
+    return { response: NextResponse.json({ error: "No chatbot found for this workspace." }, { status: 409 }) };
   }
 
-  const serviceClient = createSupabaseServiceClient();
-  const { data: source, error: sourceError } = await serviceClient
-    .from("knowledge_sources")
-    .insert({
-      organization_id: membership.organization_id,
-      bot_id: bot.id,
-      name,
-      source_type: "manual",
-      status: "processing",
-      metadata: {
-        character_count: content.length,
-        chunk_count: chunks.length,
-        content
-      }
-    })
-    .select("id")
-    .single();
-
-  if (sourceError || !source) {
-    return NextResponse.json({ error: sourceError?.message ?? "Could not create source." }, { status: 500 });
-  }
-
-  try {
-    const rows = [];
-
-    for (const [index, chunk] of chunks.entries()) {
-      const embedding = await embedText(chunk);
-      rows.push({
-        organization_id: membership.organization_id,
-        bot_id: bot.id,
-        source_id: source.id,
-        content: chunk,
-        embedding: formatEmbeddingForPgvector(embedding),
-        metadata: {
-          source_name: name,
-          chunk_index: index,
-          chunk_count: chunks.length
-        }
-      });
-    }
-
-    const { error: chunkError } = await serviceClient.from("knowledge_chunks").insert(rows);
-
-    if (chunkError) {
-      throw chunkError;
-    }
-
-    await serviceClient
-      .from("knowledge_sources")
-      .update({
-        status: "ready",
-        metadata: {
-          character_count: content.length,
-          chunk_count: chunks.length,
-          content
-        }
-      })
-      .eq("id", source.id);
-
-    return NextResponse.json({
-      sourceId: source.id,
-      chunks: chunks.length,
-      status: "ready"
-    });
-  } catch (error) {
-    await serviceClient
-      .from("knowledge_sources")
-      .update({
-        status: "failed",
-        metadata: {
-          character_count: content.length,
-          chunk_count: chunks.length,
-          content,
-          error: error instanceof Error ? error.message : "Unknown ingestion error"
-        }
-      })
-      .eq("id", source.id);
-
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Could not ingest source." },
-      { status: 500 }
-    );
-  }
+  return {
+    organizationId: membership.organization_id,
+    botId: bot.id
+  };
 }

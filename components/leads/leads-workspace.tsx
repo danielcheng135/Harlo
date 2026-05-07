@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarDays, CheckCircle2, Mail, Maximize2, PhoneCall, Search, UserRound } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, Loader2, Mail, Maximize2, PhoneCall, Search, Trash2, UserRound } from "lucide-react";
 import { ToastViewport, useToast } from "@/components/ui/toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ export function LeadsWorkspace({ leads }: LeadsWorkspaceProps) {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState(leads[0]?.id ?? "");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<LeadRow | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const { toast, showToast, dismissToast } = useToast();
 
   const filteredLeads = useMemo(() => {
@@ -65,6 +67,38 @@ export function LeadsWorkspace({ leads }: LeadsWorkspaceProps) {
       showToast("error", "Could not update lead.");
     } finally {
       setSavingId(null);
+    }
+  }
+
+  async function deleteLead(lead: LeadRow) {
+    setDeletingId(lead.id);
+
+    try {
+      const response = await fetch("/api/leads/" + lead.id, {
+        method: "DELETE"
+      });
+      const result = await response.json() as { error?: string };
+
+      if (!response.ok) {
+        showToast("error", result.error ?? "Could not delete lead.");
+        return;
+      }
+
+      setItems((current) => {
+        const next = current.filter((item) => item.id !== lead.id);
+
+        if (selectedId === lead.id) {
+          setSelectedId(next[0]?.id ?? "");
+        }
+
+        return next;
+      });
+      setDeleteTarget(null);
+      showToast("success", "Lead deleted.");
+    } catch {
+      showToast("error", "Could not delete lead.");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -175,9 +209,51 @@ export function LeadsWorkspace({ leads }: LeadsWorkspaceProps) {
                   View conversation
                 </a>
               ) : null}
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={deletingId === selectedLead.id}
+                onClick={() => setDeleteTarget(selectedLead)}
+                className="border-red-200 text-red-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+              >
+                <Trash2 size={16} />
+                Delete lead
+              </Button>
             </div>
           </div>
         </section>
+      ) : null}
+
+      {deleteTarget ? (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-harlo-ink/35 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-lead-title">
+          <div className="w-full max-w-md rounded-xl border border-harlo-line bg-white p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-600">
+                <AlertTriangle size={20} />
+              </span>
+              <div className="min-w-0">
+                <h3 id="delete-lead-title" className="text-lg font-semibold text-harlo-ink">Delete lead?</h3>
+                <p className="mt-2 text-sm leading-6 text-harlo-muted">
+                  This will remove {deleteTarget.name || deleteTarget.email} from your leads. The related conversation will stay in conversation history.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button type="button" variant="secondary" onClick={() => setDeleteTarget(null)} disabled={deletingId === deleteTarget.id}>
+                Keep lead
+              </Button>
+              <Button
+                type="button"
+                onClick={() => deleteLead(deleteTarget)}
+                disabled={deletingId === deleteTarget.id}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {deletingId === deleteTarget.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                {deletingId === deleteTarget.id ? "Deleting..." : "Delete lead"}
+              </Button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       <ToastViewport toast={toast} onDismiss={dismissToast} />

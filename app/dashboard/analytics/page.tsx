@@ -43,7 +43,7 @@ export default async function AnalyticsPage() {
       <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
         <MessageVolumeCard data={dailyVolume} />
 
-        <Card>
+        <Card className="flex min-h-[520px] flex-col">
           <CardHeader>
             <h2 className="text-lg font-semibold text-harlo-ink">Outcomes</h2>
           </CardHeader>
@@ -66,9 +66,9 @@ export default async function AnalyticsPage() {
               <p className="mt-1 text-sm text-harlo-muted">Questions where Harlo did not have enough context.</p>
             </div>
           </CardHeader>
-          <CardBody className="space-y-3">
+          <CardBody className="flex flex-1 flex-col space-y-3">
             {knowledgeGaps.length === 0 ? (
-              <EmptyNote icon={<CheckCircle2 size={18} />} title="No gaps found" body="Fallback conversations will appear here when Harlo needs more knowledge." />
+              <EmptyNote className="flex-1" icon={<CheckCircle2 size={18} />} title="No gaps found" body="Fallback conversations will appear here when Harlo needs more knowledge." />
             ) : knowledgeGaps.map((gap) => (
               <div key={gap.id} className="rounded-lg border border-harlo-line p-4">
                 <div className="flex items-start gap-3">
@@ -175,12 +175,14 @@ function OutcomeTile({ label, value, percent, colorClass }: { label: string; val
   );
 }
 
-function EmptyNote({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
+function EmptyNote({ className, icon, title, body }: { className?: string; icon: React.ReactNode; title: string; body: string }) {
   return (
-    <div className="rounded-lg border border-dashed border-harlo-line p-5 text-center">
-      <span className="mx-auto grid h-10 w-10 place-items-center rounded-lg bg-harlo-mist text-harlo-teal">{icon}</span>
-      <p className="mt-3 text-sm font-semibold text-harlo-ink">{title}</p>
-      <p className="mt-1 text-sm leading-6 text-harlo-muted">{body}</p>
+    <div className={`grid place-items-center rounded-lg border border-dashed border-harlo-line p-5 text-center ${className ?? ""}`}>
+      <div>
+        <span className="mx-auto grid h-10 w-10 place-items-center rounded-lg bg-harlo-mist text-harlo-teal">{icon}</span>
+        <p className="mt-3 text-sm font-semibold text-harlo-ink">{title}</p>
+        <p className="mt-1 text-sm leading-6 text-harlo-muted">{body}</p>
+      </div>
     </div>
   );
 }

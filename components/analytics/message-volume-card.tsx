@@ -12,9 +12,10 @@ const RANGE_OPTIONS = [
 
 type MessageVolumeCardProps = {
   data: MessageVolumePoint[];
+  chartClassName?: string;
 };
 
-export function MessageVolumeCard({ data }: MessageVolumeCardProps) {
+export function MessageVolumeCard({ data, chartClassName }: MessageVolumeCardProps) {
   const [range, setRange] = useState(14);
   const visibleData = useMemo(() => data.slice(-range), [data, range]);
 
@@ -43,7 +44,7 @@ export function MessageVolumeCard({ data }: MessageVolumeCardProps) {
         </select>
       </CardHeader>
       <CardBody>
-        <MessageVolumeLineChart data={visibleData} />
+        <MessageVolumeLineChart data={visibleData} className={chartClassName} />
       </CardBody>
     </Card>
   );

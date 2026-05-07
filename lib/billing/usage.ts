@@ -121,7 +121,7 @@ export async function recordAssistantMessageUsage({
   const planCreditsConsumedByThisMessage = Math.min(credits, statusBeforeUsage.planCreditsRemaining);
   const addOnCreditsToConsume = Math.max(0, credits - planCreditsConsumedByThisMessage);
 
-  const { data: usageEvent } = await supabase.from("usage_events").upsert({
+  const { data: usageEvent, error } = await supabase.from("usage_events").upsert({
     organization_id: organizationId,
     bot_id: botId,
     conversation_id: conversationId,
@@ -129,11 +129,17 @@ export async function recordAssistantMessageUsage({
     event_type: "assistant_message",
     credits,
     billing_period_start: period.start,
-    billing_period_end: period.end
+    billing_period_end: period.end,
+    metadata: { role: "assistant" }
   }, {
     onConflict: "message_id",
     ignoreDuplicates: true
   }).select("id").maybeSingle();
+
+  if (error) {
+    console.error("Could not record assistant message usage", error);
+    return;
+  }
 
   if (usageEvent?.id && addOnCreditsToConsume > 0) {
     await consumeAddOnCreditGrants({

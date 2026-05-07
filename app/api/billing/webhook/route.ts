@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import {
+  getAddOnKeyByProductId,
   getBillingIntervalFromStripeInterval,
   getPlanKeyByProductId,
   getStripe
 } from "@/lib/billing/stripe";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
-import type { BillingStatus } from "@/lib/billing/plans";
+import type { AddOnKey, BillingStatus } from "@/lib/billing/plans";
+
+const SUBSCRIPTION_ADD_ONS = ["extra_agent", "extra_seat", "remove_branding"] satisfies AddOnKey[];
+const QUANTITY_ADD_ONS = ["extra_agent", "extra_seat"] satisfies AddOnKey[];
 
 export async function POST(request: NextRequest) {
   const stripe = getStripe();
@@ -87,6 +91,8 @@ async function syncSubscription(stripe: Stripe, subscription: Stripe.Subscriptio
   }, {
     onConflict: "organization_id"
   });
+
+  await syncSubscriptionAddOns(stripe, supabase, organizationId, subscription);
 }
 
 async function markSubscriptionCanceled(subscription: Stripe.Subscription) {
@@ -107,6 +113,81 @@ async function markSubscriptionCanceled(subscription: Stripe.Subscription) {
       updated_at: new Date().toISOString()
     })
     .eq("organization_id", organizationId);
+
+  await disableSubscriptionAddOns(supabase, organizationId);
+}
+
+async function syncSubscriptionAddOns(
+  stripe: Stripe,
+  supabase: ReturnType<typeof createSupabaseServiceClient>,
+  organizationId: string,
+  subscription: Stripe.Subscription
+) {
+  const syncedAt = new Date().toISOString();
+  const activeAddOns = new Map<AddOnKey, { quantity: number; metadata: Record<string, unknown> }>();
+
+  for (const item of subscription.items.data) {
+    const addOnKey = await resolveSubscriptionAddOnItem(stripe, item);
+
+    if (!addOnKey || !isSubscriptionAddOnKey(addOnKey)) {
+      continue;
+    }
+
+    const quantity = isQuantityAddOn(addOnKey) ? Math.max(0, item.quantity ?? 0) : 1;
+
+    activeAddOns.set(addOnKey, {
+      quantity,
+      metadata: {
+        stripe_price_id: item.price.id,
+        stripe_subscription_item_id: item.id,
+        synced_at: syncedAt,
+        synced_from: "stripe_webhook"
+      }
+    });
+  }
+
+  const rows = SUBSCRIPTION_ADD_ONS.map((addOnKey) => {
+    const activeAddOn = activeAddOns.get(addOnKey);
+    const quantity = activeAddOn?.quantity ?? 0;
+
+    return {
+      organization_id: organizationId,
+      add_on_key: addOnKey,
+      enabled: quantity > 0,
+      quantity,
+      metadata: activeAddOn?.metadata ?? {
+        stripe_subscription_item_id: null,
+        synced_at: syncedAt,
+        synced_from: "stripe_webhook"
+      },
+      updated_at: syncedAt
+    };
+  });
+
+  await supabase.from("organization_add_ons").upsert(rows, {
+    onConflict: "organization_id,add_on_key"
+  });
+}
+
+async function disableSubscriptionAddOns(
+  supabase: ReturnType<typeof createSupabaseServiceClient>,
+  organizationId: string
+) {
+  const disabledAt = new Date().toISOString();
+
+  await supabase
+    .from("organization_add_ons")
+    .update({
+      enabled: false,
+      quantity: 0,
+      metadata: {
+        disabled_at: disabledAt,
+        synced_from: "stripe_webhook"
+      },
+      updated_at: disabledAt
+    })
+    .eq("organization_id", organizationId)
+    .in("add_on_key", SUBSCRIPTION_ADD_ONS);
 }
 
 async function resolveSubscriptionPlan(stripe: Stripe, subscription: Stripe.Subscription) {
@@ -147,6 +228,37 @@ async function resolveSubscriptionPlanItem(stripe: Stripe, item: Stripe.Subscrip
   }
 
   return null;
+}
+
+async function resolveSubscriptionAddOnItem(stripe: Stripe, item: Stripe.SubscriptionItem) {
+  const productId = getStripeId(item.price?.product);
+
+  if (!productId) {
+    return null;
+  }
+
+  const addOnKey = getAddOnKeyByProductId(productId);
+
+  if (addOnKey) {
+    return addOnKey;
+  }
+
+  const product = await stripe.products.retrieve(productId);
+  const metadataAddOnKey = product.metadata.add_on_key;
+
+  return isAddOnKey(metadataAddOnKey) ? metadataAddOnKey : null;
+}
+
+function isSubscriptionAddOnKey(value: AddOnKey): value is AddOnKey {
+  return (SUBSCRIPTION_ADD_ONS as readonly AddOnKey[]).includes(value);
+}
+
+function isQuantityAddOn(value: AddOnKey) {
+  return (QUANTITY_ADD_ONS as readonly AddOnKey[]).includes(value);
+}
+
+function isAddOnKey(value: string | null | undefined): value is AddOnKey {
+  return value === "auto_recharge_credits" || value === "extra_agent" || value === "extra_seat" || value === "remove_branding";
 }
 
 function normalizeStripeStatus(status: Stripe.Subscription.Status): BillingStatus {

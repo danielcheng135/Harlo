@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     return null;
   }
 
-  await supabase.from("messages").insert({
+  const { error: visitorMessageError } = await supabase.from("messages").insert({
     conversation_id: activeConversationId,
     role: "user",
     content: body.message,
@@ -99,6 +99,10 @@ export async function POST(request: NextRequest) {
       referrer: body.visitor?.referrer
     }
   });
+
+  if (visitorMessageError) {
+    return NextResponse.json({ error: visitorMessageError.message }, { status: 500 });
+  }
 
   let creditUsage = await getCreditUsageStatus(supabase, organizationId);
   let autoRechargeSkipped: string | null = null;

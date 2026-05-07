@@ -20,6 +20,9 @@
 - Stripe payment intents use an idempotency key, and `credit_grants` enforces one grant per payment intent to avoid duplicate recharge credits.
 - Implemented Billing page credit transparency: plan credits, add-on credits used, active add-on credits available, and expiration dates for recharge grants. Implemented dedicated auto-recharge failure emails, failure metadata tracking, and a dashboard warning when a recharge attempt fails.
 
+## Overview Redesign
+- Implemented: rebuilt the Overview page as the main command center with a cleaner modern SaaS layout, richer live widget preview, clearer usage/billing state, recent conversation/lead summaries, outcome tracking, and knowledge health that matches the final Harlo visual system.
+
 ## Team and Capacity
 - Added seat and agent capacity accounting from the active plan plus add-on quantities.
 - Billing now shows agent and seat usage, including pending invitations that reserve seats.
