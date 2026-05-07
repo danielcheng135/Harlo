@@ -1,7 +1,7 @@
 # Harlo Implementation Plan
 
 ## Billing Automation
-- Implemented a protected scheduled credit monitor at `/api/cron/credit-monitor`, configured to run hourly on Vercel. It checks active/trialing organizations for both 80% low-credit warnings and hard credit limits, skips low-credit emails when auto-recharge credits are enabled, sends the branded billing alert email without waiting for the next customer message, and keeps separate 24-hour per-organization throttles for low-credit and limit alerts. The dashboard/sidebar now also warn at 80% and 100%. Production needs `CRON_SECRET` configured.
+- Implemented a protected scheduled credit monitor at `/api/cron/credit-monitor`, configured to run daily on Vercel. It checks active/trialing organizations for both 80% low-credit warnings and hard credit limits, skips low-credit emails when auto-recharge credits are enabled, sends the branded billing alert email without waiting for the next customer message, and keeps separate 24-hour per-organization throttles for low-credit and limit alerts. The dashboard/sidebar now also warn at 80% and 100%. Production needs `CRON_SECRET` configured.
 
 ## Credit Accounting
 - Plan credits reset every monthly credit period, including annual subscriptions.
