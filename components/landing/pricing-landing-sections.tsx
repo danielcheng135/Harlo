@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Bot, CheckCircle2, Info, Sparkles, UserPlus, Zap } from "lucide-react";
 import { CtaPhoneGraphic } from "@/components/cta-phone-graphic";
+import { CurvedLineBackdrop } from "@/components/curved-line-backdrop";
 import { Badge } from "@/components/ui/badge";
 import {
   BILLING_ADD_ONS,
@@ -362,6 +363,7 @@ export function PricingLandingSections({
       </section>
 
       <section id="faq" className="relative overflow-hidden border-t border-harlo-line bg-white">
+        <CurvedLineBackdrop />
         <div className="relative">
           <div className="relative mx-auto grid max-w-7xl gap-8 px-6 py-16 lg:grid-cols-[0.75fr_1.25fr]">
             <div>

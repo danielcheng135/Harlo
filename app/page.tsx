@@ -9,6 +9,7 @@ import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingNav } from "@/components/marketing-nav";
 import { Card, CardBody } from "@/components/ui/card";
 import { homeJsonLd } from "@/lib/seo";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: {
@@ -33,7 +34,12 @@ const workflow = [
   { step: "03", title: "Capture the right moments", body: "When visitors need help, Harlo collects context, intent, and contact details before handoff." }
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const user = await getCurrentUser();
+  const navCta = user
+    ? { label: "Dashboard", href: "/dashboard" }
+    : { label: "Sign in", href: "/auth/sign-in" };
+
   return (
     <main className="min-h-screen bg-[#f7faf8] text-harlo-ink">
       <script
@@ -67,9 +73,9 @@ export default function HomePage() {
           { label: "Pricing", href: "/pricing" },
           { label: "Demo", href: "#demo" }
         ]}
-        ctaLabel="Start free trial"
-        ctaHref="/auth/sign-up"
-        ctaVariant="dark"
+        ctaLabel={navCta.label}
+        ctaHref={navCta.href}
+        ctaVariant="outline"
       />
 
       <section className="mx-auto grid max-w-7xl items-center gap-12 px-6 pb-14 pt-10 lg:grid-cols-[0.9fr_1.1fr] lg:pb-16 lg:pt-12">
@@ -173,6 +179,19 @@ export default function HomePage() {
       <MarketingFooter />
     </main>
   );
+}
+
+async function getCurrentUser() {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
+    return user;
+  } catch {
+    return null;
+  }
 }
 
 function SectionBadge({ children }: { children: string }) {

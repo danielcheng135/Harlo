@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { CtaPhoneGraphic } from "@/components/cta-phone-graphic";
+import { CurvedLineBackdrop } from "@/components/curved-line-backdrop";
 import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingNav } from "@/components/marketing-nav";
 import { AnimatedFaqList } from "@/components/seo/animated-faq-list";
@@ -349,7 +350,13 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
   const primaryCtaHref = page.primaryCta.toLowerCase().includes("trial") || page.primaryCta.toLowerCase().includes("start")
     ? START_FREE_TRIAL_HREF
     : "#pricing";
-  const secondaryCtaHref = page.secondaryCta.toLowerCase().includes("feature") ? "#features" : "#how-it-works";
+  const secondaryCtaHref = page.secondaryCta.toLowerCase().includes("outcome")
+    ? "#use-cases"
+    : page.secondaryCta.toLowerCase().includes("compare")
+      ? "#compare"
+      : page.secondaryCta.toLowerCase().includes("feature")
+        ? "#features"
+        : "#how-it-works";
 
   return (
     <main className="min-h-screen bg-[#f7faf8] text-harlo-ink">
@@ -464,7 +471,7 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 py-20">
+      <section id="use-cases" className="mx-auto max-w-7xl px-6 py-20">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="max-w-3xl">
             <SectionBadge>Use cases</SectionBadge>
@@ -508,7 +515,7 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 py-20">
+      <section id="compare" className="mx-auto max-w-7xl px-6 py-20">
         <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
             <SectionBadge>Compare</SectionBadge>
@@ -537,8 +544,9 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
         </div>
       </section>
 
-      <section id="faq" className="border-y border-harlo-line bg-white">
-        <div className="mx-auto grid max-w-7xl gap-10 px-6 py-20 lg:grid-cols-[0.85fr_1.15fr]">
+      <section id="faq" className="relative overflow-hidden border-y border-harlo-line bg-white">
+        <CurvedLineBackdrop />
+        <div className="relative mx-auto grid max-w-7xl gap-10 px-6 py-20 lg:grid-cols-[0.85fr_1.15fr]">
           <div>
             <SectionBadge>FAQ</SectionBadge>
             <h2 className="mt-4 text-4xl font-semibold tracking-tight text-harlo-ink md:text-6xl">
@@ -550,10 +558,9 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
           </div>
           <AnimatedFaqList items={content.faqs} />
         </div>
-      </section>
 
-      <section className="mx-auto max-w-7xl px-6 py-20">
-        <div className="relative overflow-hidden rounded-2xl bg-harlo-navy px-6 py-12 text-white shadow-soft md:px-16 md:py-16 lg:pr-[28rem]">
+        <div className="relative mx-auto max-w-7xl px-6 pb-20">
+          <div className="relative overflow-hidden rounded-2xl bg-harlo-navy px-6 py-12 text-white shadow-soft md:px-16 md:py-16 lg:pr-[28rem]">
           <div className="absolute inset-0 bg-gradient-to-br from-harlo-navy via-harlo-ink to-harlo-teal" />
           <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:56px_56px] opacity-40" />
           <CtaPhoneGraphic />
@@ -571,6 +578,7 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
                 {TRIAL_CONFIG.credits} trial credits included. Card required.
               </p>
             </div>
+          </div>
           </div>
         </div>
       </section>

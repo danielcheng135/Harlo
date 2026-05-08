@@ -204,7 +204,7 @@ export function homeJsonLd() {
       "@type": "Organization",
       name: siteConfig.name,
       url: siteConfig.url,
-      logo: `${siteConfig.url}/icon.svg`,
+      logo: `${siteConfig.url}/icon-512.png`,
       description: siteConfig.description
     },
     {
