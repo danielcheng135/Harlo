@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { BILLING_PLANS, formatPrice } from "@/lib/billing/plans";
 
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://harlo-cuxmlvf3y-chickenbuttns-projects.vercel.app").replace(/\/$/, "");
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.harloai.co").replace(/\/$/, "");
 
 export const siteConfig = {
   name: "Harlo",
