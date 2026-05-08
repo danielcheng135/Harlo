@@ -1,10 +1,24 @@
+import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Code2, Database, MessageSquare, ShieldCheck, Sparkles } from "lucide-react";
-import { BrandLogo } from "@/components/brand-logo";
 import { HeroVideo } from "@/components/hero-video";
 import { OutcomesSection } from "@/components/landing/outcomes-section";
 import { PricingLandingSections } from "@/components/landing/pricing-landing-sections";
+import { MarketingFooter } from "@/components/marketing-footer";
+import { MarketingNav } from "@/components/marketing-nav";
 import { Card, CardBody } from "@/components/ui/card";
+import { homeJsonLd } from "@/lib/seo";
+
+export const metadata: Metadata = {
+  title: {
+    absolute: "Harlo | AI Agent for Website Answers and Qualified Leads"
+  },
+  description: "Harlo is an AI website chatbot that automates customer support, answers from approved knowledge, and captures qualified leads from every website conversation.",
+  alternates: {
+    canonical: "/"
+  }
+};
 
 const features = [
   { title: "Answers from your knowledge", body: "Train Harlo on site pages, support docs, policies, and team-approved instructions.", icon: Database },
@@ -19,38 +33,15 @@ const workflow = [
   { step: "03", title: "Capture the right moments", body: "When visitors need help, Harlo collects context, intent, and contact details before handoff." }
 ];
 
-const footerSections = [
-  {
-    title: "Product",
-    links: [
-      { label: "Features", href: "#features" },
-      { label: "How it works", href: "#workflow" },
-      { label: "Pricing", href: "#pricing" },
-      { label: "Add-ons", href: "#add-ons" },
-      { label: "Compare", href: "#compare" },
-      { label: "FAQ", href: "#faq" }
-    ]
-  },
-  {
-    title: "Workspace",
-    links: [
-      { label: "Dashboard", href: "/dashboard" },
-      { label: "Sign in", href: "/auth/sign-in" },
-      { label: "Create account", href: "/auth/sign-up" }
-    ]
-  },
-  {
-    title: "Legal",
-    links: [
-      { label: "Privacy Policy", href: "/privacy" },
-      { label: "Terms of Service", href: "/terms" }
-    ]
-  }
-];
-
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-[#f7faf8] text-harlo-ink">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(homeJsonLd())
+        }}
+      />
       <style>{`
         @keyframes harloPriceSlot {
           0% { opacity: 0; transform: translateY(100%); }
@@ -70,20 +61,16 @@ export default function HomePage() {
           100% { opacity: 1; transform: translateY(0) scale(1); }
         }
       `}</style>
-      <header className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-        <BrandLogo />
-        <nav className="hidden items-center gap-6 text-sm font-medium text-harlo-muted md:flex">
-          <a className="transition hover:text-harlo-ink" href="#features">Features</a>
-          <a className="transition hover:text-harlo-ink" href="#pricing">Pricing</a>
-          <a className="transition hover:text-harlo-ink" href="#demo">Demo</a>
-        </nav>
-        <Link
-          href="/dashboard"
-          className="inline-flex h-10 items-center justify-center rounded-lg border border-harlo-teal/40 bg-white px-4 text-sm font-semibold text-harlo-ink shadow-sm transition hover:bg-harlo-mist focus:outline-none focus:ring-2 focus:ring-harlo-teal focus:ring-offset-2"
-        >
-          Open dashboard
-        </Link>
-      </header>
+      <MarketingNav
+        links={[
+          { label: "Features", href: "#features" },
+          { label: "Pricing", href: "/pricing" },
+          { label: "Demo", href: "#demo" }
+        ]}
+        ctaLabel="Start free trial"
+        ctaHref="/auth/sign-up"
+        ctaVariant="dark"
+      />
 
       <section className="mx-auto grid max-w-7xl items-center gap-12 px-6 pb-14 pt-10 lg:grid-cols-[0.9fr_1.1fr] lg:pb-16 lg:pt-12">
         <div className="max-w-2xl">
@@ -95,14 +82,14 @@ export default function HomePage() {
             AI agent for website answers and qualified leads.
           </h1>
           <p className="mt-6 text-lg leading-8 text-harlo-muted">
-            Answer visitors instantly and capture qualified leads from every website conversation.
+            Answer visitors instantly with an AI website chatbot that automates support, stays grounded in approved business knowledge, and captures qualified leads from every conversation.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
-              href="#pricing"
+              href="/auth/sign-up"
               className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-harlo-ink px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-harlo-navy focus:outline-none focus:ring-2 focus:ring-harlo-teal focus:ring-offset-2 sm:w-auto"
             >
-              Start building <ArrowRight size={17} />
+              Start free trial <ArrowRight size={17} />
             </Link>
             <a
               href="#workflow"
@@ -153,7 +140,7 @@ export default function HomePage() {
                 Harlo is built for teams that want the value of AI support without turning the website into another software project.
               </p>
             </div>
-            <img
+            <Image
               src="/landing/workflow.png"
               alt="Static Remotion graphic showing the three-step Harlo launch path."
               width={1200}
@@ -183,40 +170,7 @@ export default function HomePage() {
 
       <PricingLandingSections />
 
-      <footer className="border-t border-harlo-line bg-harlo-ink text-white">
-        <div className="mx-auto grid max-w-7xl gap-10 px-6 py-12 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
-          <div>
-            <div className="flex items-center gap-2 text-white">
-              <span className="grid h-9 w-9 place-items-center rounded-lg bg-harlo-teal text-white">
-                <Sparkles size={18} />
-              </span>
-              <span className="text-xl font-semibold tracking-tight">Harlo</span>
-            </div>
-            <p className="mt-5 max-w-md text-sm leading-6 text-slate-300">
-              Harlo helps growing teams answer website questions, capture qualified leads, and keep customer conversations grounded in approved business knowledge.
-            </p>
-          </div>
-
-          {footerSections.map((section) => (
-            <div key={section.title}>
-              <h2 className="text-sm font-semibold text-white">{section.title}</h2>
-              <div className="mt-4 grid gap-3 text-sm text-slate-300">
-                {section.links.map((link) => (
-                  <a key={link.href} href={link.href} className="transition hover:text-white">
-                    {link.label}
-                  </a>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="border-t border-white/10">
-          <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-5 text-sm text-slate-400 sm:flex-row sm:items-center sm:justify-between">
-            <p>© 2026 Harlo. All rights reserved.</p>
-            <p>AI chatbot for business websites.</p>
-          </div>
-        </div>
-      </footer>
+      <MarketingFooter />
     </main>
   );
 }

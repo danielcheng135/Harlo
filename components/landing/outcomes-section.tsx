@@ -94,6 +94,7 @@ export function OutcomesSection() {
                 muted
                 loop
                 playsInline
+                preload="metadata"
                 poster="/harlo-site-preview.svg"
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}

@@ -1,9 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Zap } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { ProfileMenu } from "@/components/dashboard/profile-menu";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
 import { getBillingOverview, getInitials, getWorkspaceOrRedirect, isWorkspaceAdmin } from "@/lib/harlo/data";
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false
+  }
+};
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const workspace = await getWorkspaceOrRedirect();
@@ -194,4 +202,3 @@ function formatAutoRechargeFailureReason(reason: string) {
 
   return "the recharge could not be completed";
 }
-

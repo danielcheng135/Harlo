@@ -1,11 +1,23 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
+import { MarketingFooter } from "@/components/marketing-footer";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  description: "Review the Harlo privacy policy for AI website chatbot, lead capture, billing, and workspace data.",
+  alternates: {
+    canonical: "/privacy"
+  }
+};
 
 export default function PrivacyPage() {
   return (
     <main className="min-h-screen bg-harlo-canvas text-harlo-ink">
       <header className="mx-auto flex max-w-4xl items-center justify-between px-6 py-6">
-        <BrandLogo />
+        <Link href="/" className="inline-flex" aria-label="Harlo home">
+          <BrandLogo />
+        </Link>
         <Link href="/" className="text-sm font-semibold text-harlo-muted transition hover:text-harlo-ink">
           Back to home
         </Link>
@@ -31,6 +43,7 @@ export default function PrivacyPage() {
           </p>
         </div>
       </section>
+      <MarketingFooter />
     </main>
   );
 }

@@ -38,3 +38,50 @@ select {
 ::selection {
   background: #ccecf2;
 }
+
+@keyframes harloPriceSlot {
+  0% {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  45% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes harloPriceSlotGhost {
+  0% {
+    opacity: 0.26;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+}
+
+@keyframes harloPriceSwap {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes harloBadgeSwap {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

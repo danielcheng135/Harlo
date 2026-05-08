@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Bot, CheckCircle2, Info, Sparkles, UserPlus, Zap } from "lucide-react";
+import { CtaPhoneGraphic } from "@/components/cta-phone-graphic";
 import { Badge } from "@/components/ui/badge";
 import {
   BILLING_ADD_ONS,
@@ -37,6 +38,8 @@ const landingPlanCtas: Record<string, string> = {
   growth: "Subscribe",
   pro: "Subscribe"
 };
+
+const START_FREE_TRIAL_HREF = "/auth/sign-up";
 
 const landingPlanDescriptions: Record<string, string> = {
   starter: "For small teams launching one chatbot.",
@@ -133,7 +136,13 @@ const faqItems = [
   }
 ];
 
-export function PricingLandingSections() {
+type PricingLandingSectionsProps = {
+  ctaHeadline?: string;
+};
+
+export function PricingLandingSections({
+  ctaHeadline = "Turn website visitors into qualified leads today."
+}: PricingLandingSectionsProps) {
   const [interval, setInterval] = useState<BillingInterval>("monthly");
   const [openFaq, setOpenFaq] = useState(-1);
 
@@ -202,7 +211,7 @@ export function PricingLandingSections() {
                 </div>
                 <p className="mt-3 text-base leading-7 text-harlo-muted">{landingPlanDescriptions[plan.key]}</p>
                 <Link
-                  href="/dashboard"
+                  href={plan.key === "starter" ? START_FREE_TRIAL_HREF : "/dashboard"}
                   className={`mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-base font-semibold transition focus:outline-none focus:ring-2 focus:ring-harlo-teal focus:ring-offset-2 ${
                     plan.key === "growth"
                       ? "bg-harlo-ink text-white shadow-sm hover:bg-harlo-navy"
@@ -353,7 +362,6 @@ export function PricingLandingSections() {
       </section>
 
       <section id="faq" className="relative overflow-hidden border-t border-harlo-line bg-white">
-        <RainbowLines />
         <div className="relative">
           <div className="relative mx-auto grid max-w-7xl gap-8 px-6 py-16 lg:grid-cols-[0.75fr_1.25fr]">
             <div>
@@ -392,18 +400,18 @@ export function PricingLandingSections() {
         </div>
 
         <div className="mx-auto max-w-7xl px-6 pb-16">
-          <div className="relative min-h-[520px] overflow-hidden rounded-2xl bg-harlo-navy px-6 py-12 text-white shadow-soft md:px-16 md:py-16 lg:min-h-[560px]">
+          <div className="relative overflow-hidden rounded-2xl bg-harlo-navy px-6 py-12 text-white shadow-soft md:px-16 md:py-16 lg:pr-[28rem]">
             <div className="absolute inset-0 bg-gradient-to-br from-harlo-navy via-harlo-ink to-harlo-teal" />
             <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:56px_56px] opacity-40" />
-            <PhoneChatGraphic />
-            <div className="relative flex min-h-[420px] max-w-2xl flex-col justify-center lg:min-h-[430px] lg:max-w-xl">
+            <CtaPhoneGraphic />
+            <div className="relative flex min-h-[340px] max-w-3xl flex-col justify-center">
               <SectionBadge variant="dark">Launch</SectionBadge>
               <h2 className="mt-5 max-w-xl text-4xl font-semibold tracking-tight md:text-6xl">
-                Turn website visitors into qualified leads today.
+                {ctaHeadline}
               </h2>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Link
-                  href="/dashboard"
+                  href={START_FREE_TRIAL_HREF}
                   className="inline-flex h-12 items-center justify-center rounded-full bg-white px-6 text-sm font-semibold text-harlo-ink transition hover:bg-harlo-mist focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-harlo-ink"
                 >
                   Start free trial
@@ -456,63 +464,5 @@ function SectionBadge({ children, variant = "light" }: { children: string; varia
       <span className="h-2 w-2 rounded-full bg-harlo-blue" />
       {children}
     </span>
-  );
-}
-
-function PhoneChatGraphic() {
-  return (
-    <div className="pointer-events-none absolute bottom-0 right-14 hidden h-[82%] w-[330px] lg:block xl:right-28 xl:w-[370px]">
-      <div className="absolute inset-x-0 bottom-[-46px] h-full rounded-[2.2rem] border border-white/25 bg-slate-950/45 p-2 shadow-2xl shadow-black/30">
-        <div className="h-full overflow-hidden rounded-[1.75rem] bg-white text-harlo-ink">
-          <div className="flex h-14 items-center gap-2 border-b border-harlo-line px-4">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-harlo-teal text-white">
-              <Sparkles size={15} />
-            </span>
-            <div>
-              <p className="text-sm font-semibold">Harlo</p>
-              <p className="text-[11px] font-medium text-harlo-muted">Website assistant</p>
-            </div>
-            <span className="ml-auto rounded-full bg-harlo-mist px-2 py-1 text-[10px] font-semibold text-harlo-teal">
-              Online
-            </span>
-          </div>
-          <div className="space-y-3 p-4">
-            <div className="ml-auto max-w-[82%] rounded-2xl rounded-tr-md bg-slate-100 px-3 py-2 text-xs font-medium leading-5 text-harlo-ink">
-              Can you help me pick the right plan?
-            </div>
-            <div className="max-w-[88%] rounded-2xl rounded-tl-md bg-harlo-teal px-3 py-2 text-xs font-medium leading-5 text-white">
-              Yes. Growth fits teams with steady traffic and 4,000 monthly credits.
-            </div>
-            <div className="ml-auto max-w-[74%] rounded-2xl rounded-tr-md bg-slate-100 px-3 py-2 text-xs font-medium leading-5 text-harlo-ink">
-              Can someone follow up?
-            </div>
-            <div className="max-w-[90%] rounded-2xl rounded-tl-md border border-harlo-line bg-white px-3 py-3 shadow-sm">
-              <p className="text-xs font-semibold text-harlo-ink">Lead captured</p>
-              <div className="mt-3 space-y-2">
-                <span className="block h-2 w-4/5 rounded-full bg-harlo-mist" />
-                <span className="block h-2 w-2/3 rounded-full bg-harlo-mist" />
-                <span className="block h-2 w-1/2 rounded-full bg-harlo-mist" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RainbowLines() {
-  return (
-    <svg
-      aria-hidden="true"
-      className="pointer-events-none absolute left-1/2 top-0 h-[760px] w-[150vw] max-w-none -translate-x-1/2 text-slate-300/45"
-      fill="none"
-      viewBox="0 0 2200 760"
-      preserveAspectRatio="none"
-    >
-      <path d="M-40 610C320 120 1880 120 2240 610" stroke="currentColor" strokeWidth="2" />
-      <path d="M-40 690C330 210 1870 210 2240 690" stroke="currentColor" strokeWidth="2" />
-      <path d="M-40 770C340 300 1860 300 2240 770" stroke="currentColor" strokeWidth="2" />
-    </svg>
   );
 }

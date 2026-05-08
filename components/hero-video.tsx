@@ -62,6 +62,7 @@ export function HeroVideo({ className }: HeroVideoProps) {
         muted
         loop
         playsInline
+        preload="metadata"
         poster="/harlo-site-preview.svg"
         onPause={() => setIsPlaying(false)}
         onPlay={() => setIsPlaying(true)}

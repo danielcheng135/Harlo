@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import { CheckCircle2 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { ChatWidgetPreview } from "@/components/chat-widget-preview";
 import { OnboardingForm } from "@/components/onboarding/onboarding-form";
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false
+  }
+};
 
 export default function OnboardingPage() {
   return (
