@@ -83,13 +83,13 @@ export function OutcomesSection() {
         </div>
 
         <div className="mt-10 grid gap-6 lg:grid-cols-[1.08fr_0.92fr] lg:items-stretch">
-          <div className="relative min-h-[430px] overflow-hidden rounded-xl border border-harlo-line bg-harlo-canvas p-4 shadow-sm md:p-6">
+          <div className="relative min-h-[300px] overflow-hidden rounded-xl border border-harlo-line bg-harlo-canvas p-3 shadow-sm sm:min-h-[360px] sm:p-4 md:p-6 lg:min-h-[430px]">
             <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(17,24,39,0.045)_1px,transparent_1px),linear-gradient(rgba(17,24,39,0.045)_1px,transparent_1px)] bg-[size:48px_48px]" />
             <div key={active.label} className="relative h-full overflow-hidden rounded-lg border border-harlo-line bg-white shadow-soft [animation:harloPriceSwap_360ms_ease-out_forwards]">
               <video
                 ref={videoRef}
                 aria-label={`${active.label} outcome preview video`}
-                className="h-full min-h-[430px] w-full object-cover"
+                className="h-full min-h-[300px] w-full bg-white object-contain sm:min-h-[360px] lg:min-h-[430px] lg:object-cover"
                 autoPlay={isPlaying}
                 muted
                 loop
@@ -115,7 +115,7 @@ export function OutcomesSection() {
                 type="button"
                 aria-label={isPlaying ? "Pause outcome preview video" : "Play outcome preview video"}
                 onClick={togglePlayback}
-                className="absolute bottom-5 right-5 grid h-14 w-14 place-items-center rounded-full bg-white text-harlo-ink shadow-[0_12px_28px_rgba(17,24,39,0.22)] transition hover:scale-[1.03] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-harlo-ink"
+                className="absolute bottom-3 right-3 grid h-12 w-12 place-items-center rounded-full bg-white text-harlo-ink shadow-[0_12px_28px_rgba(17,24,39,0.22)] transition hover:scale-[1.03] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-harlo-ink sm:bottom-5 sm:right-5 sm:h-14 sm:w-14"
               >
                 <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 56 56" aria-hidden="true">
                   <circle cx="28" cy="28" r="25" fill="none" stroke="rgba(8, 127, 149, 0.18)" strokeWidth="3" />

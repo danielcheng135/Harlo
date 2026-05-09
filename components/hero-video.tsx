@@ -50,14 +50,14 @@ export function HeroVideo({ className }: HeroVideoProps) {
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-[22px] border border-white/70 bg-harlo-ink shadow-[0_32px_80px_rgba(17,24,39,0.18)]",
+        "relative overflow-hidden rounded-2xl border border-white/70 bg-harlo-ink shadow-[0_32px_80px_rgba(17,24,39,0.18)] sm:rounded-[22px]",
         className
       )}
     >
       <video
         ref={videoRef}
         aria-label="Harlo product overview video"
-        className="aspect-[16/11] h-full w-full object-cover"
+        className="aspect-video w-full bg-white object-cover"
         autoPlay
         muted
         loop
@@ -78,7 +78,7 @@ export function HeroVideo({ className }: HeroVideoProps) {
         type="button"
         aria-label={isPlaying ? "Pause Harlo overview video" : "Play Harlo overview video"}
         onClick={togglePlayback}
-        className="absolute bottom-5 left-5 grid h-14 w-14 place-items-center rounded-full bg-white text-harlo-ink shadow-[0_12px_28px_rgba(17,24,39,0.22)] transition hover:scale-[1.03] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-harlo-ink"
+        className="absolute bottom-3 left-3 grid h-12 w-12 place-items-center rounded-full bg-white text-harlo-ink shadow-[0_12px_28px_rgba(17,24,39,0.22)] transition hover:scale-[1.03] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-harlo-ink sm:bottom-5 sm:left-5 sm:h-14 sm:w-14"
       >
         <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 56 56" aria-hidden="true">
           <circle cx="28" cy="28" r="25" fill="none" stroke="rgba(8, 127, 149, 0.18)" strokeWidth="3" />

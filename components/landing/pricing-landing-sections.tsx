@@ -150,7 +150,7 @@ export function PricingLandingSections({
   return (
     <>
       <section id="pricing" className="mx-auto max-w-7xl px-6 py-16">
-        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+        <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div className="max-w-2xl">
             <SectionBadge>Pricing</SectionBadge>
             <h2 className="mt-3 text-4xl font-semibold tracking-tight text-harlo-ink md:text-5xl">Pricing that scales with real conversations.</h2>
@@ -158,7 +158,9 @@ export function PricingLandingSections({
               Harlo starts in the same range as lightweight AI chatbot tools, then scales by conversation volume, knowledge size, and support workflow depth.
             </p>
           </div>
-          <BillingIntervalToggle interval={interval} onChange={setInterval} />
+          <div className="shrink-0 self-start lg:self-end">
+            <BillingIntervalToggle interval={interval} onChange={setInterval} />
+          </div>
         </div>
 
         <section id="plans" className="mt-8 grid gap-4 lg:grid-cols-3">
@@ -271,7 +273,7 @@ export function PricingLandingSections({
       </section>
 
       <section id="compare" className="mx-auto max-w-7xl px-6 py-16">
-        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+        <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div className="max-w-2xl">
             <SectionBadge>Compare</SectionBadge>
             <h2 className="mt-3 text-4xl font-semibold tracking-tight text-harlo-ink md:text-5xl">Pick the plan that matches your website traffic.</h2>
@@ -279,7 +281,9 @@ export function PricingLandingSections({
               Compare the limits that matter most before you launch, then switch billing without losing the plan context.
             </p>
           </div>
-          <BillingIntervalToggle interval={interval} onChange={setInterval} />
+          <div className="shrink-0 self-start lg:self-end">
+            <BillingIntervalToggle interval={interval} onChange={setInterval} />
+          </div>
         </div>
 
         <div className="mt-8 overflow-hidden rounded-xl border border-harlo-line bg-white p-3 shadow-sm">
@@ -439,13 +443,13 @@ function BillingIntervalToggle({
   onChange: (interval: BillingInterval) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 rounded-lg border border-harlo-line bg-white p-1 shadow-sm">
+    <div className="inline-grid min-w-max shrink-0 grid-cols-2 rounded-lg border border-harlo-line bg-white p-1 shadow-sm">
       {(["monthly", "annual"] as const).map((option) => (
         <button
           key={option}
           type="button"
           onClick={() => onChange(option)}
-          className={`rounded-md px-4 py-2 text-sm font-semibold capitalize transition ${
+          className={`whitespace-nowrap rounded-md px-4 py-2 text-sm font-semibold capitalize transition ${
             interval === option ? "bg-harlo-ink text-white shadow-sm" : "text-harlo-muted hover:text-harlo-ink"
           }`}
         >

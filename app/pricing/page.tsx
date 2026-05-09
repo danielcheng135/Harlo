@@ -26,13 +26,13 @@ export default function PricingPage() {
         ctaVariant="dark"
       />
 
-      <section className="mx-auto grid max-w-7xl items-center gap-10 px-6 pb-8 pt-16 lg:grid-cols-[0.9fr_1.1fr]">
+      <section className="mx-auto grid max-w-7xl items-center gap-10 px-4 pb-8 pt-10 sm:px-6 sm:pt-16 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="max-w-3xl">
           <SectionBadge>Pricing</SectionBadge>
-          <h1 className="mt-5 text-5xl font-semibold leading-[1.02] tracking-tight text-harlo-ink md:text-7xl">
+          <h1 className="mt-5 text-4xl font-semibold leading-[1.02] tracking-tight text-harlo-ink sm:text-5xl md:text-7xl">
             Plans for website answers and qualified leads.
           </h1>
-          <p className="mt-6 max-w-2xl text-xl leading-9 text-harlo-muted">
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-harlo-muted sm:text-xl sm:leading-9">
             Start with a focused AI agent for your website, then scale message credits, seats, support, and add-ons as conversations grow.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -70,10 +70,10 @@ function SectionBadge({ children }: { children: string }) {
 
 function PricingHeroVisual() {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-harlo-line bg-white p-5 shadow-soft">
+    <div className="relative min-w-0 overflow-hidden rounded-2xl border border-harlo-line bg-white p-3 shadow-soft sm:p-5">
       <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(17,24,39,0.045)_1px,transparent_1px),linear-gradient(rgba(17,24,39,0.045)_1px,transparent_1px)] bg-[size:42px_42px]" />
-      <div className="relative rounded-xl bg-gradient-to-br from-harlo-mist via-white to-cyan-50 p-5">
-        <div className="flex items-center justify-between border-b border-harlo-line pb-4">
+      <div className="relative rounded-xl bg-gradient-to-br from-harlo-mist via-white to-cyan-50 p-4 sm:p-5">
+        <div className="flex flex-col gap-3 border-b border-harlo-line pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <span className="grid h-10 w-10 place-items-center rounded-lg bg-harlo-teal text-white">
               <Sparkles size={18} />
@@ -88,7 +88,7 @@ function PricingHeroVisual() {
           </span>
         </div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
           {BILLING_PLANS.map((plan) => (
             <div key={plan.key} className={`rounded-xl border bg-white p-4 shadow-sm ${plan.key === "growth" ? "border-harlo-teal" : "border-harlo-line"}`}>
               <div className="flex items-center justify-between">

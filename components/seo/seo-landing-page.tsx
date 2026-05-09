@@ -390,13 +390,13 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
         ctaVariant="dark"
       />
 
-      <section className="mx-auto grid max-w-7xl items-center gap-10 px-6 pb-16 pt-16 lg:grid-cols-[0.92fr_1.08fr] lg:pt-20">
+      <section className="mx-auto grid max-w-7xl items-center gap-10 px-4 pb-16 pt-10 sm:px-6 sm:pt-16 lg:grid-cols-[0.92fr_1.08fr] lg:pt-20">
         <div>
           <SectionBadge>{content.eyebrow}</SectionBadge>
-          <h1 className="mt-6 max-w-4xl text-5xl font-semibold leading-[1.02] tracking-tight text-harlo-ink md:text-7xl">
+          <h1 className="mt-6 max-w-4xl text-4xl font-semibold leading-[1.02] tracking-tight text-harlo-ink sm:text-5xl md:text-7xl">
             {page.h1}
           </h1>
-          <p className="mt-6 max-w-2xl text-xl leading-9 text-harlo-muted">{page.intro}</p>
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-harlo-muted sm:text-xl sm:leading-9">{page.intro}</p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
               href={primaryCtaHref}
@@ -495,7 +495,7 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
 
       <section id="pricing" className="border-y border-harlo-line bg-white">
         <div className="mx-auto max-w-7xl px-6 py-20">
-          <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+          <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
             <div className="max-w-3xl">
               <SectionBadge>Pricing</SectionBadge>
               <h2 className="mt-4 text-4xl font-semibold tracking-tight text-harlo-ink md:text-6xl">
@@ -505,7 +505,9 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
                 Start with a {TRIAL_CONFIG.days}-day Starter trial and {TRIAL_CONFIG.credits} trial credits, then choose the plan that matches your website traffic.
               </p>
             </div>
-            <BillingIntervalToggle interval={interval} onChange={setInterval} />
+            <div className="shrink-0 self-start lg:self-end">
+              <BillingIntervalToggle interval={interval} onChange={setInterval} />
+            </div>
           </div>
           <div className="mt-10 grid gap-4 lg:grid-cols-3">
             {BILLING_PLANS.map((plan) => (
@@ -598,7 +600,7 @@ function ProductMockup({ page, content }: { page: SeoLandingPage; content: Landi
   }[content.visualKind];
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-harlo-line bg-white p-4 shadow-soft">
+    <div className="relative min-w-0 overflow-hidden rounded-2xl border border-harlo-line bg-white p-3 shadow-soft sm:p-4">
       <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(17,24,39,0.045)_1px,transparent_1px),linear-gradient(rgba(17,24,39,0.045)_1px,transparent_1px)] bg-[size:42px_42px]" />
       {mockup}
     </div>
@@ -607,7 +609,7 @@ function ProductMockup({ page, content }: { page: SeoLandingPage; content: Landi
 
 function WebsiteHeroMockup({ page, content }: { page: SeoLandingPage; content: LandingContent }) {
   return (
-    <div className="relative rounded-xl bg-gradient-to-br from-harlo-mist via-white to-cyan-50 p-6">
+    <div className="relative rounded-xl bg-gradient-to-br from-harlo-mist via-white to-cyan-50 p-4 sm:p-6">
       <MockupHeader label={content.eyebrow} />
       <div className="mt-6 grid gap-4 lg:grid-cols-[0.9fr_0.72fr]">
         <div className="harlo-float rounded-xl border border-harlo-line bg-white p-5 shadow-sm">
@@ -633,7 +635,7 @@ function WebsiteHeroMockup({ page, content }: { page: SeoLandingPage; content: L
 
 function LeadHeroMockup({ page, content }: { page: SeoLandingPage; content: LandingContent }) {
   return (
-    <div className="relative rounded-xl bg-gradient-to-br from-rose-50 via-white to-amber-50 p-6">
+    <div className="relative rounded-xl bg-gradient-to-br from-rose-50 via-white to-amber-50 p-4 sm:p-6">
       <MockupHeader label={content.eyebrow} />
       <div className="mt-6 grid gap-4 lg:grid-cols-[0.84fr_0.78fr]">
         <div className="rounded-xl border border-harlo-line bg-white p-5 shadow-sm">
@@ -660,7 +662,7 @@ function LeadHeroMockup({ page, content }: { page: SeoLandingPage; content: Land
 
 function SupportHeroMockup({ page, content }: { page: SeoLandingPage; content: LandingContent }) {
   return (
-    <div className="relative rounded-xl bg-gradient-to-br from-cyan-50 via-white to-emerald-50 p-6">
+    <div className="relative rounded-xl bg-gradient-to-br from-cyan-50 via-white to-emerald-50 p-4 sm:p-6">
       <MockupHeader label={content.eyebrow} />
       <div className="mt-6 grid gap-4 lg:grid-cols-[0.8fr_0.84fr]">
         <div className="rounded-xl border border-harlo-line bg-white p-5 shadow-sm">
@@ -683,7 +685,7 @@ function SupportHeroMockup({ page, content }: { page: SeoLandingPage; content: L
 
 function SmallBusinessHeroMockup({ page, content }: { page: SeoLandingPage; content: LandingContent }) {
   return (
-    <div className="relative rounded-xl bg-gradient-to-br from-amber-50 via-white to-cyan-50 p-6">
+    <div className="relative rounded-xl bg-gradient-to-br from-amber-50 via-white to-cyan-50 p-4 sm:p-6">
       <MockupHeader label={content.eyebrow} />
       <div className="mt-6 grid gap-4 lg:grid-cols-[0.78fr_0.86fr]">
         <div className="harlo-float rounded-xl border border-harlo-line bg-white p-5 shadow-sm">
@@ -703,9 +705,9 @@ function SmallBusinessHeroMockup({ page, content }: { page: SeoLandingPage; cont
 
 function PricingHeroMockup({ content }: { page: SeoLandingPage; content: LandingContent }) {
   return (
-    <div className="relative rounded-xl bg-gradient-to-br from-harlo-mist via-white to-sky-50 p-6">
+    <div className="relative rounded-xl bg-gradient-to-br from-harlo-mist via-white to-sky-50 p-4 sm:p-6">
       <MockupHeader label={content.eyebrow} />
-      <div className="mt-6 grid gap-3 md:grid-cols-3">
+      <div className="mt-6 grid gap-3 sm:grid-cols-3">
         {BILLING_PLANS.map((plan) => (
           <div key={plan.key} className={`rounded-xl border bg-white p-4 shadow-sm ${plan.key === "growth" ? "border-harlo-teal" : "border-harlo-line"}`}>
             <div className="flex items-center justify-between">
@@ -977,13 +979,13 @@ function BillingIntervalToggle({
   onChange: (interval: BillingInterval) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 rounded-lg border border-harlo-line bg-white p-1 shadow-sm">
+    <div className="inline-grid min-w-max shrink-0 grid-cols-2 rounded-lg border border-harlo-line bg-white p-1 shadow-sm">
       {(["monthly", "annual"] as const).map((option) => (
         <button
           key={option}
           type="button"
           onClick={() => onChange(option)}
-          className={`rounded-md px-4 py-2 text-sm font-semibold capitalize transition ${
+          className={`whitespace-nowrap rounded-md px-4 py-2 text-sm font-semibold capitalize transition ${
             interval === option ? "bg-harlo-ink text-white shadow-sm" : "text-harlo-muted hover:text-harlo-ink"
           }`}
         >

@@ -78,13 +78,13 @@ export default async function HomePage() {
         ctaVariant="outline"
       />
 
-      <section className="mx-auto grid max-w-7xl items-center gap-12 px-6 pb-14 pt-10 lg:grid-cols-[0.9fr_1.1fr] lg:pb-16 lg:pt-12">
+      <section className="mx-auto grid max-w-7xl items-center gap-10 px-4 pb-14 pt-8 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:gap-12 lg:pb-16 lg:pt-12">
         <div className="max-w-2xl">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-harlo-line bg-white px-3 py-1.5 text-sm font-medium text-harlo-navy shadow-sm">
             <ShieldCheck size={15} />
             AI support that knows your business
           </div>
-          <h1 className="text-5xl font-semibold leading-[1.02] tracking-tight text-harlo-ink md:text-6xl">
+          <h1 className="text-4xl font-semibold leading-[1.02] tracking-tight text-harlo-ink sm:text-5xl md:text-6xl">
             AI agent for website answers and qualified leads.
           </h1>
           <p className="mt-6 text-lg leading-8 text-harlo-muted">
@@ -106,8 +106,8 @@ export default async function HomePage() {
           </div>
         </div>
 
-        <div id="demo" className="relative">
-          <div className="mb-4 flex justify-end">
+        <div id="demo" className="relative min-w-0">
+          <div className="absolute right-3 top-3 z-10 sm:right-4 sm:top-4">
             <div className="rounded-full bg-[#ff7a66] px-4 py-2 text-sm font-semibold text-white shadow-soft">
               Live preview
             </div>
