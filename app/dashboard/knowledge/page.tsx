@@ -6,5 +6,5 @@ export default async function KnowledgePage() {
   requireWorkspaceAdmin(workspace);
   const sources = await getKnowledgeSources(workspace);
 
-  return <KnowledgeWorkspace sources={sources} />;
+  return <KnowledgeWorkspace sources={sources} brandLogoUrl={workspace.organization.brand_logo_url ?? null} />;
 }

@@ -28,6 +28,8 @@ export type Workspace = {
   organization: {
     id: string;
     name: string;
+    website_url?: string | null;
+    brand_logo_url?: string | null;
   };
   bot: {
     id: string;
@@ -211,10 +213,10 @@ export async function getWorkspaceOrRedirect(): Promise<Workspace> {
     redirect("/onboarding");
   }
 
-  const [{ data: organization }, { data: bot }] = await Promise.all([
+  const [{ data: organization }, { data: bot }, { data: billing }] = await Promise.all([
     supabase
       .from("organizations")
-      .select("id, name")
+      .select("id, name, website_url, brand_logo_url")
       .eq("id", membership.organization_id)
       .single(),
     supabase
@@ -223,11 +225,22 @@ export async function getWorkspaceOrRedirect(): Promise<Workspace> {
       .eq("organization_id", membership.organization_id)
       .order("created_at", { ascending: true })
       .limit(1)
-      .single()
+      .single(),
+    supabase
+      .from("organization_billing")
+      .select("status")
+      .eq("organization_id", membership.organization_id)
+      .maybeSingle()
   ]);
 
   if (!organization || !bot) {
     redirect("/onboarding");
+  }
+
+  const billingStatus = normalizeBillingStatus(billing?.status);
+
+  if (billingStatus !== "active" && billingStatus !== "trialing") {
+    redirect("/onboarding/checkout?checkout=required");
   }
 
   return {

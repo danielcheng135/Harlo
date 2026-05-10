@@ -18,12 +18,13 @@ export default async function LeadsPage() {
       </div>
 
       {leads.length === 0 ? (
-        <Card className="min-h-0 flex-1">
-          <CardBody>
+        <Card className="flex min-h-0 flex-1">
+          <CardBody className="flex min-h-0 flex-1">
             <EmptyState
               icon={Users}
               title="No leads captured yet"
               body="When Harlo cannot answer confidently, it will collect contact details and show them here."
+              className="min-h-full flex-1"
             />
           </CardBody>
         </Card>

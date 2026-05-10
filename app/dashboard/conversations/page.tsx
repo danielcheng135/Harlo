@@ -27,12 +27,13 @@ export default async function ConversationsPage({ searchParams }: ConversationsP
       </div>
 
       {conversations.length === 0 ? (
-        <Card className="min-h-0 flex-1">
-          <CardBody>
+        <Card className="flex min-h-0 flex-1">
+          <CardBody className="flex min-h-0 flex-1">
             <EmptyState
               icon={MessageSquare}
               title="No conversations yet"
               body="Visitor conversations will be saved here once the embeddable widget starts sending chat messages."
+              className="min-h-full flex-1"
             />
           </CardBody>
         </Card>
@@ -41,6 +42,7 @@ export default async function ConversationsPage({ searchParams }: ConversationsP
           conversations={conversations}
           initialConversationId={selectedConversation?.id}
           botName={workspace.bot.name}
+          accent={workspace.bot.widget_theme.accent}
         />
       )}
     </div>

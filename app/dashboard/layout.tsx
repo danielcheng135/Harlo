@@ -32,6 +32,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             title={billingOverview.status === "trialing" ? "Trial credits" : "Credits"}
           />
           <ProfileMenu
+            brandLogoUrl={workspace.organization.brand_logo_url ?? null}
             businessName={workspace.organization.name}
             canManageBilling={isWorkspaceAdmin(workspace.role)}
             email={workspace.user.email}

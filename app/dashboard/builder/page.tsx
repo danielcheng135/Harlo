@@ -23,6 +23,7 @@ export default async function BuilderPage() {
           accent: workspace.bot.widget_theme.accent,
           launcherPosition: workspace.bot.widget_theme.launcher_position,
           welcomePrompts: workspace.bot.widget_theme.welcome_prompts,
+          brandLogoUrl: workspace.organization.brand_logo_url ?? null,
           allowedDomains: workspace.bot.allowed_domains,
           leadCaptureFields: workspace.bot.lead_capture_fields
         }}

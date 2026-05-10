@@ -7,6 +7,7 @@ import { ArrowUpRight, Building2, ChevronsUpDown, CreditCard, LogOut, Sparkles }
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type ProfileMenuProps = {
+  brandLogoUrl: string | null;
   businessName: string;
   canManageBilling: boolean;
   email: string | null;
@@ -15,7 +16,7 @@ type ProfileMenuProps = {
   role: string;
 };
 
-export function ProfileMenu({ businessName, canManageBilling, email, hasHigherTier, initials, role }: ProfileMenuProps) {
+export function ProfileMenu({ brandLogoUrl, businessName, canManageBilling, email, hasHigherTier, initials, role }: ProfileMenuProps) {
   const router = useRouter();
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -98,8 +99,18 @@ export function ProfileMenu({ businessName, canManageBilling, email, hasHigherTi
             <div className={`transition-opacity duration-200 ease-out ${isOpen ? "opacity-100" : "opacity-0"}`}>
               <div className="rounded-lg bg-harlo-canvas p-3">
               <div className="flex items-start gap-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-harlo-teal text-white">
-                  <Building2 size={18} />
+                <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-harlo-mist text-harlo-teal">
+                  {brandLogoUrl ? (
+                    <img
+                      src={brandLogoUrl}
+                      alt=""
+                      className="h-full w-full object-contain p-1.5"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <Building2 size={18} />
+                  )}
                 </span>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-harlo-ink">{businessName}</p>

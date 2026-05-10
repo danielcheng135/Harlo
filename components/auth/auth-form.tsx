@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, CheckCircle2, Loader2, Mail } from "lucide-react";
+import { ArrowRight, CheckCircle2, Chrome, Loader2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -22,6 +22,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [oauthPending, setOauthPending] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -30,8 +31,8 @@ export function AuthForm({ mode }: AuthFormProps) {
 
     try {
       const supabase = createSupabaseBrowserClient();
-      const safeNextPath = nextPath.startsWith("/") ? nextPath : "/dashboard";
-      const signUpDestination = safeNextPath.startsWith("/invite/") ? withQueryParam(safeNextPath, "accept", "1") : "/onboarding";
+      const safeNextPath = getSafeNextPath(nextPath);
+      const signUpDestination = getSignUpDestination(safeNextPath);
       const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(signUpDestination)}`;
       const result =
         mode === "sign-up"
@@ -70,6 +71,32 @@ export function AuthForm({ mode }: AuthFormProps) {
     }
   }
 
+  async function handleGoogleAuth() {
+    setOauthPending(true);
+    setError(null);
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const safeNextPath = getSafeNextPath(nextPath);
+      const destination = mode === "sign-up" ? getSignUpDestination(safeNextPath) : safeNextPath;
+      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(destination)}`;
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo
+        }
+      });
+
+      if (oauthError) {
+        setError(oauthError.message);
+        setOauthPending(false);
+      }
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Something went wrong.");
+      setOauthPending(false);
+    }
+  }
+
   if (confirmationEmail) {
     return (
       <div className="rounded-lg border border-harlo-teal/20 bg-gradient-to-br from-harlo-mist via-white to-cyan-50 p-5">
@@ -102,7 +129,25 @@ export function AuthForm({ mode }: AuthFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="space-y-4">
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={handleGoogleAuth}
+        disabled={oauthPending || isPending}
+        className="w-full"
+      >
+        {oauthPending ? <Loader2 className="animate-spin" size={16} /> : <Chrome size={16} />}
+        Continue with Google
+      </Button>
+
+      <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.18em] text-harlo-muted">
+        <span className="h-px flex-1 bg-harlo-line" />
+        or
+        <span className="h-px flex-1 bg-harlo-line" />
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
       {mode === "sign-up" && !isInviteSignUp ? (
         <label className="block">
           <span className="text-sm font-medium text-harlo-ink">Business name</span>
@@ -152,8 +197,25 @@ export function AuthForm({ mode }: AuthFormProps) {
         {mode === "sign-up" ? "Create Harlo account" : "Sign in"}
         <ArrowRight size={16} />
       </Button>
-    </form>
+      </form>
+    </div>
   );
+}
+
+function getSafeNextPath(nextPath: string) {
+  return nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/dashboard";
+}
+
+function getSignUpDestination(safeNextPath: string) {
+  if (safeNextPath.startsWith("/invite/")) {
+    return withQueryParam(safeNextPath, "accept", "1");
+  }
+
+  if (safeNextPath.startsWith("/onboarding")) {
+    return safeNextPath;
+  }
+
+  return "/onboarding";
 }
 
 function withQueryParam(path: string, key: string, value: string) {

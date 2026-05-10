@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { Sparkles } from "lucide-react";
+import { getSignupHref } from "@/lib/onboarding/signup-url";
 import { siteConfig } from "@/lib/seo";
 
 const footerSections = [
@@ -20,7 +21,7 @@ const footerSections = [
     links: [
       { label: "Dashboard", href: "/dashboard" },
       { label: "Sign in", href: "/auth/sign-in" },
-      { label: "Create account", href: "/auth/sign-up" }
+      { label: "Create account", href: getSignupHref() }
     ]
   },
   {

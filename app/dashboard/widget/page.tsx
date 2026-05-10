@@ -13,7 +13,11 @@ export default async function WidgetPage() {
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-harlo-ink">Widget install</h1>
         <p className="mt-2 text-harlo-muted">Control allowed domains and copy the website embed snippet.</p>
       </div>
-      <WidgetInstallPanel botId={workspace.bot.id} allowedDomains={workspace.bot.allowed_domains} />
+      <WidgetInstallPanel
+        brandLogoUrl={workspace.organization.brand_logo_url ?? null}
+        botId={workspace.bot.id}
+        allowedDomains={workspace.bot.allowed_domains}
+      />
     </div>
   );
 }

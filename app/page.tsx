@@ -8,6 +8,7 @@ import { PricingLandingSections } from "@/components/landing/pricing-landing-sec
 import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingNav } from "@/components/marketing-nav";
 import { Card, CardBody } from "@/components/ui/card";
+import { getSignupHref } from "@/lib/onboarding/signup-url";
 import { homeJsonLd } from "@/lib/seo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -92,7 +93,7 @@ export default async function HomePage() {
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
-              href="/auth/sign-up"
+              href={getSignupHref()}
               className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-harlo-ink px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-harlo-navy focus:outline-none focus:ring-2 focus:ring-harlo-teal focus:ring-offset-2 sm:w-auto"
             >
               Start free trial <ArrowRight size={17} />

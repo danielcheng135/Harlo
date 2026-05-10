@@ -36,6 +36,7 @@ import {
   type BillingInterval,
   type BillingPlanKey
 } from "@/lib/billing/plans";
+import { getSignupHref } from "@/lib/onboarding/signup-url";
 import type { SeoLandingPage } from "@/lib/seo";
 
 type SeoLandingPageTemplateProps = {
@@ -67,8 +68,6 @@ type LandingContent = {
   faqs: Array<{ question: string; answer: string }>;
   finalCta: string;
 };
-
-const START_FREE_TRIAL_HREF = "/auth/sign-up";
 
 const planIcons: Record<BillingPlanKey, { shape: string; gradient: string; inner: string }> = {
   starter: {
@@ -348,7 +347,7 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
   const content = mergeContent(page.path);
   const [interval, setInterval] = useState<BillingInterval>("monthly");
   const primaryCtaHref = page.primaryCta.toLowerCase().includes("trial") || page.primaryCta.toLowerCase().includes("start")
-    ? START_FREE_TRIAL_HREF
+    ? getSignupHref("starter", interval)
     : "#pricing";
   const secondaryCtaHref = page.secondaryCta.toLowerCase().includes("outcome")
     ? "#use-cases"
@@ -386,7 +385,7 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
           { label: "FAQ", href: "#faq" }
         ]}
         ctaLabel="Start free trial"
-        ctaHref={START_FREE_TRIAL_HREF}
+        ctaHref={getSignupHref("starter", interval)}
         ctaVariant="dark"
       />
 
@@ -572,7 +571,7 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
               {content.finalCta}
             </h2>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Link href={START_FREE_TRIAL_HREF} className="inline-flex h-12 items-center justify-center rounded-full bg-white px-6 text-sm font-semibold text-harlo-ink transition hover:bg-harlo-mist">
+              <Link href={getSignupHref("starter", interval)} className="inline-flex h-12 items-center justify-center rounded-full bg-white px-6 text-sm font-semibold text-harlo-ink transition hover:bg-harlo-mist">
                 Start free trial
               </Link>
               <p className="flex items-center gap-2 text-sm font-medium text-white/75">
@@ -952,7 +951,7 @@ function PricingCard({ plan, interval }: { plan: (typeof BILLING_PLANS)[number];
       </div>
       <p className="mt-5 min-h-14 text-base leading-7 text-harlo-muted">{landingPlanDescriptions[plan.key]}</p>
       <Link
-        href={plan.key === "starter" ? START_FREE_TRIAL_HREF : "/dashboard"}
+        href={getSignupHref(plan.key, interval)}
         className={`mt-6 inline-flex h-11 w-full items-center justify-center rounded-lg text-sm font-semibold transition ${
           isGrowth ? "bg-harlo-ink text-white hover:bg-harlo-navy" : "border border-harlo-line bg-white text-harlo-ink hover:border-harlo-teal hover:text-harlo-teal"
         }`}

@@ -5,6 +5,7 @@ import { PricingLandingSections } from "@/components/landing/pricing-landing-sec
 import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingNav } from "@/components/marketing-nav";
 import { BILLING_PLANS, TRIAL_CONFIG, formatPrice } from "@/lib/billing/plans";
+import { getSignupHref } from "@/lib/onboarding/signup-url";
 import { createPageMetadata, seoLandingPages } from "@/lib/seo";
 
 const page = seoLandingPages.aiChatbotPricing;
@@ -22,7 +23,7 @@ export default function PricingPage() {
           { label: "FAQ", href: "/pricing#faq" }
         ]}
         ctaLabel="Start free trial"
-        ctaHref="/auth/sign-up"
+        ctaHref={getSignupHref()}
         ctaVariant="dark"
       />
 
@@ -37,7 +38,7 @@ export default function PricingPage() {
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
-              href="/auth/sign-up"
+              href={getSignupHref()}
               className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-harlo-ink px-6 text-base font-semibold text-white shadow-sm transition hover:bg-harlo-navy"
             >
               Start free trial <ArrowRight size={18} />

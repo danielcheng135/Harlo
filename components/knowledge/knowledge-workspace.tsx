@@ -11,6 +11,7 @@ import {
   Plus,
   UploadCloud
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { SourceActions } from "@/components/knowledge/source-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,13 @@ type ApiResult = {
   status?: "pending" | "processing" | "ready" | "failed";
 };
 
-export function KnowledgeWorkspace({ sources }: { sources: KnowledgeSourceRow[] }) {
+export function KnowledgeWorkspace({
+  brandLogoUrl,
+  sources
+}: {
+  brandLogoUrl: string | null;
+  sources: KnowledgeSourceRow[];
+}) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [mode, setMode] = useState<SourceMode>("url");
@@ -329,7 +336,12 @@ export function KnowledgeWorkspace({ sources }: { sources: KnowledgeSourceRow[] 
                 <p className="mt-2 text-sm leading-6 text-harlo-muted">Add a website, file, or manual source to start powering RAG answers.</p>
               </div>
             ) : sources.map((source) => (
-              <SourceRow key={source.id} source={source} isCrawling={crawlingSourceIds.has(source.id)} />
+              <SourceRow
+                key={source.id}
+                brandLogoUrl={brandLogoUrl}
+                source={source}
+                isCrawling={crawlingSourceIds.has(source.id)}
+              />
             ))}
           </CardBody>
         </Card>
@@ -338,7 +350,15 @@ export function KnowledgeWorkspace({ sources }: { sources: KnowledgeSourceRow[] 
   );
 }
 
-function SourceRow({ source, isCrawling }: { source: KnowledgeSourceRow; isCrawling: boolean }) {
+function SourceRow({
+  brandLogoUrl,
+  source,
+  isCrawling
+}: {
+  brandLogoUrl: string | null;
+  source: KnowledgeSourceRow;
+  isCrawling: boolean;
+}) {
   const Icon = source.source_type === "file" ? FileText : source.source_type === "url" ? Globe2 : BookOpen;
   const chunkCount = typeof source.metadata.chunk_count === "number" ? source.metadata.chunk_count : 0;
   const pageCount = typeof source.metadata.page_count === "number" ? source.metadata.page_count : null;
@@ -346,8 +366,8 @@ function SourceRow({ source, isCrawling }: { source: KnowledgeSourceRow; isCrawl
   return (
     <div className="grid gap-4 border-b border-harlo-line p-5 last:border-b-0 xl:grid-cols-[minmax(0,1fr)_110px_96px_120px] xl:items-center">
       <div className="flex min-w-0 items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-harlo-mist text-harlo-teal">
-          <Icon size={18} />
+        <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-harlo-mist text-harlo-teal">
+          <SourceLogo brandLogoUrl={brandLogoUrl} source={source} fallbackIcon={Icon} />
         </span>
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-harlo-ink">{source.name}</p>
@@ -362,6 +382,35 @@ function SourceRow({ source, isCrawling }: { source: KnowledgeSourceRow; isCrawl
       <SourceActions source={source} isCrawling={isCrawling} />
     </div>
   );
+}
+
+function SourceLogo({
+  brandLogoUrl,
+  source,
+  fallbackIcon: Icon
+}: {
+  brandLogoUrl: string | null;
+  source: KnowledgeSourceRow;
+  fallbackIcon: LucideIcon;
+}) {
+  const logoCandidates = useMemo(() => getSourceLogoCandidates(source, brandLogoUrl), [source, brandLogoUrl]);
+  const [logoIndex, setLogoIndex] = useState(0);
+  const logoUrl = logoCandidates[logoIndex] ?? null;
+
+  if (source.source_type === "url" && logoUrl) {
+    return (
+      <img
+        src={logoUrl}
+        alt=""
+        className="h-full w-full object-contain p-1.5"
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        onError={() => setLogoIndex((current) => current + 1)}
+      />
+    );
+  }
+
+  return <Icon size={18} />;
 }
 
 function StatCard({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: React.ReactNode }) {
@@ -416,6 +465,59 @@ function sourceSubtitle(source: KnowledgeSourceRow) {
   }
 
   return `${capitalize(source.source_type)} · ${new Date(source.created_at).toLocaleDateString()}`;
+}
+
+function getSourceLogoCandidates(source: KnowledgeSourceRow, brandLogoUrl: string | null) {
+  if (source.source_type !== "url") {
+    return [];
+  }
+
+  const metadataLogoUrl = getMetadataString(source.metadata, [
+    "logo_url",
+    "logoUrl",
+    "favicon_url",
+    "faviconUrl",
+    "icon_url",
+    "iconUrl",
+    "brand_logo_url",
+    "brandLogoUrl",
+    "og_logo",
+    "ogLogo"
+  ]);
+  const sourceUrl = getMetadataString(source.metadata, ["url", "source_url", "sourceUrl"]);
+  const fallbackIcons = getUrlIconCandidates(sourceUrl);
+
+  return Array.from(new Set([
+    metadataLogoUrl,
+    ...fallbackIcons,
+    brandLogoUrl
+  ].filter((value): value is string => Boolean(value))));
+}
+
+function getMetadataString(metadata: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = metadata[key];
+
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
+function getUrlIconCandidates(value: string | null) {
+  if (!value) {
+    return [];
+  }
+
+  try {
+    const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+    const origin = new URL(withProtocol).origin;
+    return [`${origin}/apple-touch-icon.png`, `${origin}/favicon.ico`];
+  } catch {
+    return [];
+  }
 }
 
 function getStats(sources: KnowledgeSourceRow[]) {

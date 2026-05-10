@@ -6,13 +6,14 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ToastViewport, useToast } from "@/components/ui/toast";
 
 type WidgetInstallPanelProps = {
+  brandLogoUrl: string | null;
   botId: string;
   allowedDomains: string[];
 };
 
 const productionOrigin = "https://app.harlo.ai";
 
-export function WidgetInstallPanel({ botId, allowedDomains }: WidgetInstallPanelProps) {
+export function WidgetInstallPanel({ brandLogoUrl, botId, allowedDomains }: WidgetInstallPanelProps) {
   const { toast, showToast, dismissToast } = useToast();
   const productionSnippet = buildSnippet(productionOrigin, botId);
   const hasDomains = allowedDomains.length > 0;
@@ -59,7 +60,7 @@ export function WidgetInstallPanel({ botId, allowedDomains }: WidgetInstallPanel
 
         <div className="min-w-0 space-y-4">
           <StatusCard
-            icon={<Globe2 size={18} />}
+            icon={<WebsiteLogoIcon brandLogoUrl={brandLogoUrl} size="md" fallback={<Globe2 size={18} />} />}
             title={hasDomains ? "Allowed domains" : "No domains added"}
             body={hasDomains ? `${allowedDomains.length} website${allowedDomains.length === 1 ? "" : "s"} can load this bot.` : "Add domains in Builder before putting the widget on a live website."}
             tone={hasDomains ? "ready" : "warning"}
@@ -95,9 +96,7 @@ export function WidgetInstallPanel({ botId, allowedDomains }: WidgetInstallPanel
               <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
                 {allowedDomains.map((domain) => (
                   <div key={domain} className="flex items-center gap-3 rounded-lg border border-harlo-line p-3">
-                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-harlo-mist text-harlo-teal">
-                      <Globe2 size={16} />
-                    </span>
+                    <WebsiteLogoIcon brandLogoUrl={brandLogoUrl} size="sm" fallback={<Globe2 size={16} />} />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-harlo-ink">{domain}</p>
                       <p className="text-xs text-harlo-muted">Widget allowed</p>
@@ -138,6 +137,34 @@ function ChecklistItem({ title, body }: { title: string; body: string }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function WebsiteLogoIcon({
+  brandLogoUrl,
+  fallback,
+  size
+}: {
+  brandLogoUrl: string | null;
+  fallback: React.ReactNode;
+  size: "sm" | "md";
+}) {
+  const sizeClass = size === "sm" ? "h-9 w-9" : "h-10 w-10";
+
+  return (
+    <span className={`grid ${sizeClass} shrink-0 place-items-center overflow-hidden rounded-lg bg-harlo-mist text-harlo-teal`}>
+      {brandLogoUrl ? (
+        <img
+          src={brandLogoUrl}
+          alt=""
+          className="h-full w-full object-contain p-1.5"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        fallback
+      )}
+    </span>
   );
 }
 

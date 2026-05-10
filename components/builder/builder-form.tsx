@@ -18,6 +18,7 @@ type BuilderFormProps = {
     accent: string;
     launcherPosition: "bottom-right" | "bottom-left";
     welcomePrompts: string[];
+    brandLogoUrl: string | null;
     allowedDomains: string[];
     leadCaptureFields: LeadCaptureField[];
   };
@@ -343,6 +344,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
           accent={accent}
           launcherPosition={launcherPosition}
           welcomePrompts={cleanPrompts}
+          brandLogoUrl={initial.brandLogoUrl}
         />
       </aside>
     </div>

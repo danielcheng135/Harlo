@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAppUrl, getStripe, isBillingInterval, isBillingPlanKey, resolvePlanPriceId } from "@/lib/billing/stripe";
+import { TRIAL_CONFIG } from "@/lib/billing/plans";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const planKey = body.planKey;
   const interval = body.interval;
+  const successPath = sanitizePath(body.successPath, "/dashboard/billing?checkout=success");
+  const cancelPath = sanitizePath(body.cancelPath, "/dashboard/billing?checkout=canceled");
 
   if (!isBillingPlanKey(planKey) || !isBillingInterval(interval)) {
     return NextResponse.json({ error: "Choose a valid plan and billing interval." }, { status: 400 });
@@ -90,10 +93,23 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  await service.from("organization_billing").upsert({
+    organization_id: organization.id,
+    stripe_customer_id: customerId,
+    plan_key: planKey,
+    billing_interval: interval,
+    status: "incomplete"
+  }, {
+    onConflict: "organization_id"
+  });
+
   const appUrl = getAppUrl(request.url);
+  const successUrl = buildCheckoutUrl(appUrl, successPath, true);
+  const cancelUrl = buildCheckoutUrl(appUrl, cancelPath, false);
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: customerId,
+    payment_method_collection: "always",
     line_items: [
       {
         price: priceId,
@@ -101,9 +117,10 @@ export async function POST(request: NextRequest) {
       }
     ],
     allow_promotion_codes: true,
-    success_url: `${appUrl}/dashboard/billing?checkout=success`,
-    cancel_url: `${appUrl}/dashboard/billing?checkout=canceled`,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
     subscription_data: {
+      ...(planKey === TRIAL_CONFIG.convertsToPlan ? { trial_period_days: TRIAL_CONFIG.days } : {}),
       metadata: {
         organization_id: organization.id,
         plan_key: planKey,
@@ -122,4 +139,22 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ url: session.url });
+}
+
+function sanitizePath(value: unknown, fallback: string) {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
+    return fallback;
+  }
+
+  return value;
+}
+
+function buildCheckoutUrl(appUrl: string, path: string, includeSessionId: boolean) {
+  const url = new URL(path, appUrl);
+
+  if (includeSessionId) {
+    url.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
+  }
+
+  return url.toString().replace("%7BCHECKOUT_SESSION_ID%7D", "{CHECKOUT_SESSION_ID}");
 }

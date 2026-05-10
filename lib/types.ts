@@ -3,6 +3,7 @@ export type BotConfig = {
   name: string;
   organizationId: string;
   businessName: string;
+  brandLogoUrl: string | null;
   greeting: string;
   fallbackMessage: string;
   tone: "calm" | "friendly" | "concise";

@@ -14,6 +14,7 @@ import {
 import { MessageVolumeCard } from "@/components/analytics/message-volume-card";
 import type { MessageVolumePoint } from "@/components/analytics/message-volume-line-chart";
 import { ChatWidgetPreview } from "@/components/chat-widget-preview";
+import { WelcomeChecklist } from "@/components/dashboard/welcome-checklist";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import {
@@ -51,6 +52,8 @@ export default async function DashboardPage() {
           A quick pulse on conversations, leads, AI resolution, and knowledge readiness.
         </p>
       </div>
+
+      <WelcomeChecklist organizationId={workspace.organization.id} sources={sources} />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <OverviewMetric
@@ -111,6 +114,7 @@ export default async function DashboardPage() {
             accent={workspace.bot.widget_theme.accent}
             launcherPosition={workspace.bot.widget_theme.launcher_position}
             welcomePrompts={workspace.bot.widget_theme.welcome_prompts}
+            brandLogoUrl={workspace.organization.brand_logo_url ?? null}
           />
           <Card>
             <CardHeader>

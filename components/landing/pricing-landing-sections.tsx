@@ -15,6 +15,7 @@ import {
   type BillingInterval,
   type BillingPlanKey
 } from "@/lib/billing/plans";
+import { getSignupHref } from "@/lib/onboarding/signup-url";
 
 const planIcons: Record<string, { shape: string; gradient: string; inner: string }> = {
   starter: {
@@ -39,8 +40,6 @@ const landingPlanCtas: Record<string, string> = {
   growth: "Subscribe",
   pro: "Subscribe"
 };
-
-const START_FREE_TRIAL_HREF = "/auth/sign-up";
 
 const landingPlanDescriptions: Record<string, string> = {
   starter: "For small teams launching one chatbot.",
@@ -214,7 +213,7 @@ export function PricingLandingSections({
                 </div>
                 <p className="mt-3 text-base leading-7 text-harlo-muted">{landingPlanDescriptions[plan.key]}</p>
                 <Link
-                  href={plan.key === "starter" ? START_FREE_TRIAL_HREF : "/dashboard"}
+                  href={getSignupHref(plan.key, interval)}
                   className={`mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-base font-semibold transition focus:outline-none focus:ring-2 focus:ring-harlo-teal focus:ring-offset-2 ${
                     plan.key === "growth"
                       ? "bg-harlo-ink text-white shadow-sm hover:bg-harlo-navy"
@@ -417,7 +416,7 @@ export function PricingLandingSections({
               </h2>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Link
-                  href={START_FREE_TRIAL_HREF}
+                  href={getSignupHref("starter", interval)}
                   className="inline-flex h-12 items-center justify-center rounded-full bg-white px-6 text-sm font-semibold text-harlo-ink transition hover:bg-harlo-mist focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-harlo-ink"
                 >
                   Start free trial
@@ -435,7 +434,7 @@ export function PricingLandingSections({
   );
 }
 
-function BillingIntervalToggle({
+export function BillingIntervalToggle({
   interval,
   onChange
 }: {

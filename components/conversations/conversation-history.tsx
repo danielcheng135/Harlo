@@ -10,9 +10,10 @@ type ConversationHistoryProps = {
   conversations: InboxConversationRow[];
   initialConversationId?: string;
   botName: string;
+  accent: string;
 };
 
-export function ConversationHistory({ conversations, initialConversationId, botName }: ConversationHistoryProps) {
+export function ConversationHistory({ conversations, initialConversationId, botName, accent }: ConversationHistoryProps) {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState(initialConversationId ?? conversations[0]?.id ?? "");
 
@@ -91,7 +92,7 @@ export function ConversationHistory({ conversations, initialConversationId, botN
         </aside>
 
         {selectedConversation ? (
-          <ConversationTranscript conversation={selectedConversation} botName={botName} />
+          <ConversationTranscript conversation={selectedConversation} botName={botName} accent={accent} />
         ) : (
           <div className="grid min-h-0 place-items-center p-8 text-center">
             <div>
@@ -155,7 +156,7 @@ function ConversationRow({
   );
 }
 
-function ConversationTranscript({ conversation, botName }: { conversation: InboxConversationRow; botName: string }) {
+function ConversationTranscript({ conversation, botName, accent }: { conversation: InboxConversationRow; botName: string; accent: string }) {
   const retrievals = conversation.messages.flatMap((message) => getRetrievals(message));
 
   return (
@@ -175,7 +176,7 @@ function ConversationTranscript({ conversation, botName }: { conversation: Inbox
 
         <div className="min-h-0 flex-1 overflow-auto bg-white p-5">
           {conversation.messages.map((message) => (
-            <MessageBubble key={message.id} message={message} botName={botName} />
+            <MessageBubble key={message.id} message={message} botName={botName} accent={accent} />
           ))}
         </div>
       </div>
@@ -230,20 +231,24 @@ function ConversationTranscript({ conversation, botName }: { conversation: Inbox
 
 function MessageBubble({
   message,
-  botName
+  botName,
+  accent
 }: {
   message: InboxMessageRow;
   botName: string;
+  accent: string;
 }) {
   const isUser = message.role === "user";
+  const accentText = getReadableTextColor(accent);
 
   return (
     <>
       <div
         className={cn(
           "block w-fit max-w-[86%] whitespace-normal rounded-[10px] px-3 py-[11px] text-sm leading-[1.45]",
-          isUser ? "mb-4 ml-auto bg-harlo-ink text-white" : "mb-1 bg-harlo-teal text-white"
+          isUser ? "mb-4 ml-auto" : "mb-1 border border-harlo-line bg-slate-100 text-harlo-ink"
         )}
+        style={isUser ? { backgroundColor: accent, color: accentText } : undefined}
       >
         <FormattedMessageContent content={message.content} />
       </div>
@@ -393,4 +398,19 @@ function formatDateTime(value: string) {
     hour: "numeric",
     minute: "2-digit"
   }).format(new Date(value));
+}
+
+function getReadableTextColor(color: string) {
+  const normalized = color.replace("#", "");
+
+  if (!/^[0-9a-f]{6}$/i.test(normalized)) {
+    return "#ffffff";
+  }
+
+  const red = parseInt(normalized.slice(0, 2), 16);
+  const green = parseInt(normalized.slice(2, 4), 16);
+  const blue = parseInt(normalized.slice(4, 6), 16);
+  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
+
+  return luminance > 0.62 ? "#111827" : "#ffffff";
 }

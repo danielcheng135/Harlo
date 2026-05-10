@@ -37,9 +37,9 @@ export const BILLING_PLANS: BillingPlan[] = [
     annualMonthlyPrice: 31,
     monthlyCredits: 500,
     includedAgents: 1,
-    seats: 2,
+    seats: 1,
     description: "For small businesses adding one chatbot to their website.",
-    features: ["500 message credits/month", "1 agent", "2 seats", "Lead capture", "Basic analytics"]
+    features: ["500 message credits/month", "1 agent", "1 seat", "Lead capture", "Basic analytics"]
   },
   {
     key: "growth",

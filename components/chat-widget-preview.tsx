@@ -7,6 +7,7 @@ type ChatWidgetPreviewProps = {
   accent?: string;
   launcherPosition?: "bottom-right" | "bottom-left";
   welcomePrompts?: string[];
+  brandLogoUrl?: string | null;
 };
 
 export function ChatWidgetPreview({
@@ -14,7 +15,8 @@ export function ChatWidgetPreview({
   greeting = "Hi, I can answer questions about services, pricing, and availability.",
   accent = "#087f95",
   launcherPosition = "bottom-right",
-  welcomePrompts = ["What services do you offer?", "How much does it cost?"]
+  welcomePrompts = ["What services do you offer?", "How much does it cost?"],
+  brandLogoUrl = null
 }: ChatWidgetPreviewProps) {
   const accentText = getReadableTextColor(accent);
 
@@ -23,8 +25,23 @@ export function ChatWidgetPreview({
       <div className="rounded-lg bg-white p-5 shadow-soft">
         <div className="flex items-center justify-between border-b border-harlo-line pb-4">
           <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-lg" style={{ background: accent, color: accentText }}>
-              <Sparkles size={18} />
+            <span
+              className={`grid h-10 w-10 place-items-center overflow-hidden rounded-lg ${
+                brandLogoUrl ? "bg-harlo-mist text-harlo-teal" : ""
+              }`}
+              style={brandLogoUrl ? undefined : { background: accent, color: accentText }}
+            >
+              {brandLogoUrl ? (
+                <img
+                  src={brandLogoUrl}
+                  alt=""
+                  className="h-full w-full object-contain p-1.5"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <Sparkles size={18} />
+              )}
             </span>
             <div>
               <p className="text-sm font-semibold text-harlo-ink">{title}</p>
@@ -35,13 +52,13 @@ export function ChatWidgetPreview({
         </div>
 
         <div className="space-y-3 py-5">
-          <div className="max-w-[82%] rounded-lg p-3 text-sm" style={{ background: accent, color: accentText }}>
+          <div className="max-w-[82%] rounded-lg bg-slate-100 p-3 text-sm text-harlo-ink">
             {greeting}
           </div>
-          <div className="ml-auto max-w-[82%] rounded-lg bg-harlo-ink p-3 text-sm text-white">
+          <div className="ml-auto max-w-[82%] rounded-lg p-3 text-sm" style={{ background: accent, color: accentText }}>
             {welcomePrompts[0] ?? "What services do you offer?"}
           </div>
-          <div className="max-w-[86%] rounded-lg p-3 text-sm" style={{ background: accent, color: accentText }}>
+          <div className="max-w-[86%] rounded-lg bg-slate-100 p-3 text-sm text-harlo-ink">
             Here is how the widget will look with this brand color.
           </div>
         </div>
