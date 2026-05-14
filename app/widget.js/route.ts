@@ -5,9 +5,11 @@ export function GET() {
 (function () {
   var currentScript = document.currentScript;
   var botId = currentScript && currentScript.getAttribute("data-harlo-bot");
-  if (!botId || document.getElementById("harlo-widget-root")) return;
+  var organizationId = currentScript && (currentScript.getAttribute("data-harlo-organization") || currentScript.getAttribute("data-harlo-org"));
+  var pageUrlOverride = currentScript && currentScript.getAttribute("data-harlo-page-url");
+  if ((!botId && !organizationId) || document.getElementById("harlo-widget-root")) return;
   var baseUrl = new URL(currentScript.src).origin;
-  window.localStorage.removeItem("harlo:conversation:" + botId);
+  var conversationStorageKey = "";
   var conversationId = "";
   var visitorId = window.localStorage.getItem("harlo:visitor");
   if (!visitorId) {
@@ -16,6 +18,10 @@ export function GET() {
   }
   var messages = [];
   var config = null;
+
+  function getCurrentPageUrl() {
+    return pageUrlOverride || window.location.href;
+  }
 
   var root = document.createElement("div");
   root.id = "harlo-widget-root";
@@ -396,7 +402,7 @@ export function GET() {
         message: text,
         visitor: {
           anonymousId: visitorId,
-          pageUrl: window.location.href,
+          pageUrl: getCurrentPageUrl(),
           referrer: document.referrer
         }
       })
@@ -411,7 +417,9 @@ export function GET() {
         conversationId = result.json.conversationId;
         if (result.json.leadCaptured) {
           conversationId = "";
-          window.localStorage.removeItem("harlo:conversation:" + botId);
+          window.localStorage.removeItem(conversationStorageKey || ("harlo:conversation:" + botId));
+        } else if (conversationStorageKey && conversationId) {
+          window.localStorage.setItem(conversationStorageKey, conversationId);
         }
         if (result.json.billingLimitReached) {
           revealAssistantMessage(result.json.answer, pauseAfterMessage, result.json.billingAlertSent ? "billing-limit-sent" : "billing-limit");
@@ -425,13 +433,21 @@ export function GET() {
       });
   }
 
-  fetch(baseUrl + "/api/widget/config?botId=" + encodeURIComponent(botId))
+  var configUrl = new URL(baseUrl + "/api/widget/config");
+  if (botId) configUrl.searchParams.set("botId", botId);
+  if (organizationId) configUrl.searchParams.set("organizationId", organizationId);
+  configUrl.searchParams.set("pageUrl", getCurrentPageUrl());
+
+  fetch(configUrl.toString())
     .then(function (response) { return response.json().then(function (json) { return { ok: response.ok, json: json }; }); })
     .then(function (result) {
       if (!result.ok) {
         throw new Error(result.json && result.json.error ? result.json.error : "Widget unavailable.");
       }
       config = result.json;
+      botId = config.id || botId;
+      conversationStorageKey = "harlo:conversation:" + botId;
+      conversationId = window.localStorage.getItem(conversationStorageKey) || "";
       title.textContent = config.theme.title || config.name || "Ask Harlo";
       subtitle.textContent = "AI assistant for " + (config.businessName || config.name || "this business");
       setAccent(config.theme.accent);

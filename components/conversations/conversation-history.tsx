@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AlertCircle, CheckCircle2, Clock3, Mail, MessageSquare, Search, UserRound } from "lucide-react";
+import { AgentBadge } from "@/components/agent-badge";
 import { Badge } from "@/components/ui/badge";
 import type { InboxConversationRow, InboxMessageRow } from "@/lib/harlo/data";
 import { cn, formatPercent } from "@/lib/utils";
@@ -9,13 +10,22 @@ import { cn, formatPercent } from "@/lib/utils";
 type ConversationHistoryProps = {
   conversations: InboxConversationRow[];
   initialConversationId?: string;
-  botName: string;
-  accent: string;
+  activeAgentId?: string;
 };
 
-export function ConversationHistory({ conversations, initialConversationId, botName, accent }: ConversationHistoryProps) {
+export function ConversationHistory({ conversations, initialConversationId, activeAgentId }: ConversationHistoryProps) {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState(initialConversationId ?? conversations[0]?.id ?? "");
+
+  useEffect(() => {
+    setSelectedId((current) => {
+      if (current && conversations.some((conversation) => conversation.id === current)) {
+        return current;
+      }
+
+      return initialConversationId ?? conversations[0]?.id ?? "";
+    });
+  }, [conversations, initialConversationId]);
 
   const filteredConversations = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -32,13 +42,15 @@ export function ConversationHistory({ conversations, initialConversationId, botN
         formatPageLabel(conversation.page_url),
         searchableMessages,
         conversation.outcome,
-        leadText
+        leadText,
+        conversation.bot_name ?? "",
+        conversation.agent_type ?? ""
       ].some((value) => value.toLowerCase().includes(normalizedQuery));
     });
   }, [conversations, query]);
 
   const selectedConversation =
-    conversations.find((conversation) => conversation.id === selectedId) ?? filteredConversations[0] ?? conversations[0] ?? null;
+    filteredConversations.find((conversation) => conversation.id === selectedId) ?? filteredConversations[0] ?? conversations[0] ?? null;
   const totalMessages = conversations.reduce((total, conversation) => total + conversation.messages.length, 0);
   const averageMessages = conversations.length > 0 ? Math.round(totalMessages / conversations.length) : 0;
   const answeredCount = conversations.filter((conversation) => conversation.outcome === "Answered").length;
@@ -46,7 +58,14 @@ export function ConversationHistory({ conversations, initialConversationId, botN
 
   function selectConversation(conversationId: string) {
     setSelectedId(conversationId);
-    window.history.pushState(null, "", `/dashboard/conversations?conversation=${conversationId}`);
+    const params = new URLSearchParams();
+
+    if (activeAgentId) {
+      params.set("agent", activeAgentId);
+    }
+
+    params.set("conversation", conversationId);
+    window.history.pushState(null, "", `/dashboard/conversations?${params.toString()}`);
   }
 
   return (
@@ -92,7 +111,7 @@ export function ConversationHistory({ conversations, initialConversationId, botN
         </aside>
 
         {selectedConversation ? (
-          <ConversationTranscript conversation={selectedConversation} botName={botName} accent={accent} />
+          <ConversationTranscript conversation={selectedConversation} />
         ) : (
           <div className="grid min-h-0 place-items-center p-8 text-center">
             <div>
@@ -149,15 +168,23 @@ function ConversationRow({
         <OutcomeBadge outcome={conversation.outcome} />
       </div>
       <div className="mt-3 flex items-center justify-between gap-3 text-xs text-harlo-muted">
-        <span>{conversation.messages.length} messages</span>
-        <span>{formatDateTime(conversation.last_message_at)}</span>
+        <AgentBadge
+          compact
+          name={conversation.bot_name}
+          type={conversation.agent_type}
+          accent={conversation.bot_accent}
+          className="max-w-[70%]"
+        />
+        <span className="shrink-0">{conversation.messages.length} · {formatDateTime(conversation.last_message_at)}</span>
       </div>
     </button>
   );
 }
 
-function ConversationTranscript({ conversation, botName, accent }: { conversation: InboxConversationRow; botName: string; accent: string }) {
+function ConversationTranscript({ conversation }: { conversation: InboxConversationRow }) {
   const retrievals = conversation.messages.flatMap((message) => getRetrievals(message));
+  const botName = conversation.bot_name ?? "Harlo";
+  const accent = conversation.bot_accent ?? "#087f95";
 
   return (
     <section className="grid min-h-0 xl:grid-cols-[1fr_300px]">
@@ -170,7 +197,10 @@ function ConversationTranscript({ conversation, botName, accent }: { conversatio
                 Started {formatDateTime(conversation.created_at)} · {conversation.visitor_id ? "Known visitor" : "Anonymous visitor"}
               </p>
             </div>
-            <OutcomeBadge outcome={conversation.outcome} />
+            <div className="flex flex-wrap items-center gap-2">
+              <AgentBadge name={botName} type={conversation.agent_type} accent={accent} />
+              <OutcomeBadge outcome={conversation.outcome} />
+            </div>
           </div>
         </header>
 

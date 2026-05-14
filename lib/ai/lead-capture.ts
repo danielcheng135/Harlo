@@ -1,4 +1,6 @@
 const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+const NAME_CORRECTION_PREFIX_PATTERN =
+  /^(?:sorry|apologies|actually|oops|oh|wait|no|nah|correction|to clarify|i mean)\b[,.\s]*/i;
 
 export type LeadDraft = {
   name?: string;
@@ -19,8 +21,10 @@ export function extractLeadDraftFromConversation(messages: Array<{ role: string;
 
     const next = mergeLeadDraft(current, extractLeadFields(message.content));
 
-    if (!next.name && isStandaloneName(message.content) && previousAssistantAskedForName(messages, index)) {
-      next.name = message.content.trim();
+    const standaloneName = previousAssistantAskedForName(messages, index) ? extractStandaloneName(message.content) : null;
+
+    if (!next.name && standaloneName) {
+      next.name = standaloneName;
     }
 
     return next;
@@ -72,11 +76,7 @@ export function extractLeadFields(message: string): LeadDraft {
   const fallbackNameMatch =
     beforeEmail.match(/(?:my name is|name is|i am|i'm|this is)\s+([a-z][a-z .'-]{1,58})(?:\s+and)?$/i) ??
     (email ? beforeEmail.match(/^([a-z][a-z .'-]{1,60})$/i) : null);
-  const name =
-    (explicitName ?? fallbackNameMatch?.[1])
-      ?.replace(/\b(?:and\s+)?(?:my\s+)?(?:email|e-mail)(?:\s+address)?\s+(?:is|:)?\s*$/i, "")
-      .replace(/[,.\s]+$/g, "")
-      .trim();
+  const name = cleanName(explicitName ?? fallbackNameMatch?.[1]);
   const propertySize =
     message.match(/\b(?:property\s*)?size\s*:\s*([^,\n]+?)(?=\s+(?:date|preferred date|email|name)\s*:|$)/i)?.[1]?.trim() ??
     message.match(/\b(?:property\s*)?size\s+(?:is|=)\s*([^,\n]+?)(?=\s+(?:and\s+)?(?:preferred\s+)?date\s+(?:is|=)|$)/i)?.[1]?.trim() ??
@@ -261,7 +261,45 @@ function isStandaloneName(message: string) {
     !mentionsEmail(trimmed) &&
     !isConfirmationOnly(trimmed) &&
     !isDeclineOnly(trimmed) &&
-    !/\d|@|:|\b(?:quote|price|service|size|date|property|cleaning|sure|please|that|do|ok|okay|yes|no|thanks|thank|alright|fine|good|help|show|tell)\b/i.test(trimmed)
+    !/\d|@|:|\b(?:quote|price|service|size|date|property|cleaning|sure|please|that|the|a|an|do|ok|okay|yes|no|nah|sorry|actually|oops|wait|correction|clarify|mean|thanks|thank|alright|fine|good|help|show|tell)\b/i.test(trimmed)
+  );
+}
+
+function cleanName(value: string | null | undefined) {
+  const cleaned = stripNameCorrectionPrefix(value ?? "")
+    .replace(/^(?:the\s+)?(?:my\s+)?name\s+(?:is|:)\s+/i, "")
+    .replace(/\b(?:and\s+)?(?:my\s+)?(?:email|e-mail)(?:\s+address)?\s+(?:is|:)?\s*$/i, "")
+    .replace(/[,.\s]+$/g, "")
+    .trim();
+
+  return cleaned && !isNameFiller(cleaned) && !/^(?:the|a|an)\s+/i.test(cleaned) ? cleaned : null;
+}
+
+function extractStandaloneName(message: string) {
+  const cleaned = cleanName(message);
+
+  return cleaned && isStandaloneName(cleaned) ? cleaned : null;
+}
+
+function stripNameCorrectionPrefix(value: string) {
+  let current = value.trim();
+
+  for (let count = 0; count < 4; count += 1) {
+    const next = current.replace(NAME_CORRECTION_PREFIX_PATTERN, "").trim();
+
+    if (next === current) {
+      return current;
+    }
+
+    current = next;
+  }
+
+  return current;
+}
+
+function isNameFiller(value: string) {
+  return /^(?:sorry|apologies|actually|oops|oh|wait|no|nah|yes|ok|okay|the|a|an|thanks|thank you|correction|to clarify|i mean)$/i.test(
+    value
   );
 }
 

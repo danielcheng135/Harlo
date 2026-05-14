@@ -17,6 +17,9 @@ export default async function OnboardingPage() {
   const {
     data: { user }
   } = await supabase.auth.getUser();
+  let initialBusinessName = getBusinessName(user?.user_metadata);
+  let initialWebsiteUrl = "";
+  let initialAssistantName = "";
 
   if (user) {
     const { data: membership } = await supabase
@@ -29,21 +32,41 @@ export default async function OnboardingPage() {
 
     if (membership) {
       const service = createSupabaseServiceClient();
-      const { data: billing } = await service
-        .from("organization_billing")
-        .select("status")
-        .eq("organization_id", membership.organization_id)
-        .maybeSingle();
+      const [{ data: organization }, { data: bot }, { data: billing }] = await Promise.all([
+        service
+          .from("organizations")
+          .select("name, website_url")
+          .eq("id", membership.organization_id)
+          .maybeSingle(),
+        service
+          .from("bots")
+          .select("name")
+          .eq("organization_id", membership.organization_id)
+          .eq("status", "active")
+          .order("is_default", { ascending: false })
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle(),
+        service
+          .from("organization_billing")
+          .select("status")
+          .eq("organization_id", membership.organization_id)
+          .maybeSingle()
+      ]);
 
-      if (billing?.status === "active" || billing?.status === "trialing") {
+      initialBusinessName = organization?.name ?? initialBusinessName;
+      initialWebsiteUrl = organization?.website_url ?? "";
+      initialAssistantName = bot?.name ?? "";
+
+      if (organization && bot && (billing?.status === "active" || billing?.status === "trialing")) {
         redirect("/dashboard?welcome=1");
       }
 
-      redirect("/onboarding/checkout");
+      if (organization && bot) {
+        redirect("/onboarding/checkout");
+      }
     }
   }
-
-  const initialBusinessName = getBusinessName(user?.user_metadata);
 
   return (
     <main className="min-h-screen bg-harlo-canvas">
@@ -68,7 +91,11 @@ export default async function OnboardingPage() {
               </div>
             }
           >
-            <OnboardingForm initialBusinessName={initialBusinessName} />
+            <OnboardingForm
+              initialAssistantName={initialAssistantName}
+              initialBusinessName={initialBusinessName}
+              initialWebsiteUrl={initialWebsiteUrl}
+            />
           </Suspense>
         </div>
       </section>

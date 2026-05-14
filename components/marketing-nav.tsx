@@ -29,9 +29,8 @@ export function MarketingNav({
   return (
     <header className="sticky top-3 z-40 mx-auto max-w-6xl px-3 sm:top-4 sm:px-4">
       <div
-        className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-0 border border-white/80 bg-[#f7faf8]/90 px-3 py-2 shadow-[0_18px_45px_rgba(15,23,42,0.08)] ring-1 ring-harlo-line/70 backdrop-blur-xl transition-[border-radius] duration-200 ease-out md:h-16 md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-3 md:rounded-full md:px-4 md:py-0 ${
-          isOpen ? "rounded-2xl" : "rounded-[2rem]"
-        }`}
+        className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-0 border border-white/80 bg-[#f7faf8]/90 px-3 py-2 shadow-[0_18px_45px_rgba(15,23,42,0.08)] ring-1 ring-harlo-line/70 backdrop-blur-xl transition-[border-radius] duration-200 ease-out md:h-16 md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-3 md:rounded-full md:px-4 md:py-0 ${isOpen ? "rounded-2xl" : "rounded-[2rem]"
+          }`}
       >
         <Link href="/" className="inline-flex h-12 min-w-0 shrink-0 items-center self-center" aria-label="Harlo home">
           <BrandLogo />
@@ -69,9 +68,8 @@ export function MarketingNav({
           {isOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
         <div
-          className={`order-4 col-span-2 grid overflow-hidden transition-[grid-template-rows,opacity,padding-top] duration-[250ms] ease-out md:hidden ${
-            isOpen ? "grid-rows-[1fr] pt-2 opacity-100" : "grid-rows-[0fr] pt-0 opacity-0"
-          }`}
+          className={`order-4 col-span-2 grid overflow-hidden transition-[grid-template-rows,opacity,padding-top] duration-[250ms] ease-out md:hidden ${isOpen ? "grid-rows-[1fr] pt-2 opacity-100" : "grid-rows-[0fr] pt-0 opacity-0"
+            }`}
         >
           <div
             className={`min-h-0 overflow-hidden transition-transform duration-300 ease-out ${isOpen ? "translate-y-0" : "-translate-y-2"

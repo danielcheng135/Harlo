@@ -47,17 +47,24 @@ const MIN_READY_DWELL_MS = 5500;
 const STEP_REVEAL_DELAY_MS = 1100;
 
 type OnboardingFormProps = {
+  initialAssistantName?: string;
   initialBusinessName?: string;
+  initialWebsiteUrl?: string;
 };
 
-export function OnboardingForm({ initialBusinessName = "" }: OnboardingFormProps) {
+export function OnboardingForm({
+  initialAssistantName = "",
+  initialBusinessName = "",
+  initialWebsiteUrl = ""
+}: OnboardingFormProps) {
   const searchParams = useSearchParams();
   const initialPlanKey = normalizePlanKey(searchParams.get("plan"));
   const initialInterval = normalizeInterval(searchParams.get("interval"));
   const cleanInitialBusinessName = initialBusinessName.trim();
+  const cleanInitialAssistantName = initialAssistantName.trim();
   const [businessName, setBusinessName] = useState(cleanInitialBusinessName);
-  const [websiteUrl, setWebsiteUrl] = useState("");
-  const [botName, setBotName] = useState(cleanInitialBusinessName ? `${cleanInitialBusinessName} Assistant` : "Harlo Assistant");
+  const [websiteUrl, setWebsiteUrl] = useState(initialWebsiteUrl.trim());
+  const [botName, setBotName] = useState(cleanInitialAssistantName || (cleanInitialBusinessName ? `${cleanInitialBusinessName} Assistant` : "Harlo Assistant"));
   const [primaryGoal, setPrimaryGoal] = useState<PrimaryGoal>("both");
   const [tone, setTone] = useState<Tone>("friendly");
   const [accent, setAccent] = useState("#087f95");

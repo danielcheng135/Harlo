@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAgentTemplate, getAgentTypeForGoal } from "@/lib/agents";
 import { createPendingUrlSource, reingestUrlSource } from "@/lib/knowledge/ingestion";
 import { discoverWebsiteLogo, getFallbackLogoUrl, getWebsiteIdentity } from "@/lib/onboarding/website";
 import { isBillingInterval, isBillingPlanKey } from "@/lib/billing/stripe";
@@ -22,6 +23,7 @@ const ACCENT_PATTERN = /^#[0-9a-f]{6}$/i;
 const LOGO_DISCOVERY_TIMEOUT_MS = 9000;
 
 type LogoDiscovery = Awaited<ReturnType<typeof discoverWebsiteLogo>>;
+type ServiceClient = ReturnType<typeof createSupabaseServiceClient>;
 
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => ({}))) as OnboardingRequest;
@@ -32,6 +34,8 @@ export async function POST(request: NextRequest) {
   const accent = body.accent?.trim() ?? "#087f95";
   const planKey = isBillingPlanKey(body.planKey) ? body.planKey : "starter";
   const interval = isBillingInterval(body.interval) ? body.interval : "monthly";
+  const agentType = getAgentTypeForGoal(primaryGoal);
+  const agentTemplate = getAgentTemplate(agentType);
 
   if (!businessName || !body.websiteUrl || !botName) {
     return NextResponse.json({ error: "Add your business name, website, and assistant name." }, { status: 400 });
@@ -81,14 +85,137 @@ export async function POST(request: NextRequest) {
   if (existingMembership) {
     const { data: existingOrganization } = await serviceClient
       .from("organizations")
-      .select("brand_logo_url")
+      .select("id, brand_logo_url")
       .eq("id", existingMembership.organization_id)
       .maybeSingle();
 
+    if (!existingOrganization) {
+      return NextResponse.json({ error: "Could not find your workspace. Please contact support." }, { status: 409 });
+    }
+
+    const logoUrl = existingOrganization.brand_logo_url ?? fallbackLogoUrl;
+
+    await serviceClient
+      .from("organizations")
+      .update({
+        name: businessName,
+        website_url: website.normalizedUrl,
+        brand_logo_url: logoUrl,
+        metadata: {
+          onboarding: {
+            goal: primaryGoal,
+            tone,
+            logo_discovery_status: existingOrganization.brand_logo_url ? "ready" : "fallback",
+            logo_discovery_error: null
+          }
+        },
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", existingMembership.organization_id);
+
+    const { data: existingBot } = await serviceClient
+      .from("bots")
+      .select("id")
+      .eq("organization_id", existingMembership.organization_id)
+      .eq("status", "active")
+      .order("is_default", { ascending: false })
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    let botId = existingBot?.id ?? null;
+
+    if (!botId) {
+      const { data: repairedBot, error: repairedBotError } = await serviceClient
+        .from("bots")
+        .insert({
+          organization_id: existingMembership.organization_id,
+          name: botName,
+          agent_type: agentType,
+          description: agentTemplate.defaultDescription,
+          system_instructions: agentTemplate.systemInstructions,
+          handoff_instructions: agentTemplate.handoffInstructions,
+          is_default: true,
+          greeting: getGreeting(primaryGoal, tone),
+          fallback_message: getFallbackMessage(primaryGoal),
+          allowed_domains: [website.hostname],
+          status: "active"
+        })
+        .select("id")
+        .single();
+
+      if (repairedBotError || !repairedBot) {
+        return NextResponse.json({ error: repairedBotError?.message ?? "Could not repair chatbot setup." }, { status: 500 });
+      }
+
+      botId = repairedBot.id;
+    }
+
+    const { data: existingTheme } = await serviceClient
+      .from("widget_themes")
+      .select("id")
+      .eq("bot_id", botId)
+      .maybeSingle();
+
+    if (!existingTheme) {
+      const { error: themeRepairError } = await serviceClient.from("widget_themes").insert({
+        organization_id: existingMembership.organization_id,
+        bot_id: botId,
+        accent,
+        launcher_position: "bottom-right",
+        title: botName,
+        welcome_prompts: getWelcomePrompts(primaryGoal)
+      });
+
+      if (themeRepairError) {
+        return NextResponse.json({ error: themeRepairError.message }, { status: 500 });
+      }
+    }
+
+    const { data: existingBilling } = await serviceClient
+      .from("organization_billing")
+      .select("status")
+      .eq("organization_id", existingMembership.organization_id)
+      .maybeSingle();
+
+    if (!existingBilling) {
+      const { error: billingRepairError } = await serviceClient.from("organization_billing").insert({
+        organization_id: existingMembership.organization_id,
+        plan_key: planKey,
+        billing_interval: interval,
+        status: "incomplete"
+      });
+
+      if (billingRepairError) {
+        return NextResponse.json({ error: billingRepairError.message }, { status: 500 });
+      }
+    } else if (existingBilling.status !== "active" && existingBilling.status !== "trialing") {
+      await serviceClient
+        .from("organization_billing")
+        .update({
+          plan_key: planKey,
+          billing_interval: interval,
+          updated_at: new Date().toISOString()
+        })
+        .eq("organization_id", existingMembership.organization_id);
+    }
+
+    const sourceId = await ensureInitialUrlSource({
+      serviceClient,
+      organizationId: existingMembership.organization_id,
+      botId,
+      url: website.normalizedUrl
+    });
+
     return NextResponse.json({
       organizationId: existingMembership.organization_id,
+      botId,
+      sourceId,
       alreadyExists: true,
-      logoUrl: existingOrganization?.brand_logo_url ?? fallbackLogoUrl
+      logoUrl,
+      websiteUrl: website.normalizedUrl,
+      planKey,
+      interval
     });
   }
 
@@ -162,6 +289,11 @@ export async function POST(request: NextRequest) {
     .insert({
       organization_id: organization.id,
       name: botName,
+      agent_type: agentType,
+      description: agentTemplate.defaultDescription,
+      system_instructions: agentTemplate.systemInstructions,
+      handoff_instructions: agentTemplate.handoffInstructions,
+      is_default: true,
       greeting: getGreeting(primaryGoal, tone),
       fallback_message: getFallbackMessage(primaryGoal),
       allowed_domains: [website.hostname]
@@ -259,6 +391,80 @@ function wait(milliseconds: number) {
   return new Promise<null>((resolve) => {
     setTimeout(() => resolve(null), milliseconds);
   });
+}
+
+async function ensureInitialUrlSource({
+  serviceClient,
+  organizationId,
+  botId,
+  url
+}: {
+  serviceClient: ServiceClient;
+  organizationId: string;
+  botId: string;
+  url: string;
+}) {
+  const { data: existingSources } = await serviceClient
+    .from("knowledge_sources")
+    .select("id, name, metadata")
+    .eq("organization_id", organizationId)
+    .eq("source_type", "url")
+    .limit(25);
+  const existingSource = existingSources?.find((source) => {
+    const metadataUrl = isRecord(source.metadata) && typeof source.metadata.url === "string" ? source.metadata.url : null;
+
+    return metadataUrl === url || source.name === url;
+  });
+
+  if (existingSource) {
+    return existingSource.id;
+  }
+
+  try {
+    const source = await createPendingUrlSource({
+      serviceClient,
+      organizationId,
+      botId,
+      name: url,
+      url,
+      maxPages: 8
+    });
+    const createdSourceId = source.sourceId;
+
+    void reingestUrlSource({
+      serviceClient,
+      organizationId,
+      botId,
+      sourceId: createdSourceId,
+      name: url,
+      url,
+      maxPages: 8
+    }).catch(() => undefined);
+
+    return createdSourceId;
+  } catch (error) {
+    const { data: failedSource } = await serviceClient
+      .from("knowledge_sources")
+      .insert({
+        organization_id: organizationId,
+        bot_id: botId,
+        name: url,
+        source_type: "url",
+        status: "failed",
+        metadata: {
+          url,
+          error: error instanceof Error ? error.message : "Could not start website crawl."
+        }
+      })
+      .select("id")
+      .single();
+
+    return failedSource?.id ?? null;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function getGreeting(goal: string, tone: string) {

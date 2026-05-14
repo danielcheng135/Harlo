@@ -3,15 +3,16 @@ import {
   getInvalidEmailReply,
   leadQuestionFromMessages
 } from "@/lib/ai/lead-capture";
-import { classifyVisitorIntent } from "@/lib/ai/intent";
+import { classifyVisitorIntent, type VisitorIntent } from "@/lib/ai/intent";
+import { extractLeadDraftWithModel } from "@/lib/ai/lead-field-extraction";
 import { generateAnswer, retrieveKnowledgeChunks } from "@/lib/ai/rag";
+import { normalizeAgentType, type AgentType } from "@/lib/agents";
 import { attemptAutoRecharge, isAutoRechargeFailureReason } from "@/lib/billing/auto-recharge";
 import { sendAutoRechargeFailedEmail, sendCreditLimitEmail } from "@/lib/billing/notifications";
 import { getCreditUsageStatus, recordAssistantMessageUsage } from "@/lib/billing/usage";
 import {
   buildConfiguredLeadReply,
   configuredLeadMetadata,
-  extractLeadDraftFromMessages,
   isConfiguredLeadComplete,
   normalizeLeadFields
 } from "@/lib/lead-fields";
@@ -28,8 +29,9 @@ export async function POST(request: NextRequest) {
   const supabase = createSupabaseServiceClient();
   const { data: bot, error: botError } = await supabase
     .from("bots")
-    .select("id, organization_id, lead_capture_fields")
+    .select("id, organization_id, agent_type, description, system_instructions, handoff_instructions, lead_capture_fields")
     .eq("id", body.botId)
+    .eq("status", "active")
     .single();
 
   if (botError || !bot) {
@@ -38,7 +40,18 @@ export async function POST(request: NextRequest) {
 
   const botId = bot.id;
   const organizationId = bot.organization_id;
-  let conversationId = body.conversationId;
+  const agent = {
+    type: normalizeAgentType(bot.agent_type),
+    description: typeof bot.description === "string" ? bot.description : "",
+    systemInstructions: typeof bot.system_instructions === "string" ? bot.system_instructions : "",
+    handoffInstructions: typeof bot.handoff_instructions === "string" ? bot.handoff_instructions : ""
+  };
+  let conversationId = await getExistingConversationId({
+    supabase,
+    conversationId: body.conversationId,
+    organizationId,
+    botId
+  });
 
   if (!conversationId) {
     const { data: conversation, error: conversationError } = await supabase
@@ -187,9 +200,12 @@ export async function POST(request: NextRequest) {
     conversationContext
   });
 
-  const isCollectingLead =
-    intent.intent === "provide_contact_info" ||
-    intent.intent === "request_human_follow_up";
+  const isCollectingLead = shouldCollectLeadForAgent({
+    agentType: agent.type,
+    intent: intent.intent,
+    message: body.message,
+    conversationContext
+  });
 
   if (isCollectingLead) {
     const { data: leadMessages } = await supabase
@@ -228,8 +244,8 @@ export async function POST(request: NextRequest) {
     }
 
     const leadFields = normalizeLeadFields(bot.lead_capture_fields);
-    const draft = extractLeadDraftFromMessages(leadConversationMessages, leadFields);
-    const answer = buildConfiguredLeadReply(draft, leadFields);
+    const draft = await extractLeadDraftWithModel(leadConversationMessages, leadFields);
+    const answer = buildConfiguredLeadReply(draft, leadFields, leadConversationMessages);
 
     if (isConfiguredLeadComplete(draft, leadFields) && draft.email) {
       const originalQuestion = leadQuestionFromMessages(userMessages, draft.email);
@@ -292,7 +308,8 @@ export async function POST(request: NextRequest) {
   }
 
   const chunks = await retrieveKnowledgeChunks({
-    botId: body.botId,
+    botId,
+    organizationId,
     query: retrievalQuery
   });
 
@@ -300,7 +317,8 @@ export async function POST(request: NextRequest) {
     question: body.message,
     chunks,
     conversationContext,
-    intent: intent.intent
+    intent: intent.intent,
+    agent
   });
 
   const saveError = await saveAssistantReply(answer, {
@@ -328,7 +346,64 @@ export async function POST(request: NextRequest) {
   });
 }
 
+async function getExistingConversationId({
+  supabase,
+  conversationId,
+  organizationId,
+  botId
+}: {
+  supabase: ReturnType<typeof createSupabaseServiceClient>;
+  conversationId?: string;
+  organizationId: string;
+  botId: string;
+}) {
+  if (!conversationId) {
+    return null;
+  }
+
+  const { data: conversation } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("id", conversationId)
+    .eq("organization_id", organizationId)
+    .eq("bot_id", botId)
+    .maybeSingle();
+
+  return conversation?.id ?? null;
+}
 
 function getCreditLimitReply(_reason: "past_due" | "inactive" | "limit_reached" | "ok") {
   return "I cannot answer messages right now. Please contact the business directly for help.";
+}
+
+function shouldCollectLeadForAgent({
+  agentType,
+  intent,
+  message,
+  conversationContext
+}: {
+  agentType: AgentType;
+  intent: VisitorIntent;
+  message: string;
+  conversationContext: string;
+}) {
+  if (intent === "provide_contact_info" || intent === "request_human_follow_up") {
+    return true;
+  }
+
+  const latest = message.toLowerCase();
+  const context = conversationContext.toLowerCase();
+
+  if (agentType === "support") {
+    return /\b(?:quote|estimate|callback|call me|contact me|email me|book|booking|appointment|schedule|talk to a person|human|follow up)\b/.test(latest);
+  }
+
+  const recentAssistantOfferedLead =
+    /\b(?:quote|estimate|callback|call you|follow up|reach out|book|booking|appointment|consultation|send this to|share your details|best email|contact details|what email|what date|what year|what is your name|property size)\b/.test(context);
+  const visitorProvidesLeadLike =
+    /@|(?:\+?\d[\d\s().-]{6,})|\b(?:my name is|name is|i am|i'm|call me|email me|contact me|company|timeline|budget|date|tomorrow|today|next week|january|february|march|april|may|june|july|august|september|october|november|december|20\d{2}|\d{2,5}\s*(?:sq\s*ft|sqft|square feet|sf))\b/.test(latest);
+  const buyingIntent =
+    /\b(?:pricing|price|quote|estimate|demo|book|booking|hire|buy|start|sign up|talk to sales|call me|follow up|interested)\b/.test(latest);
+
+  return (recentAssistantOfferedLead && visitorProvidesLeadLike) || (agentType === "sales" && buyingIntent);
 }

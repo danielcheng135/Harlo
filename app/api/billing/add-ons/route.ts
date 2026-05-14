@@ -180,7 +180,8 @@ async function getCurrentCapacityUsage(
     const { count } = await service
       .from("bots")
       .select("id", { count: "exact", head: true })
-      .eq("organization_id", organizationId);
+      .eq("organization_id", organizationId)
+      .eq("status", "active");
 
     return count ?? 0;
   }

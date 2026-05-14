@@ -80,6 +80,8 @@ export const DEFAULT_LEAD_FIELDS: LeadCaptureField[] = [
 
 const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 const PHONE_PATTERN = /(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}/;
+const NAME_CORRECTION_PREFIX_PATTERN =
+  /^(?:sorry|apologies|actually|oops|oh|wait|no|nah|correction|to clarify|i mean)\b[,.\s]*/i;
 
 export function normalizeLeadFields(value: unknown): LeadCaptureField[] {
   if (!Array.isArray(value)) {
@@ -170,7 +172,11 @@ export function isConfiguredLeadComplete(draft: LeadDraft, fields: LeadCaptureFi
   return getMissingConfiguredLeadFields(draft, fields).length === 0;
 }
 
-export function buildConfiguredLeadReply(draft: LeadDraft, fields: LeadCaptureField[]) {
+export function buildConfiguredLeadReply(
+  draft: LeadDraft,
+  fields: LeadCaptureField[],
+  messages: Array<{ role: string; content: string }> = []
+) {
   const missing = getMissingConfiguredLeadFields(draft, fields);
 
   if (missing.length === 0) {
@@ -181,6 +187,14 @@ export function buildConfiguredLeadReply(draft: LeadDraft, fields: LeadCaptureFi
 
   const nextField = missing[0];
   const prefix = Object.keys(draft).length > 0 ? "Got it. " : "";
+
+  if (isDateField(nextField)) {
+    const partialDate = latestIncompleteDateMention(messages);
+
+    if (partialDate) {
+      return `${prefix}What year should I use for ${partialDate}?`;
+    }
+  }
 
   return `${prefix}${nextField.prompt}`;
 }
@@ -220,6 +234,14 @@ export function normalizeLeadMetadata(metadata: Record<string, unknown>, fields:
   }, { ...metadata });
 }
 
+export function normalizeLeadDraftValue(value: string, field: LeadCaptureField) {
+  if (field.key === "name") {
+    return cleanName(value);
+  }
+
+  return normalizeFieldValue(value, field.type);
+}
+
 export function normalizeDateValue(value: string) {
   const trimmed = value.trim().replace(/\b(\d{1,2})(st|nd|rd|th)\b/gi, "$1");
   const numeric = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})$/);
@@ -245,6 +267,57 @@ export function normalizeDateValue(value: string) {
   return null;
 }
 
+function latestIncompleteDateMention(messages: Array<{ role: string; content: string }>) {
+  return latestIncompleteDateParts(messages)?.label ?? null;
+}
+
+function latestIncompleteDateParts(messages: Array<{ role: string; content: string }>, beforeIndex = messages.length) {
+  for (let index = beforeIndex - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+
+    if (message.role !== "user") {
+      continue;
+    }
+
+    const partialDate = extractIncompleteDateParts(message.content);
+
+    if (partialDate) {
+      return partialDate;
+    }
+  }
+
+  return null;
+}
+
+function extractIncompleteDateMention(value: string) {
+  return extractIncompleteDateParts(value)?.label ?? null;
+}
+
+function extractIncompleteDateParts(value: string) {
+  const trimmed = value.trim().replace(/\b(\d{1,2})(st|nd|rd|th)\b/gi, "$1");
+  const monthName = trimmed.match(
+    /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})(?!\s*,?\s*\d{2,4})\b/i
+  );
+
+  if (monthName) {
+    const month = monthNameToNumber(monthName[1]);
+    const day = Number(monthName[2]);
+
+    return { label: `${monthNameToLabel(monthName[1])} ${day}`, month, day };
+  }
+
+  const numericDate = trimmed.match(/\b(\d{1,2})[/-](\d{1,2})(?![/-]\d{2,4})\b/);
+
+  if (numericDate) {
+    const month = Number(numericDate[1]);
+    const day = Number(numericDate[2]);
+
+    return { label: `${month}/${day}`, month, day };
+  }
+
+  return null;
+}
+
 function extractValueForField(message: string, field: LeadCaptureField, messages: Array<{ role: string; content: string }>, index: number) {
   if (field.type === "email" || field.key === "email") {
     return message.match(EMAIL_PATTERN)?.[0]?.toLowerCase() ?? null;
@@ -256,7 +329,7 @@ function extractValueForField(message: string, field: LeadCaptureField, messages
 
   if (field.type === "date" || field.key.includes("date")) {
     const explicit = extractLabeledValue(message, field);
-    const date = normalizeDateValue(explicit ?? message);
+    const date = normalizeDateValue(explicit ?? message) ?? normalizeDateYearFollowUp(explicit ?? message, messages, index);
     return date;
   }
 
@@ -276,8 +349,35 @@ function extractValueForField(message: string, field: LeadCaptureField, messages
   return extractLabeledValue(message, field) ?? null;
 }
 
+function normalizeDateYearFollowUp(
+  message: string,
+  messages: Array<{ role: string; content: string }>,
+  index: number
+) {
+  const year = message.trim().match(/^(?:the\s+year\s+is\s+|year\s+)?(20\d{2}|\d{2})[.!?]?$/i)?.[1];
+
+  if (!year) {
+    return null;
+  }
+
+  const partialDate = latestIncompleteDateParts(messages, index);
+
+  if (!partialDate) {
+    return null;
+  }
+
+  return formatDateParts(partialDate.month, partialDate.day, normalizeYear(Number(year)));
+}
+
 function extractName(message: string, messages: Array<{ role: string; content: string }>, index: number) {
   const email = message.match(EMAIL_PATTERN)?.[0];
+  const correctedName =
+    message.match(
+      /\b(?:sorry|apologies|actually|oops|oh|wait|no|nah|correction|to clarify|i mean)[,\s]*(?:actually\s+)?(?:my\s+)?name\s+(?:is|:)\s+([a-z][a-z .'-]{1,40})(?=\s*(?:[.!?]|$))/i
+    )?.[1] ??
+    message.match(
+      /\b(?:sorry|apologies|actually|oops|oh|wait|no|nah|correction|to clarify|i mean)[,\s]*(?:it'?s|its|this is|call me)\s+([a-z][a-z .'-]{1,40})(?=\s*(?:[.!?]|$))/i
+    )?.[1];
   const explicitName =
     message.match(/\bname\s*:\s*([a-z][a-z .'-]{1,70})(?=\s+(?:email|size|date|phone|company)\s*:|$)/i)?.[1] ??
     message.match(/\b(?:my name is|name is|i am|i'm|this is)\s+([a-z][a-z .'-]{1,70})(?=\s+(?:and\s+)?(?:my\s+)?(?:email|e-mail|phone)\b|$)/i)?.[1];
@@ -288,9 +388,9 @@ function extractName(message: string, messages: Array<{ role: string; content: s
   const fallbackNameMatch =
     beforeEmail.match(/(?:my name is|name is|i am|i'm|this is)\s+([a-z][a-z .'-]{1,58})(?:\s+and)?$/i) ??
     (email ? beforeEmail.match(/^([a-z][a-z .'-]{1,60})$/i) : null);
-  const standaloneName = previousAssistantAskedForField(messages, index, "name") && isStandaloneName(message) ? message.trim() : null;
+  const standaloneName = previousAssistantAskedForField(messages, index, "name") ? extractStandaloneName(message) : null;
 
-  return cleanName(explicitName ?? fallbackNameMatch?.[1] ?? standaloneName);
+  return cleanName(correctedName ?? explicitName ?? fallbackNameMatch?.[1] ?? standaloneName);
 }
 
 function extractLabeledValue(message: string, field: LeadCaptureField) {
@@ -338,15 +438,55 @@ function isStandaloneName(message: string) {
   return (
     /^[a-z][a-z .'-]{1,60}$/i.test(trimmed) &&
     !EMAIL_PATTERN.test(trimmed) &&
-    !/\d|@|:|\b(?:quote|price|service|size|date|property|cleaning|sure|please|that|do|ok|okay|yes|no|thanks|thank|alright|fine|good|help|show|tell)\b/i.test(trimmed)
+    !/\d|@|:|\b(?:quote|price|service|size|date|property|cleaning|sure|please|that|the|a|an|do|ok|okay|yes|no|nah|sorry|actually|oops|wait|correction|clarify|mean|thanks|thank|alright|fine|good|help|show|tell|hi|hello|hey|there)\b/i.test(trimmed)
   );
 }
 
 function cleanName(value: string | null | undefined) {
-  return value
-    ?.replace(/\b(?:and\s+)?(?:my\s+)?(?:email|e-mail)(?:\s+address)?\s+(?:is|:)?\s*$/i, "")
+  const cleaned = stripNameCorrectionPrefix(value ?? "")
+    .replace(/^(?:actually\s+)?(?:it'?s|its|that'?s|this is|call me)\s+/i, "")
+    .replace(/^(?:actually\s+)?(?:the\s+)?(?:my\s+)?name\s+(?:is|:)\s+/i, "")
+    .replace(/\b(?:and\s+)?(?:my\s+)?(?:email|e-mail)(?:\s+address)?\s+(?:is|:)?\s*$/i, "")
     .replace(/[,.\s]+$/g, "")
     .trim();
+  const firstWord = cleaned.split(/\s+/)[0] ?? "";
+
+  return cleaned &&
+    !isNameFiller(cleaned) &&
+    !isNameFiller(firstWord) &&
+    !/^(?:the|a|an)\s+/i.test(cleaned) &&
+    cleaned.split(/\s+/).length <= 4 &&
+    !/\b(?:email|phone|date|quote|price|service|property|size|best|work|works)\b/i.test(cleaned)
+    ? cleaned
+    : null;
+}
+
+function extractStandaloneName(message: string) {
+  const cleaned = cleanName(message);
+
+  return cleaned && isStandaloneName(cleaned) ? cleaned : null;
+}
+
+function stripNameCorrectionPrefix(value: string) {
+  let current = value.trim();
+
+  for (let count = 0; count < 4; count += 1) {
+    const next = current.replace(NAME_CORRECTION_PREFIX_PATTERN, "").trim();
+
+    if (next === current) {
+      return current;
+    }
+
+    current = next;
+  }
+
+  return current;
+}
+
+function isNameFiller(value: string) {
+  return /^(?:sorry|apologies|actually|oops|oh|wait|no|nah|yes|ok|okay|the|a|an|thanks|thank you|correction|to clarify|i mean|hi|hello|hey|there)$/i.test(
+    value
+  );
 }
 
 function cleanText(value: string | undefined, maxLength: number) {
@@ -383,6 +523,16 @@ function monthNameToNumber(month: string) {
   return ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].findIndex((prefix) =>
     month.toLowerCase().startsWith(prefix)
   ) + 1;
+}
+
+function monthNameToLabel(month: string) {
+  return ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][
+    monthNameToNumber(month) - 1
+  ];
+}
+
+function isDateField(field: LeadCaptureField) {
+  return field.type === "date" || field.key.includes("date");
 }
 
 function escapeRegExp(value: string) {

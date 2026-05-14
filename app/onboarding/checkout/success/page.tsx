@@ -98,6 +98,27 @@ export default async function OnboardingCheckoutSuccessPage({ searchParams }: Ch
   });
 
   if (status === "active" || status === "trialing") {
+    const [{ data: organization }, { data: bot }] = await Promise.all([
+      service
+        .from("organizations")
+        .select("id")
+        .eq("id", organizationId)
+        .maybeSingle(),
+      service
+        .from("bots")
+        .select("id")
+        .eq("organization_id", organizationId)
+        .eq("status", "active")
+        .order("is_default", { ascending: false })
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle()
+    ]);
+
+    if (!organization || !bot) {
+      redirect("/onboarding");
+    }
+
     redirect(params?.welcome === "1" ? "/dashboard?welcome=1" : "/dashboard");
   }
 

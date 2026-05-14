@@ -17,5 +17,6 @@ export function getOpenAIClient() {
 export const HARLO_MODELS = {
   answer: process.env.OPENAI_ANSWER_MODEL ?? "gpt-5.4-mini",
   classify: process.env.OPENAI_CLASSIFY_MODEL ?? "gpt-5.4-nano",
+  leadExtract: process.env.OPENAI_LEAD_EXTRACT_MODEL ?? "gpt-5.4-nano",
   embedding: process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small"
 };

@@ -15,8 +15,14 @@ export default async function WidgetPage() {
       </div>
       <WidgetInstallPanel
         brandLogoUrl={workspace.organization.brand_logo_url ?? null}
-        botId={workspace.bot.id}
+        organizationId={workspace.organization.id}
         allowedDomains={workspace.bot.allowed_domains}
+        agents={workspace.bots.map((bot) => ({
+          id: bot.id,
+          name: bot.name,
+          routePatterns: bot.route_patterns,
+          isDefault: bot.is_default
+        }))}
       />
     </div>
   );

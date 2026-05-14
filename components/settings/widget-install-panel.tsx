@@ -1,22 +1,31 @@
 "use client";
 
-import { CheckCircle2, Clipboard, Globe2, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, Clipboard, Globe2, RouteIcon, ShieldCheck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ToastViewport, useToast } from "@/components/ui/toast";
 
 type WidgetInstallPanelProps = {
   brandLogoUrl: string | null;
-  botId: string;
+  organizationId: string;
   allowedDomains: string[];
+  agents: {
+    id: string;
+    name: string;
+    routePatterns: string[];
+    isDefault: boolean;
+  }[];
 };
 
 const productionOrigin = "https://app.harlo.ai";
 
-export function WidgetInstallPanel({ brandLogoUrl, botId, allowedDomains }: WidgetInstallPanelProps) {
+export function WidgetInstallPanel({ brandLogoUrl, organizationId, allowedDomains, agents }: WidgetInstallPanelProps) {
   const { toast, showToast, dismissToast } = useToast();
-  const productionSnippet = buildSnippet(productionOrigin, botId);
+  const productionSnippet = buildWorkspaceSnippet(productionOrigin, organizationId);
   const hasDomains = allowedDomains.length > 0;
+  const routedAgents = agents.filter((agent) => agent.routePatterns.length > 0);
+  const defaultAgent = agents.find((agent) => agent.isDefault) ?? agents[0];
+  const defaultTestPath = defaultAgent?.routePatterns[0] ? getExamplePath(defaultAgent.routePatterns[0]) : "/";
 
   async function copySnippet(snippet: string, label: string) {
     try {
@@ -46,12 +55,23 @@ export function WidgetInstallPanel({ brandLogoUrl, botId, allowedDomains }: Widg
           <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-harlo-ink">Install snippet</h2>
-              <p className="mt-1 text-sm text-harlo-muted">Paste this before the closing body tag on the customer website.</p>
+              <p className="mt-1 text-sm text-harlo-muted">
+                Paste this before the closing body tag. Harlo will choose the right agent from your page routing rules.
+              </p>
             </div>
-            <Button type="button" onClick={() => copySnippet(productionSnippet, "Install snippet")}>
-              <Clipboard size={16} />
-              Copy snippet
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" onClick={() => copySnippet(productionSnippet, "Install snippet")}>
+                <Clipboard size={16} />
+                Copy snippet
+              </Button>
+              <a
+                href={`/widget-test?path=${encodeURIComponent(defaultTestPath)}`}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-harlo-line bg-white px-4 text-sm font-semibold text-harlo-ink transition hover:border-harlo-teal hover:text-harlo-teal"
+              >
+                Test routing
+                <ArrowUpRight size={14} />
+              </a>
+            </div>
           </CardHeader>
           <CardBody>
             <CodeBlock value={productionSnippet} />
@@ -62,17 +82,123 @@ export function WidgetInstallPanel({ brandLogoUrl, botId, allowedDomains }: Widg
           <StatusCard
             icon={<WebsiteLogoIcon brandLogoUrl={brandLogoUrl} size="md" fallback={<Globe2 size={18} />} />}
             title={hasDomains ? "Allowed domains" : "No domains added"}
-            body={hasDomains ? `${allowedDomains.length} website${allowedDomains.length === 1 ? "" : "s"} can load this bot.` : "Add domains in Builder before putting the widget on a live website."}
+            body={hasDomains ? `${allowedDomains.length} website${allowedDomains.length === 1 ? "" : "s"} can load this widget.` : "Add domains in Builder before putting the widget on a live website."}
             tone={hasDomains ? "ready" : "warning"}
           />
           <StatusCard
-            icon={<ShieldCheck size={18} />}
-            title="Public bot id"
-            body={botId}
+            icon={<RouteIcon size={18} />}
+            title="Page routing"
+            body={`${agents.filter((agent) => agent.routePatterns.length > 0).length} agent${agents.filter((agent) => agent.routePatterns.length > 0).length === 1 ? "" : "s"} with route rules. The default agent handles unmatched pages.`}
             tone="ready"
           />
         </div>
       </div>
+
+      <Card className="min-w-0">
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-harlo-ink">Agent widgets</h2>
+            <p className="mt-1 text-sm text-harlo-muted">
+              Use the workspace snippet for automatic routing, or pin a specific agent with its own snippet.
+            </p>
+          </div>
+        </CardHeader>
+        <CardBody className="grid gap-4 lg:grid-cols-2">
+          {agents.map((agent) => {
+            const agentSnippet = buildAgentSnippet(productionOrigin, agent.id);
+
+            return (
+              <div key={agent.id} className="min-w-0 rounded-lg border border-harlo-line bg-white p-4">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-harlo-mist text-harlo-teal">
+                    <Sparkles size={18} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-harlo-ink">{agent.name}</p>
+                      {agent.isDefault ? (
+                        <span className="rounded-full bg-harlo-mist px-2 py-0.5 text-xs font-semibold text-harlo-teal">Default</span>
+                      ) : null}
+                      <span className="rounded-full bg-harlo-canvas px-2 py-0.5 text-xs font-semibold text-harlo-muted">Pinned</span>
+                    </div>
+                    <p className="mt-1 text-sm text-harlo-muted">Install this snippet when one page should always open this agent, bypassing page routing.</p>
+                    <RouteChips patterns={agent.routePatterns} emptyLabel="No auto-route rules" />
+                  </div>
+                  <div className="flex shrink-0 flex-col gap-2">
+                    <Button type="button" variant="secondary" onClick={() => copySnippet(agentSnippet, `${agent.name} snippet`)}>
+                      <Clipboard size={15} />
+                      Copy
+                    </Button>
+                    <a
+                      href={`/widget-test?botId=${agent.id}`}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-harlo-line bg-white px-3 text-sm font-semibold text-harlo-ink transition hover:border-harlo-teal hover:text-harlo-teal"
+                    >
+                      Test pinned
+                      <ArrowUpRight size={14} />
+                    </a>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <CodeBlock value={agentSnippet} />
+                </div>
+              </div>
+            );
+          })}
+        </CardBody>
+      </Card>
+
+      <Card className="min-w-0">
+        <CardHeader>
+          <h2 className="text-lg font-semibold text-harlo-ink">Routing map</h2>
+          <p className="mt-1 text-sm text-harlo-muted">
+            The workspace snippet uses this map to choose the right agent for each website page.
+          </p>
+        </CardHeader>
+        <CardBody className="space-y-3">
+          {routedAgents.length > 0 ? (
+            routedAgents.map((agent) => (
+              <div key={agent.id} className="grid gap-3 rounded-lg border border-harlo-line bg-harlo-canvas p-4 md:grid-cols-[220px_minmax(0,1fr)_auto] md:items-center">
+                <div className="flex items-center gap-3">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-sm font-semibold text-harlo-teal shadow-sm">
+                    <RouteIcon size={16} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-harlo-ink">{agent.name}</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-harlo-muted">Auto-routed</p>
+                  </div>
+                </div>
+                <RouteChips patterns={agent.routePatterns} />
+                <a
+                  href={`/widget-test?path=${encodeURIComponent(getExamplePath(agent.routePatterns[0]))}`}
+                  className="inline-flex h-9 w-fit items-center justify-center gap-2 rounded-lg border border-harlo-line bg-white px-3 text-sm font-semibold text-harlo-ink transition hover:border-harlo-teal hover:text-harlo-teal"
+                >
+                  Test route
+                  <ArrowUpRight size={14} />
+                </a>
+              </div>
+            ))
+          ) : (
+            <div className="rounded-lg border border-dashed border-harlo-line bg-harlo-canvas p-5">
+              <p className="font-semibold text-harlo-ink">No page routes yet</p>
+              <p className="mt-1 text-sm leading-6 text-harlo-muted">
+                Add route rules in Builder when a page should open a specific agent. Until then, the default agent handles every page.
+              </p>
+            </div>
+          )}
+          {defaultAgent ? (
+            <div className="flex flex-col gap-3 rounded-lg border border-harlo-line bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="font-semibold text-harlo-ink">{defaultAgent.name}</p>
+                <p className="mt-1 text-sm text-harlo-muted">Fallback agent for every unmatched page.</p>
+              </div>
+              <span className="inline-flex w-fit items-center gap-2 rounded-full bg-harlo-mist px-3 py-1 text-sm font-semibold text-harlo-teal">
+                <ShieldCheck size={15} />
+                Default
+              </span>
+            </div>
+          ) : null}
+        </CardBody>
+      </Card>
 
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <Card className="min-w-0">
@@ -80,10 +206,10 @@ export function WidgetInstallPanel({ brandLogoUrl, botId, allowedDomains }: Widg
             <h2 className="text-lg font-semibold text-harlo-ink">Launch checklist</h2>
           </CardHeader>
           <CardBody className="grid gap-3 md:grid-cols-2">
-            <ChecklistItem title="Add allowed domains" body="Include the exact website domains that should be allowed to load this bot." />
+            <ChecklistItem title="Add allowed domains" body="Include the exact website domains that should be allowed to load this widget." />
             <ChecklistItem title="Train knowledge" body="Make sure the services, pricing, hours, policies, and quote requirements are covered." />
             <ChecklistItem title="Test the widget" body="Ask common customer questions from the test page before installing live." />
-            <ChecklistItem title="Install script" body="Paste the snippet into the website template, tag manager, or CMS custom code area." />
+            <ChecklistItem title="Route agents" body="Use Builder page routing when specific pages should open a specific agent." />
           </CardBody>
         </Card>
 
@@ -136,6 +262,34 @@ function ChecklistItem({ title, body }: { title: string; body: string }) {
           <p className="mt-1 text-sm leading-6 text-harlo-muted">{body}</p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function RouteChips({ patterns, emptyLabel = "Default fallback" }: { patterns: string[]; emptyLabel?: string }) {
+  const visiblePatterns = patterns.slice(0, 4);
+  const overflow = Math.max(0, patterns.length - visiblePatterns.length);
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {visiblePatterns.length > 0 ? (
+        <>
+          {visiblePatterns.map((pattern) => (
+            <span key={pattern} className="rounded-full border border-harlo-line bg-white px-2.5 py-1 text-xs font-semibold text-harlo-muted shadow-sm">
+              {pattern}
+            </span>
+          ))}
+          {overflow > 0 ? (
+            <span className="rounded-full border border-harlo-line bg-white px-2.5 py-1 text-xs font-semibold text-harlo-muted shadow-sm">
+              +{overflow}
+            </span>
+          ) : null}
+        </>
+      ) : (
+        <span className="rounded-full border border-harlo-line bg-white px-2.5 py-1 text-xs font-semibold text-harlo-muted shadow-sm">
+          {emptyLabel}
+        </span>
+      )}
     </div>
   );
 }
@@ -194,8 +348,38 @@ function StatusCard({
   );
 }
 
-function buildSnippet(origin: string, botId: string) {
+function buildWorkspaceSnippet(origin: string, organizationId: string) {
+  return `<script src="${origin}/widget.js" data-harlo-organization="${organizationId}" async></script>`;
+}
+
+function buildAgentSnippet(origin: string, botId: string) {
   return `<script src="${origin}/widget.js" data-harlo-bot="${botId}" async></script>`;
+}
+
+function getExamplePath(pattern: string | undefined) {
+  const normalized = normalizeRoutePattern(pattern);
+
+  if (normalized === "*") {
+    return "/";
+  }
+
+  if (normalized.endsWith("/*")) {
+    return `${normalized.slice(0, -2)}/example`;
+  }
+
+  return normalized;
+}
+
+function normalizeRoutePattern(pattern: string | undefined) {
+  const trimmed = pattern?.trim() || "/";
+
+  if (trimmed === "*") {
+    return "*";
+  }
+
+  const withSlash = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+
+  return withSlash.length > 1 ? withSlash.replace(/\/+$/g, "") : "/";
 }
 
 function copyWithFallback(value: string) {

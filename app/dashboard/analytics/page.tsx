@@ -1,8 +1,18 @@
+import type { ReactNode } from "react";
 import { AlertCircle, CheckCircle2, MessageSquare, Sparkles, Users } from "lucide-react";
+import { AgentBadge } from "@/components/agent-badge";
 import { MessageVolumeCard } from "@/components/analytics/message-volume-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { getInboxConversations, getKnowledgeSources, getLeads, getWorkspaceOrRedirect } from "@/lib/harlo/data";
+import {
+  getInboxConversations,
+  getKnowledgeSources,
+  getLeads,
+  getWorkspaceOrRedirect,
+  type InboxConversationRow,
+  type LeadRow,
+  type WorkspaceBot
+} from "@/lib/harlo/data";
 
 export default async function AnalyticsPage() {
   const workspace = await getWorkspaceOrRedirect();
@@ -24,6 +34,7 @@ export default async function AnalyticsPage() {
   const dailyVolume = getDailyVolume(messages);
   const knowledgeGaps = getKnowledgeGaps(conversations);
   const sourceUsage = getSourceUsage(assistantMessages);
+  const agentPerformance = getAgentPerformance(workspace.bots, conversations, leads);
 
   return (
     <div className="space-y-6">
@@ -39,6 +50,14 @@ export default async function AnalyticsPage() {
         <Metric label="Lead conversion" value={`${leadRate}%`} detail={`${leads.length} leads captured`} icon={<Users size={18} />} />
         <Metric label="Knowledge health" value={`${knowledgeHealth}%`} detail={`${readySources}/${sources.length} sources ready`} icon={<CheckCircle2 size={18} />} />
       </section>
+
+      {workspace.bots.length > 1 ? (
+        <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+          {agentPerformance.map((item) => (
+            <AgentPerformanceCard key={item.bot.id} {...item} />
+          ))}
+        </section>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
         <MessageVolumeCard data={dailyVolume} />
@@ -111,7 +130,7 @@ export default async function AnalyticsPage() {
   );
 }
 
-function Metric({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: React.ReactNode }) {
+function Metric({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: ReactNode }) {
   return (
     <Card>
       <CardBody>
@@ -175,7 +194,7 @@ function OutcomeTile({ label, value, percent, colorClass }: { label: string; val
   );
 }
 
-function EmptyNote({ className, icon, title, body }: { className?: string; icon: React.ReactNode; title: string; body: string }) {
+function EmptyNote({ className, icon, title, body }: { className?: string; icon: ReactNode; title: string; body: string }) {
   return (
     <div className={`grid place-items-center rounded-lg border border-dashed border-harlo-line p-5 text-center ${className ?? ""}`}>
       <div>
@@ -185,6 +204,79 @@ function EmptyNote({ className, icon, title, body }: { className?: string; icon:
       </div>
     </div>
   );
+}
+
+type AgentPerformanceItem = {
+  bot: WorkspaceBot;
+  conversations: number;
+  leads: number;
+  resolutionRate: number;
+  leadRate: number;
+};
+
+function AgentPerformanceCard({ bot, conversations, leads, resolutionRate, leadRate }: AgentPerformanceItem) {
+  return (
+    <Card>
+      <CardBody>
+        <div className="flex items-start justify-between gap-3">
+          <AgentBadge name={bot.name} type={bot.agent_type} accent={bot.widget_theme.accent} className="min-w-0" />
+          <span className="shrink-0 rounded-full bg-harlo-canvas px-2 py-1 text-xs font-semibold text-harlo-muted">
+            {bot.route_patterns.length > 0 ? `${bot.route_patterns.length} routes` : bot.is_default ? "Default" : "Manual"}
+          </span>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <MiniMetric label="Threads" value={conversations.toString()} />
+          <MiniMetric label="Leads" value={leads.toString()} />
+        </div>
+
+        <div className="mt-5 space-y-3">
+          <AgentRate label="Resolved" value={resolutionRate} accent={bot.widget_theme.accent} />
+          <AgentRate label="Lead rate" value={leadRate} accent={bot.widget_theme.accent} />
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
+function MiniMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-harlo-line bg-harlo-canvas p-3">
+      <p className="text-xs font-medium text-harlo-muted">{label}</p>
+      <p className="mt-1 text-xl font-semibold text-harlo-ink">{value}</p>
+    </div>
+  );
+}
+
+function AgentRate({ label, value, accent }: { label: string; value: number; accent: string }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3 text-xs font-semibold text-harlo-muted">
+        <span>{label}</span>
+        <span>{value}%</span>
+      </div>
+      <div className="mt-2 h-2 rounded-full bg-harlo-line">
+        <div className="h-2 rounded-full" style={{ width: `${value}%`, backgroundColor: accent }} />
+      </div>
+    </div>
+  );
+}
+
+function getAgentPerformance(bots: WorkspaceBot[], conversations: InboxConversationRow[], leads: LeadRow[]): AgentPerformanceItem[] {
+  return bots.map((bot) => {
+    const botConversations = conversations.filter((conversation) => conversation.bot_id === bot.id);
+    const botLeads = leads.filter((lead) => lead.bot_id === bot.id);
+    const resolvedCount = botConversations.filter((conversation) => conversation.outcome === "Answered").length;
+    const leadCount = botConversations.filter((conversation) => conversation.outcome === "Lead captured").length;
+
+    return {
+      bot,
+      conversations: botConversations.length,
+      leads: botLeads.length,
+      resolutionRate: botConversations.length > 0 ? Math.round((resolvedCount / botConversations.length) * 100) : 0,
+      leadRate: botConversations.length > 0 ? Math.round((leadCount / botConversations.length) * 100) : 0
+    };
+  });
 }
 
 function getDailyVolume(messages: Array<{ created_at: string }>) {

@@ -1,4 +1,5 @@
 import type { KnowledgeChunk } from "@/lib/types";
+import type { AgentType } from "@/lib/agents";
 import { HARLO_MODELS, getOpenAIClient } from "@/lib/ai/openai";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { VisitorIntent } from "@/lib/ai/intent";
@@ -23,6 +24,13 @@ type RawKnowledgeChunkRow = {
   knowledge_sources: {
     name: string;
   } | null;
+};
+
+export type AgentAnswerProfile = {
+  type: AgentType;
+  description?: string;
+  systemInstructions?: string;
+  handoffInstructions?: string;
 };
 
 const STOP_WORDS = new Set([
@@ -59,29 +67,26 @@ export async function embedText(input: string) {
 
 export async function retrieveKnowledgeChunks({
   botId,
+  organizationId,
   query,
   matchCount = 8,
   similarityThreshold = 0.42
 }: {
   botId: string;
+  organizationId?: string;
   query: string;
   matchCount?: number;
   similarityThreshold?: number;
 }): Promise<KnowledgeChunk[]> {
   const embedding = await embedText(query);
-  const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase.rpc("match_knowledge_chunks", {
-    query_bot_id: botId,
-    query_embedding: `[${embedding.join(",")}]`,
-    match_count: matchCount,
-    similarity_threshold: similarityThreshold
+  const vectorRows = await matchVectorChunks({
+    botId,
+    organizationId,
+    embedding,
+    matchCount,
+    similarityThreshold
   });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const vectorMatches = ((data ?? []) as MatchKnowledgeChunkRow[]).map((chunk) => ({
+  const vectorMatches = vectorRows.map((chunk) => ({
     id: chunk.id,
     botId: chunk.bot_id,
     sourceId: chunk.source_id,
@@ -94,16 +99,68 @@ export async function retrieveKnowledgeChunks({
     return vectorMatches;
   }
 
-  return retrieveKeywordFallbackChunks({ botId, query, matchCount });
+  return retrieveKeywordFallbackChunks({ botId, organizationId, query, matchCount });
 }
 
-export function buildAnswerInstructions(chunks: KnowledgeChunk[]) {
+async function matchVectorChunks({
+  botId,
+  organizationId,
+  embedding,
+  matchCount,
+  similarityThreshold
+}: {
+  botId: string;
+  organizationId?: string;
+  embedding: number[];
+  matchCount: number;
+  similarityThreshold: number;
+}) {
+  const supabase = createSupabaseServiceClient();
+  const queryEmbedding = `[${embedding.join(",")}]`;
+
+  if (organizationId) {
+    const { data, error } = await supabase.rpc("match_organization_knowledge_chunks", {
+      query_organization_id: organizationId,
+      query_embedding: queryEmbedding,
+      match_count: matchCount,
+      similarity_threshold: similarityThreshold
+    });
+
+    if (!error) {
+      return (data ?? []) as MatchKnowledgeChunkRow[];
+    }
+
+    if (!isMissingOrganizationMatchFunctionError(error.message)) {
+      throw new Error(error.message);
+    }
+  }
+
+  const { data, error } = await supabase.rpc("match_knowledge_chunks", {
+    query_bot_id: botId,
+    query_embedding: queryEmbedding,
+    match_count: matchCount,
+    similarity_threshold: similarityThreshold
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as MatchKnowledgeChunkRow[];
+}
+
+function isMissingOrganizationMatchFunctionError(message: string) {
+  return /match_organization_knowledge_chunks|could not find the function|function .*does not exist/i.test(message);
+}
+
+export function buildAnswerInstructions(chunks: KnowledgeChunk[], agent?: AgentAnswerProfile) {
   const context = chunks
     .map((chunk, index) => `Source ${index + 1}: ${chunk.sourceTitle}\n${chunk.content}`)
     .join("\n\n");
 
   return [
     "You are Harlo, a calm and helpful AI chatbot for a business website.",
+    ...buildAgentInstructionLines(agent),
     "Answer only from the provided business context.",
     "Focus on resolving the visitor's question before suggesting a handoff.",
     "If the context is insufficient, briefly say you do not have that detail and invite the visitor to ask another question. Only ask for contact details if the visitor asks for a quote, callback, appointment, booking, or human follow-up.",
@@ -121,18 +178,21 @@ export async function generateAnswer({
   question,
   chunks,
   conversationContext,
-  intent
+  intent,
+  agent
 }: {
   question: string;
   chunks: KnowledgeChunk[];
   conversationContext?: string;
   intent?: VisitorIntent;
+  agent?: AgentAnswerProfile;
 }) {
   if (intent === "decline_offer" || intent === "unclear") {
     return generateConversationalAnswer({
       question,
       conversationContext,
-      intent
+      intent,
+      agent
     });
   }
 
@@ -140,7 +200,8 @@ export async function generateAnswer({
     return generateConversationalAnswer({
       question,
       conversationContext,
-      intent: "unclear"
+      intent: "unclear",
+      agent
     });
   }
 
@@ -151,7 +212,7 @@ export async function generateAnswer({
   const openai = getOpenAIClient();
   const response = await openai.responses.create({
     model: HARLO_MODELS.answer,
-    instructions: buildAnswerInstructions(chunks),
+    instructions: buildAnswerInstructions(chunks, agent),
     input: conversationContext
       ? `Recent conversation:\n${conversationContext}\n\nVisitor's latest message:\n${question}`
       : question,
@@ -164,17 +225,20 @@ export async function generateAnswer({
 async function generateConversationalAnswer({
   question,
   conversationContext,
-  intent
+  intent,
+  agent
 }: {
   question: string;
   conversationContext?: string;
   intent: VisitorIntent;
+  agent?: AgentAnswerProfile;
 }) {
   const openai = getOpenAIClient();
   const response = await openai.responses.create({
     model: HARLO_MODELS.answer,
     instructions: [
       "You are Harlo, a calm and helpful AI chatbot for a business website.",
+      ...buildAgentInstructionLines(agent),
       "Respond naturally and logically to the visitor's latest message using the recent conversation.",
       "If the visitor declines an offer, acknowledge the decline and leave the door open for another question.",
       "If the visitor is unclear, ask a short clarifying question.",
@@ -190,6 +254,54 @@ async function generateConversationalAnswer({
   });
 
   return response.output_text.trim();
+}
+
+function buildAgentInstructionLines(agent?: AgentAnswerProfile) {
+  if (!agent) {
+    return [];
+  }
+
+  const roleLine =
+    agent.type === "sales"
+      ? "This agent is a sales-focused website agent. Help visitors understand fit, pricing, services, and next steps, then qualify high-intent visitors without sounding pushy."
+      : agent.type === "custom"
+        ? "This agent follows a custom business role. Balance answering, qualification, and routing according to the configured instructions."
+        : "This agent is a customer support-focused website agent. Resolve repeat questions with accurate, approved business knowledge before suggesting a handoff.";
+  const lines = [roleLine];
+
+  if (agent.type === "sales") {
+    lines.push(
+      "Sales behavior: prioritize understanding buying intent, fit, timeline, and next-step readiness. Give useful product or service guidance first, then capture contact details when the visitor shows qualified interest."
+    );
+    lines.push(
+      "Do not force a lead form too early. If the visitor asks support-style questions, answer briefly and guide them toward the next sales-relevant step only when natural."
+    );
+  } else if (agent.type === "support") {
+    lines.push(
+      "Support behavior: prioritize direct, source-grounded answers that reduce repeat work for the team. Ask concise clarifying questions only when needed to answer accurately."
+    );
+    lines.push(
+      "Only move into lead capture or handoff when the visitor needs a person, requests follow-up, or the configured lead fields are clearly relevant."
+    );
+  } else {
+    lines.push(
+      "Custom agent behavior: follow the configured role, instructions, and handoff criteria before defaulting to generic support or sales behavior."
+    );
+  }
+
+  if (agent.description?.trim()) {
+    lines.push(`Agent responsibility: ${agent.description.trim()}`);
+  }
+
+  if (agent.systemInstructions?.trim()) {
+    lines.push(`Configured agent instructions: ${agent.systemInstructions.trim()}`);
+  }
+
+  if (agent.handoffInstructions?.trim()) {
+    lines.push(`Handoff instructions: ${agent.handoffInstructions.trim()}`);
+  }
+
+  return lines;
 }
 
 function isUnclearQuestion(question: string) {
@@ -242,10 +354,12 @@ function ensureListIntro(answer: string, question: string) {
 
 async function retrieveKeywordFallbackChunks({
   botId,
+  organizationId,
   query,
   matchCount
 }: {
   botId: string;
+  organizationId?: string;
   query: string;
   matchCount: number;
 }): Promise<KnowledgeChunk[]> {
@@ -256,11 +370,16 @@ async function retrieveKeywordFallbackChunks({
   }
 
   const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase
+  let queryBuilder = supabase
     .from("knowledge_chunks")
     .select("id, bot_id, source_id, content, metadata, knowledge_sources(name)")
-    .eq("bot_id", botId)
     .limit(100);
+
+  queryBuilder = organizationId
+    ? queryBuilder.eq("organization_id", organizationId)
+    : queryBuilder.eq("bot_id", botId);
+
+  const { data, error } = await queryBuilder;
 
   if (error) {
     throw new Error(error.message);

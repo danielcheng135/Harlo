@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AlertTriangle, CalendarDays, CheckCircle2, Loader2, Mail, Maximize2, PhoneCall, Search, Trash2, UserRound } from "lucide-react";
+import { AgentBadge } from "@/components/agent-badge";
 import { ToastViewport, useToast } from "@/components/ui/toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,11 @@ export function LeadsWorkspace({ leads }: LeadsWorkspaceProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const { toast, showToast, dismissToast } = useToast();
 
+  useEffect(() => {
+    setItems(leads);
+    setSelectedId((current) => leads.some((lead) => lead.id === current) ? current : leads[0]?.id ?? "");
+  }, [leads]);
+
   const filteredLeads = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -34,6 +40,8 @@ export function LeadsWorkspace({ leads }: LeadsWorkspaceProps) {
         lead.email,
         lead.question,
         lead.status,
+        lead.bot_name ?? "",
+        lead.agent_type ?? "",
         ...getLeadMetadataItems(lead).map((item) => item.value)
       ].some((value) => value.toLowerCase().includes(normalizedQuery))
     );
@@ -61,7 +69,23 @@ export function LeadsWorkspace({ leads }: LeadsWorkspaceProps) {
         return;
       }
 
-      setItems((current) => current.map((lead) => lead.id === leadId ? result.lead! : lead));
+      setItems((current) => current.map((lead) => {
+        if (lead.id !== leadId) {
+          return lead;
+        }
+
+        const nextLead = result.lead!;
+
+        return {
+          ...lead,
+          ...nextLead,
+          bot_id: nextLead.bot_id ?? lead.bot_id,
+          bot_name: nextLead.bot_name ?? lead.bot_name,
+          agent_type: nextLead.agent_type ?? lead.agent_type,
+          bot_accent: nextLead.bot_accent ?? lead.bot_accent,
+          route_patterns: nextLead.route_patterns ?? lead.route_patterns
+        };
+      }));
       showToast("success", status === "contacted" ? "Lead marked as contacted." : "Lead moved back to new.");
     } catch {
       showToast("error", "Could not update lead.");
@@ -146,7 +170,16 @@ export function LeadsWorkspace({ leads }: LeadsWorkspaceProps) {
                     <LeadStatusBadge status={lead.status} />
                   </div>
                   <p className="mt-3 line-clamp-2 text-xs leading-5 text-harlo-muted">{lead.question}</p>
-                  <p className="mt-3 text-xs text-harlo-muted">{formatDateTime(lead.created_at)}</p>
+                  <div className="mt-3 flex items-center justify-between gap-3 text-xs text-harlo-muted">
+                    <AgentBadge
+                      compact
+                      name={lead.bot_name}
+                      type={lead.agent_type}
+                      accent={lead.bot_accent}
+                      className="max-w-[70%]"
+                    />
+                    <span className="shrink-0">{formatDateTime(lead.created_at)}</span>
+                  </div>
                 </button>
               ))}
             </div>
@@ -165,12 +198,16 @@ export function LeadsWorkspace({ leads }: LeadsWorkspaceProps) {
                   <span className="truncate">{selectedLead.email}</span>
                 </p>
               </div>
-              <LeadStatusBadge status={selectedLead.status} />
+              <div className="flex flex-wrap items-center gap-2">
+                <AgentBadge name={selectedLead.bot_name} type={selectedLead.agent_type} accent={selectedLead.bot_accent} />
+                <LeadStatusBadge status={selectedLead.status} />
+              </div>
             </div>
           </header>
 
           <div className="min-h-0 flex-1 overflow-auto p-5">
             <div className="grid gap-4 lg:grid-cols-2">
+              <DetailCard icon={<UserRound size={16} />} label="Agent" value={selectedLead.bot_name ?? "Harlo"} />
               <DetailCard icon={<UserRound size={16} />} label="Lead source" value={selectedLead.conversation_id ? "Chat conversation" : "Manual capture"} />
               <DetailCard icon={<CalendarDays size={16} />} label="Captured" value={formatDateTime(selectedLead.created_at)} />
               {getLeadMetadataItems(selectedLead).map((item) => (
@@ -203,7 +240,7 @@ export function LeadsWorkspace({ leads }: LeadsWorkspaceProps) {
               </Button>
               {selectedLead.conversation_id ? (
                 <a
-                  href={`/dashboard/conversations?conversation=${selectedLead.conversation_id}`}
+                  href={getConversationHref(selectedLead)}
                   className="inline-flex h-10 items-center justify-center rounded-lg border border-harlo-line bg-white px-4 text-sm font-semibold text-harlo-ink transition hover:border-harlo-teal hover:text-harlo-teal"
                 >
                   View conversation
@@ -270,7 +307,7 @@ function LeadStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DetailCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function DetailCard({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
     <div className="rounded-lg border border-harlo-line bg-white p-4">
       <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.08em] text-harlo-muted">
@@ -313,6 +350,22 @@ function getLeadMetadataItems(lead: LeadRow) {
       label: typeof lead.metadata[`${key}_label`] === "string" ? lead.metadata[`${key}_label`] as string : formatMetadataLabel(key),
       type: typeof lead.metadata[`${key}_type`] === "string" ? lead.metadata[`${key}_type`] as string : "text"
     }));
+}
+
+function getConversationHref(lead: LeadRow) {
+  const params = new URLSearchParams();
+
+  if (lead.bot_id) {
+    params.set("agent", lead.bot_id);
+  }
+
+  if (lead.conversation_id) {
+    params.set("conversation", lead.conversation_id);
+  }
+
+  const query = params.toString();
+
+  return query ? `/dashboard/conversations?${query}` : "/dashboard/conversations";
 }
 
 function formatMetadataLabel(key: string) {

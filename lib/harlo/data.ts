@@ -17,8 +17,34 @@ import {
   type BillingPlanKey,
   type BillingStatus
 } from "@/lib/billing/plans";
+import { normalizeAgentType, type AgentType } from "@/lib/agents";
 import { normalizeLeadFields, normalizeLeadMetadata, type LeadCaptureField } from "@/lib/lead-fields";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
+
+const WORKSPACE_BOT_SELECT_WITH_ROUTES = "id, name, agent_type, description, system_instructions, handoff_instructions, status, is_default, greeting, fallback_message, allowed_domains, lead_capture_fields, widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority)";
+const WORKSPACE_BOT_SELECT = "id, name, agent_type, description, system_instructions, handoff_instructions, status, is_default, greeting, fallback_message, allowed_domains, lead_capture_fields, widget_themes(accent, launcher_position, title, welcome_prompts)";
+
+export type WorkspaceBot = {
+  id: string;
+  name: string;
+  agent_type: AgentType;
+  description: string;
+  system_instructions: string;
+  handoff_instructions: string;
+  status: "active" | "archived";
+  is_default: boolean;
+  greeting: string;
+  fallback_message: string;
+  allowed_domains: string[];
+  route_patterns: string[];
+  lead_capture_fields: LeadCaptureField[];
+  widget_theme: {
+    accent: string;
+    launcher_position: "bottom-right" | "bottom-left";
+    title: string;
+    welcome_prompts: string[];
+  };
+};
 
 export type Workspace = {
   user: {
@@ -31,20 +57,8 @@ export type Workspace = {
     website_url?: string | null;
     brand_logo_url?: string | null;
   };
-  bot: {
-    id: string;
-    name: string;
-    greeting: string;
-    fallback_message: string;
-    allowed_domains: string[];
-    lead_capture_fields: LeadCaptureField[];
-    widget_theme: {
-      accent: string;
-      launcher_position: "bottom-right" | "bottom-left";
-      title: string;
-      welcome_prompts: string[];
-    };
-  };
+  bot: WorkspaceBot;
+  bots: WorkspaceBot[];
   role: string;
 };
 
@@ -70,6 +84,11 @@ export type ConversationRow = {
   visitor_id: string | null;
   page_url: string | null;
   created_at: string;
+  bot_id?: string | null;
+  bot_name?: string;
+  agent_type?: AgentType;
+  bot_accent?: string;
+  route_patterns?: string[];
 };
 
 export type InboxMessageRow = {
@@ -96,6 +115,11 @@ export type LeadRow = {
   status: string;
   created_at: string;
   conversation_id?: string | null;
+  bot_id?: string | null;
+  bot_name?: string;
+  agent_type?: AgentType;
+  bot_accent?: string;
+  route_patterns?: string[];
   metadata: {
     property_size?: string;
     preferred_date?: string;
@@ -213,27 +237,22 @@ export async function getWorkspaceOrRedirect(): Promise<Workspace> {
     redirect("/onboarding");
   }
 
-  const [{ data: organization }, { data: bot }, { data: billing }] = await Promise.all([
+  const [{ data: organization }, botsResult, { data: billing }] = await Promise.all([
     supabase
       .from("organizations")
       .select("id, name, website_url, brand_logo_url")
       .eq("id", membership.organization_id)
       .single(),
-    supabase
-      .from("bots")
-      .select("id, name, greeting, fallback_message, allowed_domains, lead_capture_fields, widget_themes(accent, launcher_position, title, welcome_prompts)")
-      .eq("organization_id", membership.organization_id)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .single(),
+    getWorkspaceBots(supabase, membership.organization_id),
     supabase
       .from("organization_billing")
       .select("status")
       .eq("organization_id", membership.organization_id)
       .maybeSingle()
   ]);
+  const bots = botsResult.data;
 
-  if (!organization || !bot) {
+  if (!organization || !bots || bots.length === 0) {
     redirect("/onboarding");
   }
 
@@ -243,23 +262,45 @@ export async function getWorkspaceOrRedirect(): Promise<Workspace> {
     redirect("/onboarding/checkout?checkout=required");
   }
 
+  const normalizedBots = bots.map(normalizeWorkspaceBot);
+
   return {
     user: {
       id: user.id,
       email: user.email ?? null
     },
     organization,
-    bot: {
-      id: bot.id,
-      name: bot.name,
-      greeting: bot.greeting,
-      fallback_message: bot.fallback_message,
-      allowed_domains: bot.allowed_domains ?? [],
-      lead_capture_fields: normalizeLeadFields(bot.lead_capture_fields),
-      widget_theme: normalizeWidgetTheme(bot.widget_themes)
-    },
+    bot: normalizedBots[0],
+    bots: normalizedBots,
     role: membership.role
   };
+}
+
+async function getWorkspaceBots(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  organizationId: string
+) {
+  const withRoutes = await supabase
+    .from("bots")
+    .select(WORKSPACE_BOT_SELECT_WITH_ROUTES)
+    .eq("organization_id", organizationId)
+    .eq("status", "active")
+    .order("is_default", { ascending: false })
+    .order("created_at", { ascending: true })
+    .limit(20);
+
+  if (!withRoutes.error) {
+    return withRoutes;
+  }
+
+  return supabase
+    .from("bots")
+    .select(WORKSPACE_BOT_SELECT)
+    .eq("organization_id", organizationId)
+    .eq("status", "active")
+    .order("is_default", { ascending: false })
+    .order("created_at", { ascending: true })
+    .limit(20);
 }
 
 export function isWorkspaceAdmin(role: string) {
@@ -272,7 +313,52 @@ export function requireWorkspaceAdmin(workspace: Workspace) {
   }
 }
 
-function normalizeWidgetTheme(theme: unknown): Workspace["bot"]["widget_theme"] {
+function normalizeWorkspaceBot(bot: {
+  id: string;
+  name: string;
+  agent_type: unknown;
+  description: unknown;
+  system_instructions: unknown;
+  handoff_instructions: unknown;
+  status: unknown;
+  is_default: unknown;
+  greeting: string;
+  fallback_message: string;
+  allowed_domains: string[] | null;
+  widget_routes?: unknown;
+  lead_capture_fields: unknown;
+  widget_themes: unknown;
+}): WorkspaceBot {
+  return {
+    id: bot.id,
+    name: bot.name,
+    agent_type: normalizeAgentType(bot.agent_type),
+    description: typeof bot.description === "string" ? bot.description : "",
+    system_instructions: typeof bot.system_instructions === "string" ? bot.system_instructions : "",
+    handoff_instructions: typeof bot.handoff_instructions === "string" ? bot.handoff_instructions : "",
+    status: bot.status === "archived" ? "archived" : "active",
+    is_default: bot.is_default === true,
+    greeting: bot.greeting,
+    fallback_message: bot.fallback_message,
+    allowed_domains: bot.allowed_domains ?? [],
+    route_patterns: normalizeRoutePatternsFromRows(bot.widget_routes),
+    lead_capture_fields: normalizeLeadFields(bot.lead_capture_fields),
+    widget_theme: normalizeWidgetTheme(bot.widget_themes)
+  };
+}
+
+function normalizeRoutePatternsFromRows(rows: unknown) {
+  const routeRows = Array.isArray(rows) ? rows : [];
+
+  return routeRows
+    .map((row) => row && typeof row === "object" ? row as Record<string, unknown> : null)
+    .filter((row): row is Record<string, unknown> => Boolean(row))
+    .sort((first, second) => Number(first.priority ?? 100) - Number(second.priority ?? 100))
+    .map((row) => typeof row.pattern === "string" ? row.pattern : "")
+    .filter(Boolean);
+}
+
+function normalizeWidgetTheme(theme: unknown): WorkspaceBot["widget_theme"] {
   const rawTheme = Array.isArray(theme) ? theme[0] : theme;
   const themeRecord = rawTheme && typeof rawTheme === "object" ? rawTheme as Record<string, unknown> : {};
   const launcherPosition = themeRecord.launcher_position === "bottom-left" ? "bottom-left" : "bottom-right";
@@ -581,19 +667,22 @@ export async function getConversations(workspace: Workspace): Promise<Conversati
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("conversations")
-    .select("id, visitor_id, page_url, created_at")
+    .select("id, visitor_id, page_url, created_at, bot_id")
     .eq("organization_id", workspace.organization.id)
     .order("created_at", { ascending: false })
     .limit(20);
 
-  return data ?? [];
+  return ((data ?? []) as ConversationRow[]).map((conversation) => ({
+    ...conversation,
+    ...getWorkspaceBotMeta(workspace, conversation.bot_id)
+  }));
 }
 
 export async function getInboxConversations(workspace: Workspace): Promise<InboxConversationRow[]> {
   const supabase = await createSupabaseServerClient();
   const { data: conversations } = await supabase
     .from("conversations")
-    .select("id, visitor_id, page_url, created_at")
+    .select("id, visitor_id, page_url, created_at, bot_id")
     .eq("organization_id", workspace.organization.id)
     .order("created_at", { ascending: false })
     .limit(20);
@@ -611,7 +700,7 @@ export async function getInboxConversations(workspace: Workspace): Promise<Inbox
       .order("created_at", { ascending: true }),
     supabase
       .from("leads")
-      .select("id, name, email, question, status, created_at, metadata, conversation_id")
+      .select("id, name, email, question, status, created_at, metadata, conversation_id, bot_id")
       .eq("organization_id", workspace.organization.id)
       .in("conversation_id", conversationIds)
   ]);
@@ -629,8 +718,9 @@ export async function getInboxConversations(workspace: Workspace): Promise<Inbox
         question: lead.question,
         status: lead.status,
         created_at: lead.created_at,
-        metadata: normalizeLeadMetadata(lead.metadata, workspace.bot.lead_capture_fields),
-        conversation_id: lead.conversation_id
+        metadata: normalizeLeadMetadata(lead.metadata, getLeadFieldsForBot(workspace, lead.bot_id)),
+        conversation_id: lead.conversation_id,
+        ...getWorkspaceBotMeta(workspace, lead.bot_id)
       };
     }
 
@@ -649,6 +739,7 @@ export async function getInboxConversations(workspace: Workspace): Promise<Inbox
 
     return {
       ...conversation,
+      ...getWorkspaceBotMeta(workspace, conversation.bot_id),
       messages: conversationMessages,
       lead,
       last_message_at: lastMessage?.created_at ?? conversation.created_at,
@@ -661,15 +752,32 @@ export async function getLeads(workspace: Workspace): Promise<LeadRow[]> {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("leads")
-    .select("id, name, email, question, status, created_at, metadata, conversation_id")
+    .select("id, name, email, question, status, created_at, metadata, conversation_id, bot_id")
     .eq("organization_id", workspace.organization.id)
     .order("created_at", { ascending: false })
     .limit(20);
 
   return ((data ?? []) as LeadRow[]).map((lead) => ({
     ...lead,
-    metadata: normalizeLeadMetadata(lead.metadata, workspace.bot.lead_capture_fields)
+    metadata: normalizeLeadMetadata(lead.metadata, getLeadFieldsForBot(workspace, lead.bot_id)),
+    ...getWorkspaceBotMeta(workspace, lead.bot_id)
   }));
+}
+
+function getWorkspaceBotMeta(workspace: Workspace, botId?: string | null) {
+  const bot = workspace.bots.find((item) => item.id === botId) ?? workspace.bot;
+
+  return {
+    bot_id: bot.id,
+    bot_name: bot.name,
+    agent_type: bot.agent_type,
+    bot_accent: bot.widget_theme.accent,
+    route_patterns: bot.route_patterns
+  };
+}
+
+function getLeadFieldsForBot(workspace: Workspace, botId?: string | null) {
+  return (workspace.bots.find((item) => item.id === botId) ?? workspace.bot).lead_capture_fields;
 }
 
 export function getInitials(email: string | null) {
@@ -741,10 +849,16 @@ async function getServiceCount(
   table: "bots" | "memberships",
   organizationId: string
 ) {
-  const { count } = await service
+  let query = service
     .from(table)
     .select("id", { count: "exact", head: true })
     .eq("organization_id", organizationId);
+
+  if (table === "bots") {
+    query = query.eq("status", "active");
+  }
+
+  const { count } = await query;
 
   return count ?? 0;
 }

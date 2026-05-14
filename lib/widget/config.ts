@@ -2,44 +2,188 @@ import type { BotConfig } from "@/lib/types";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 
 export async function getPublicBotConfig(botId: string): Promise<BotConfig> {
-  const supabase = createSupabaseServiceClient();
-  const { data: bot, error } = await supabase
-    .from("bots")
-    .select("id, organization_id, name, greeting, fallback_message, allowed_domains, organizations(name, brand_logo_url), widget_themes(accent, launcher_position, title, welcome_prompts)")
-    .eq("id", botId)
-    .single();
+  return getPublicWidgetConfig({ botId });
+}
 
-  if (error || !bot) {
+export async function getPublicWidgetConfig({
+  botId,
+  organizationId,
+  pageUrl
+}: {
+  botId?: string | null;
+  organizationId?: string | null;
+  pageUrl?: string | null;
+}): Promise<BotConfig> {
+  const supabase = createSupabaseServiceClient();
+  const requestedBotId = botId?.trim() || null;
+  const requestedOrganizationId = organizationId?.trim() || null;
+
+  if (!requestedBotId && !requestedOrganizationId) {
     throw new Error("Chatbot not found.");
   }
 
+  if (!requestedOrganizationId) {
+    const { data: bot, error } = await supabase
+      .from("bots")
+      .select("id, organization_id, name, greeting, fallback_message, allowed_domains, organizations(name, brand_logo_url), widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority)")
+      .eq("id", requestedBotId)
+      .eq("status", "active")
+      .single();
+
+    if (error || !bot) {
+      throw new Error("Chatbot not found.");
+    }
+
+    return buildBotConfig(bot);
+  }
+
+  const { data: bots, error } = await supabase
+    .from("bots")
+    .select("id, organization_id, name, greeting, fallback_message, allowed_domains, is_default, created_at, organizations(name, brand_logo_url), widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority)")
+    .eq("organization_id", requestedOrganizationId)
+    .eq("status", "active")
+    .order("is_default", { ascending: false })
+    .order("created_at", { ascending: true });
+
+  if (error || !bots || bots.length === 0) {
+    throw new Error("Chatbot not found.");
+  }
+
+  const selectedBot = selectRoutedBot(bots, requestedBotId, pageUrl);
+
+  return buildBotConfig(selectedBot);
+}
+
+async function buildBotConfig(bot: Record<string, unknown>): Promise<BotConfig> {
+  const supabase = createSupabaseServiceClient();
   const theme = Array.isArray(bot.widget_themes) ? bot.widget_themes[0] : bot.widget_themes;
   const organization = Array.isArray(bot.organizations) ? bot.organizations[0] : bot.organizations;
   const { data: removeBrandingAddOn } = await supabase
     .from("organization_add_ons")
     .select("enabled")
-    .eq("organization_id", bot.organization_id)
+    .eq("organization_id", String(bot.organization_id))
     .eq("add_on_key", "remove_branding")
     .maybeSingle();
 
+  const themeRecord = theme && typeof theme === "object" ? theme as Record<string, unknown> : {};
+  const organizationRecord = organization && typeof organization === "object" ? organization as Record<string, unknown> : {};
+
   return {
-    id: bot.id,
-    name: bot.name,
-    organizationId: bot.organization_id,
-    businessName: organization?.name ?? bot.name,
-    brandLogoUrl: organization?.brand_logo_url ?? null,
-    greeting: bot.greeting,
-    fallbackMessage: bot.fallback_message,
+    id: String(bot.id),
+    name: String(bot.name),
+    organizationId: String(bot.organization_id),
+    businessName: typeof organizationRecord.name === "string" ? organizationRecord.name : String(bot.name),
+    brandLogoUrl: typeof organizationRecord.brand_logo_url === "string" ? organizationRecord.brand_logo_url : null,
+    greeting: typeof bot.greeting === "string" ? bot.greeting : "Hi, I can help answer questions about this business.",
+    fallbackMessage: typeof bot.fallback_message === "string" ? bot.fallback_message : "I do not have enough information to answer that yet.",
     tone: "calm",
-    allowedDomains: bot.allowed_domains ?? [],
+    allowedDomains: Array.isArray(bot.allowed_domains) ? bot.allowed_domains.filter((domain): domain is string => typeof domain === "string") : [],
     removeBranding: removeBrandingAddOn?.enabled === true,
     theme: {
-      accent: theme?.accent ?? "#087f95",
-      launcherPosition: theme?.launcher_position ?? "bottom-right",
-      title: theme?.title ?? "Ask Harlo",
-      welcomePrompts: theme?.welcome_prompts ?? ["What services do you offer?", "How much does it cost?", "Can I book a consultation?"]
+      accent: typeof themeRecord.accent === "string" ? themeRecord.accent : "#087f95",
+      launcherPosition: themeRecord.launcher_position === "bottom-left" ? "bottom-left" : "bottom-right",
+      title: typeof themeRecord.title === "string" ? themeRecord.title : "Ask Harlo",
+      welcomePrompts: Array.isArray(themeRecord.welcome_prompts)
+        ? themeRecord.welcome_prompts.filter((prompt): prompt is string => typeof prompt === "string")
+        : ["What services do you offer?", "How much does it cost?", "Can I book a consultation?"]
     }
   };
+}
+
+function selectRoutedBot<T extends Record<string, unknown>>(bots: T[], requestedBotId: string | null, pageUrl: string | null | undefined) {
+  if (requestedBotId) {
+    const requestedBot = bots.find((bot) => String(bot.id) === requestedBotId);
+
+    if (requestedBot) {
+      return requestedBot;
+    }
+  }
+
+  const path = getPagePath(pageUrl);
+  let bestBot: T | null = null;
+  let bestScore = 0;
+
+  for (const bot of bots) {
+    const routes = normalizeRouteRows(bot.widget_routes);
+
+    for (const route of routes) {
+      const score = getRouteScore(route.pattern, path, route.priority);
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestBot = bot;
+      }
+    }
+  }
+
+  if (bestBot) {
+    return bestBot;
+  }
+
+  return bots[0];
+}
+
+function getPagePath(pageUrl: string | null | undefined) {
+  if (!pageUrl) {
+    return "/";
+  }
+
+  try {
+    return normalizePath(new URL(pageUrl).pathname || "/");
+  } catch {
+    return "/";
+  }
+}
+
+function normalizePath(path: string) {
+  const trimmed = path.trim();
+  const withSlash = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+
+  return withSlash.length > 1 ? withSlash.replace(/\/+$/g, "") : "/";
+}
+
+function normalizeRouteRows(rows: unknown) {
+  return (Array.isArray(rows) ? rows : [])
+    .map((row) => row && typeof row === "object" ? row as Record<string, unknown> : null)
+    .filter((row): row is Record<string, unknown> => Boolean(row))
+    .map((row) => ({
+      pattern: typeof row.pattern === "string" ? normalizeRoutePattern(row.pattern) : "",
+      priority: Number(row.priority ?? 100)
+    }))
+    .filter((row) => row.pattern.length > 0);
+}
+
+function normalizeRoutePattern(pattern: string) {
+  const trimmed = pattern.trim();
+
+  if (trimmed === "*") {
+    return trimmed;
+  }
+
+  if (trimmed.endsWith("/*")) {
+    const prefix = normalizePath(trimmed.slice(0, -2) || "/");
+
+    return prefix === "/" ? "/*" : `${prefix}/*`;
+  }
+
+  return normalizePath(trimmed);
+}
+
+function getRouteScore(pattern: string, path: string, priority: number) {
+  const priorityScore = Math.max(0, 100 - Math.min(priority, 100));
+
+  if (pattern === "*") {
+    return 1 + priorityScore;
+  }
+
+  if (pattern.endsWith("/*")) {
+    const prefix = pattern.slice(0, -2) || "/";
+    const matches = path === prefix || path.startsWith(`${prefix}/`);
+
+    return matches ? 5000 + prefix.length + priorityScore : 0;
+  }
+
+  return path === pattern ? 10000 + pattern.length + priorityScore : 0;
 }
 
 export function isAllowedWidgetOrigin(config: BotConfig, origin: string | null) {

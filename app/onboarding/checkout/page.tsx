@@ -43,18 +43,31 @@ export default async function OnboardingCheckoutPage({ searchParams }: CheckoutP
   }
 
   const service = createSupabaseServiceClient();
-  const [{ data: organization }, { data: billing }] = await Promise.all([
+  const [{ data: organization }, { data: bot }, { data: billing }] = await Promise.all([
     service
       .from("organizations")
       .select("name")
       .eq("id", membership.organization_id)
-      .single(),
+      .maybeSingle(),
+    service
+      .from("bots")
+      .select("id")
+      .eq("organization_id", membership.organization_id)
+      .eq("status", "active")
+      .order("is_default", { ascending: false })
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
     service
       .from("organization_billing")
       .select("plan_key, billing_interval, status")
       .eq("organization_id", membership.organization_id)
       .maybeSingle()
   ]);
+
+  if (!organization || !bot) {
+    redirect("/onboarding");
+  }
 
   if (billing?.status === "active" || billing?.status === "trialing") {
     redirect("/dashboard?welcome=1");
