@@ -63,6 +63,46 @@ type SaveResult = {
   agent?: BuilderAgentDraft;
 };
 
+type BuilderTab = "role" | "widget" | "leads" | "routing" | "preview";
+
+const BUILDER_TABS: Array<{
+  id: BuilderTab;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+}> = [
+  {
+    id: "role",
+    label: "Role",
+    description: "Behavior and instructions",
+    icon: Bot
+  },
+  {
+    id: "widget",
+    label: "Widget",
+    description: "Copy, theme, prompts",
+    icon: MessageSquare
+  },
+  {
+    id: "leads",
+    label: "Leads",
+    description: "Capture questions",
+    icon: ClipboardList
+  },
+  {
+    id: "routing",
+    label: "Routing",
+    description: "Pages and domains",
+    icon: RouteIcon
+  },
+  {
+    id: "preview",
+    label: "Preview",
+    description: "Live widget check",
+    icon: Sparkles
+  }
+];
+
 export function BuilderForm({ initial }: BuilderFormProps) {
   const router = useRouter();
   const seedAgents = initial.agents.length > 0 ? initial.agents : [makeAgentFromInitial(initial)];
@@ -85,6 +125,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
   const [leadCaptureFields, setLeadCaptureFields] = useState(padLeadFields(firstAgent.leadCaptureFields));
   const [isSaving, setIsSaving] = useState(false);
   const [agentMutation, setAgentMutation] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<BuilderTab>("role");
   const { toast, showToast, dismissToast } = useToast();
 
   const selectedAgent = agents.find((agent) => agent.id === selectedAgentId) ?? agents[0] ?? firstAgent;
@@ -360,487 +401,493 @@ export function BuilderForm({ initial }: BuilderFormProps) {
   }
 
   return (
-    <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_460px]">
+    <div className="space-y-5">
       <ToastViewport toast={toast} onDismiss={dismissToast} />
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-5">
         <section className="overflow-hidden rounded-lg border border-harlo-line bg-white">
-          <div className="flex flex-col gap-3 border-b border-harlo-line p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-4 border-b border-harlo-line p-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-harlo-ink">Agents</h2>
-              <p className="mt-1 text-sm text-harlo-muted">Create focused agents for support, sales, or custom visitor workflows.</p>
-            </div>
-            <span className="inline-flex w-fit items-center gap-2 rounded-full border border-harlo-line bg-harlo-canvas px-3 py-1 text-sm font-semibold text-harlo-muted">
-              <span className="h-2 w-2 rounded-full bg-harlo-teal" />
-              {agents.length} / {agentLimit} active
-            </span>
-          </div>
-          <div className="space-y-5 p-5">
-            <div className="grid gap-3 lg:grid-cols-2">
-              {agents.map((agent, index) => {
-                const template = getAgentTemplate(agent.agentType);
-                const isActive = agent.id === selectedAgent.id;
-
-                return (
-                  <button
-                    key={agent.id}
-                    type="button"
-                    onClick={() => selectAgent(agent)}
-                    className={`group rounded-lg border p-4 text-left transition ${
-                      isActive
-                        ? "border-harlo-teal bg-harlo-teal-soft shadow-soft"
-                        : "border-harlo-line bg-white hover:border-harlo-teal/40 hover:bg-harlo-canvas"
-                    }`}
-                  >
-                    <span className="flex items-start justify-between gap-3">
-                      <span className="flex items-center gap-3">
-                        <span className={`grid h-9 w-9 place-items-center rounded-full text-sm font-semibold ${isActive ? "bg-harlo-teal text-white" : "bg-harlo-teal-soft text-harlo-teal"}`}>
-                          {index + 1}
-                        </span>
-                        <span>
-                          <span className="block text-base font-semibold text-harlo-ink">{agent.botName}</span>
-                          <span className="mt-1 block text-xs font-semibold uppercase tracking-[0.14em] text-harlo-teal">{template.badge}</span>
-                        </span>
-                      </span>
-                      <span className="flex flex-wrap justify-end gap-2">
-                        {agent.routePatterns.length > 0 ? (
-                          <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-harlo-muted shadow-sm">
-                            {agent.routePatterns.length} route{agent.routePatterns.length === 1 ? "" : "s"}
-                          </span>
-                        ) : null}
-                        {agent.isDefault ? (
-                          <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-harlo-teal shadow-sm">Default</span>
-                        ) : null}
-                      </span>
-                    </span>
-                    <span className="mt-3 block text-sm leading-6 text-harlo-muted">{agent.description || template.defaultDescription}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="rounded-lg border border-dashed border-harlo-line bg-harlo-canvas p-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-harlo-ink">Add another agent</p>
-                  <p className="mt-1 text-sm text-harlo-muted">
-                    {canCreateAgent ? "Use a template, then tune the behavior and widget copy." : "Enable the Extra agent add-on in Billing to unlock more agents."}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {AGENT_TEMPLATES.map((template) => (
-                    <Button
-                      key={template.type}
-                      type="button"
-                      variant="secondary"
-                      disabled={!canCreateAgent || agentMutation === `create-${template.type}`}
-                      onClick={() => handleCreateAgent(template.type)}
-                    >
-                      {agentMutation === `create-${template.type}` ? <Loader2 className="animate-spin" size={16} /> : <Plus size={16} />}
-                      {template.badge}
-                    </Button>
-                  ))}
-                </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-semibold text-harlo-ink">Agent workspace</h2>
+                <span className="inline-flex items-center gap-2 rounded-full border border-harlo-line bg-harlo-canvas px-3 py-1 text-xs font-semibold text-harlo-muted">
+                  <span className="h-2 w-2 rounded-full bg-harlo-teal" />
+                  {agents.length} / {agentLimit} active
+                </span>
               </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="overflow-hidden rounded-lg border border-harlo-line bg-white">
-          <div className="flex flex-col gap-3 border-b border-harlo-line p-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-harlo-ink">Agent role</h2>
-              <p className="mt-1 text-sm text-harlo-muted">Choose how {botName || "this agent"} should behave before tuning the widget surface.</p>
+              <p className="mt-1 text-sm text-harlo-muted">Switch agents, add capacity-backed templates, and edit each setup in compact tabs.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="secondary" disabled={selectedAgent.isDefault || agentMutation === "default"} onClick={handleSetDefault}>
-                {agentMutation === "default" ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
-                {selectedAgent.isDefault ? "Default agent" : "Make default"}
-              </Button>
-              <Button type="button" variant="ghost" disabled={agents.length <= 1 || agentMutation === "archive"} onClick={handleArchiveAgent}>
-                {agentMutation === "archive" ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
-                Archive
-              </Button>
+              {AGENT_TEMPLATES.map((template) => (
+                <Button
+                  key={template.type}
+                  type="button"
+                  variant="secondary"
+                  disabled={!canCreateAgent || agentMutation === `create-${template.type}`}
+                  onClick={() => handleCreateAgent(template.type)}
+                >
+                  {agentMutation === `create-${template.type}` ? <Loader2 className="animate-spin" size={16} /> : <Plus size={16} />}
+                  {template.badge}
+                </Button>
+              ))}
             </div>
           </div>
-          <div className="space-y-5 p-5">
-            <div className="grid gap-3 md:grid-cols-3">
-              {AGENT_TEMPLATES.map((template) => {
-                const isActive = agentType === template.type;
+          <div className="grid gap-3 p-4 lg:grid-cols-2">
+            {agents.map((agent, index) => {
+              const template = getAgentTemplate(agent.agentType);
+              const isActive = agent.id === selectedAgent.id;
+
+              return (
+                <button
+                  key={agent.id}
+                  type="button"
+                  onClick={() => selectAgent(agent)}
+                  className={`rounded-lg border p-3 text-left transition ${
+                    isActive
+                      ? "border-harlo-teal bg-harlo-teal-soft shadow-soft"
+                      : "border-harlo-line bg-white hover:border-harlo-teal/40 hover:bg-harlo-canvas"
+                  }`}
+                >
+                  <span className="flex items-start justify-between gap-3">
+                    <span className="flex min-w-0 items-center gap-3">
+                      <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-semibold ${isActive ? "bg-harlo-teal text-white" : "bg-harlo-teal-soft text-harlo-teal"}`}>
+                        {index + 1}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-harlo-ink">{agent.botName}</span>
+                        <span className="mt-1 block text-xs font-semibold uppercase tracking-[0.14em] text-harlo-teal">{template.badge}</span>
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 flex-wrap justify-end gap-2">
+                      {agent.routePatterns.length > 0 ? (
+                        <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-harlo-muted shadow-sm">
+                          {agent.routePatterns.length} route{agent.routePatterns.length === 1 ? "" : "s"}
+                        </span>
+                      ) : null}
+                      {agent.isDefault ? (
+                        <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-harlo-teal shadow-sm">Default</span>
+                      ) : null}
+                    </span>
+                  </span>
+                  <span className="mt-2 block max-h-12 overflow-hidden text-sm leading-6 text-harlo-muted">{agent.description || template.defaultDescription}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-lg border border-harlo-line bg-white">
+          <div className="border-b border-harlo-line bg-harlo-canvas/70 p-3">
+            <div className="grid gap-2 md:grid-cols-5">
+              {BUILDER_TABS.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
 
                 return (
                   <button
-                    key={template.type}
+                    key={tab.id}
                     type="button"
-                    onClick={() => applyAgentType(template.type)}
-                    className={`rounded-lg border p-4 text-left transition ${
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`rounded-lg border px-3 py-2 text-left transition ${
                       isActive
-                        ? "border-harlo-teal bg-harlo-teal-soft shadow-soft"
-                        : "border-harlo-line bg-white hover:border-harlo-teal/40 hover:bg-harlo-canvas"
+                        ? "border-harlo-teal bg-white text-harlo-ink shadow-sm"
+                        : "border-transparent bg-transparent text-harlo-muted hover:border-harlo-line hover:bg-white"
                     }`}
                   >
-                    <span className="inline-flex items-center gap-2 rounded-full border border-harlo-line bg-white px-3 py-1 text-xs font-semibold text-harlo-teal">
-                      <span className="h-2 w-2 rounded-full bg-harlo-teal" />
-                      {template.badge}
+                    <span className="flex items-center gap-2 text-sm font-semibold">
+                      <Icon size={15} className={isActive ? "text-harlo-teal" : "text-harlo-muted"} />
+                      {tab.label}
                     </span>
-                    <span className="mt-3 block text-base font-semibold text-harlo-ink">{template.label}</span>
-                    <span className="mt-2 block text-sm leading-6 text-harlo-muted">{template.description}</span>
+                    <span className="mt-1 block text-xs">{tab.description}</span>
                   </button>
                 );
               })}
             </div>
+          </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field icon={Bot} label="Agent description">
-                <textarea
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  required
-                  maxLength={180}
-                  rows={3}
-                  className={textareaClass}
-                  placeholder="What this agent is responsible for."
-                />
-              </Field>
-              <Field icon={MessageSquare} label="Handoff instructions">
-                <textarea
-                  value={handoffInstructions}
-                  onChange={(event) => setHandoffInstructions(event.target.value)}
-                  maxLength={800}
-                  rows={3}
-                  className={textareaClass}
-                  placeholder="What context should the team receive when this agent captures a lead?"
-                />
-              </Field>
-              <Field icon={Sparkles} label="Agent instructions" className="md:col-span-2">
-                <textarea
-                  value={systemInstructions}
-                  onChange={(event) => setSystemInstructions(event.target.value)}
-                  maxLength={1200}
-                  rows={5}
-                  className={textareaClass}
-                  placeholder="How this agent should answer, qualify, and route visitors."
-                />
-              </Field>
-            </div>
-          </div>
-        </section>
-
-        <section className="rounded-lg border border-harlo-line bg-white">
-          <div className="border-b border-harlo-line p-5">
-            <h2 className="text-lg font-semibold text-harlo-ink">Widget identity</h2>
-            <p className="mt-1 text-sm text-harlo-muted">Control what customers see when the chat opens.</p>
-          </div>
-          <div className="grid gap-4 p-5 md:grid-cols-2">
-            <Field icon={Bot} label="Bot name">
-              <input
-                value={botName}
-                onChange={(event) => setBotName(event.target.value)}
-                required
-                maxLength={80}
-                className={inputClass}
-              />
-            </Field>
-            <Field icon={Sparkles} label="Widget title">
-              <input
-                value={widgetTitle}
-                onChange={(event) => setWidgetTitle(event.target.value)}
-                required
-                maxLength={80}
-                className={inputClass}
-              />
-            </Field>
-            <Field icon={MessageSquare} label="Greeting" className="md:col-span-2">
-              <textarea
-                value={greeting}
-                onChange={(event) => setGreeting(event.target.value)}
-                required
-                maxLength={240}
-                rows={3}
-                className={textareaClass}
-              />
-            </Field>
-            <Field icon={MessageSquare} label="Default fallback" className="md:col-span-2">
-              <textarea
-                value={fallbackMessage}
-                onChange={(event) => setFallbackMessage(event.target.value)}
-                required
-                maxLength={240}
-                rows={3}
-                className={textareaClass}
-              />
-            </Field>
-          </div>
-        </section>
-
-        <section className="rounded-lg border border-harlo-line bg-white">
-          <div className="border-b border-harlo-line p-5">
-            <h2 className="text-lg font-semibold text-harlo-ink">Lead capture questions</h2>
-            <p className="mt-1 text-sm text-harlo-muted">Choose what {botName || "your chatbot"} asks before handing a visitor to the team.</p>
-          </div>
-          <div className="space-y-3 p-5">
-            {leadCaptureFields.map((field, index) => (
-              <div key={field.key} className="grid gap-3 rounded-lg border border-harlo-line bg-harlo-canvas p-3 lg:grid-cols-[160px_120px_1fr]">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={field.enabled}
-                    disabled={isLockedLeadField(field.key)}
-                    onChange={(event) => updateLeadField(index, { enabled: event.target.checked, required: event.target.checked ? field.required : false })}
-                    className="h-4 w-4 accent-harlo-teal"
-                    aria-label={`Enable ${field.label}`}
-                  />
-                  <div>
-                    <p className="text-sm font-semibold text-harlo-ink">{field.label}</p>
-                    <p className="text-xs text-harlo-muted">{isLockedLeadField(field.key) ? "Required" : "Optional"}</p>
-                  </div>
-                </div>
-                <select
-                  value={field.type}
-                  disabled={isLockedLeadField(field.key)}
-                  onChange={(event) => updateLeadField(index, { type: event.target.value as LeadFieldType })}
-                  className="h-10 rounded-lg border border-harlo-line bg-white px-3 text-sm text-harlo-ink outline-none focus:border-harlo-teal disabled:text-harlo-muted"
-                >
-                  <option value="text">Text</option>
-                  <option value="email">Email</option>
-                  <option value="phone">Phone</option>
-                  <option value="date">Date</option>
-                </select>
-                <div className="flex gap-2">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-harlo-line bg-white text-harlo-teal">
-                    <ClipboardList size={16} />
-                  </span>
-                  <input
-                    value={field.prompt}
-                    onChange={(event) => updateLeadField(index, { prompt: event.target.value })}
-                    disabled={!field.enabled}
-                    maxLength={120}
-                    className="h-10 w-full rounded-lg border border-harlo-line bg-white px-3 text-sm text-harlo-ink outline-none transition placeholder:text-harlo-muted focus:border-harlo-teal disabled:bg-harlo-canvas disabled:text-harlo-muted"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="rounded-lg border border-harlo-line bg-white">
-          <div className="border-b border-harlo-line p-5">
-            <h2 className="text-lg font-semibold text-harlo-ink">Brand styling</h2>
-            <p className="mt-1 text-sm text-harlo-muted">Match the widget to the business website.</p>
-          </div>
-          <div className="grid gap-4 p-5 md:grid-cols-2">
-            <Field icon={Palette} label="Accent color">
-              <div className="flex gap-3">
-                <input
-                  type="color"
-                  value={accent}
-                  onChange={(event) => setAccent(event.target.value)}
-                  className="h-11 w-14 rounded-lg border border-harlo-line bg-white p-1"
-                  aria-label="Accent color picker"
-                />
-                <input
-                  value={accent}
-                  onChange={(event) => setAccent(event.target.value)}
-                  required
-                  pattern="#[0-9a-fA-F]{6}"
-                  className={inputClass}
-                />
-              </div>
-            </Field>
-            <Field icon={Sparkles} label="Launcher position">
-              <div className="grid grid-cols-2 rounded-lg border border-harlo-line bg-harlo-canvas p-1">
-                {(["bottom-right", "bottom-left"] as const).map((position) => (
-                  <button
-                    key={position}
-                    type="button"
-                    onClick={() => setLauncherPosition(position)}
-                    className={`rounded-md px-3 py-2 text-sm font-semibold transition ${
-                      launcherPosition === position ? "bg-white text-harlo-ink shadow-sm" : "text-harlo-muted hover:text-harlo-ink"
-                    }`}
-                  >
-                    {position === "bottom-right" ? "Right" : "Left"}
-                  </button>
-                ))}
-              </div>
-            </Field>
-          </div>
-        </section>
-
-        <section className="rounded-lg border border-harlo-line bg-white">
-          <div className="flex items-center justify-between gap-4 border-b border-harlo-line p-5">
-            <div>
-              <h2 className="text-lg font-semibold text-harlo-ink">Welcome prompts</h2>
-              <p className="mt-1 text-sm text-harlo-muted">Quick-start questions customers can tap when the widget opens.</p>
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setWelcomePrompts((current) => [...current, ""])}
-              disabled={welcomePrompts.length >= 4}
-            >
-              <Plus size={16} />
-              Add
-            </Button>
-          </div>
-          <div className="space-y-3 p-5">
-            {welcomePrompts.map((prompt, index) => (
-              <div key={index} className="flex gap-2">
-                <input
-                  value={prompt}
-                  onChange={(event) => updatePrompt(index, event.target.value)}
-                  maxLength={90}
-                  className={inputClass}
-                  placeholder="What services do you offer?"
-                />
-                <Button type="button" variant="ghost" className="px-3" onClick={() => removePrompt(index)} aria-label="Remove prompt">
-                  <Trash2 size={16} />
-                </Button>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="rounded-lg border border-harlo-line bg-white">
-          <div className="flex items-center justify-between gap-4 border-b border-harlo-line p-5">
-            <div>
-              <h2 className="text-lg font-semibold text-harlo-ink">Page routing</h2>
-              <p className="mt-1 text-sm text-harlo-muted">Match website paths to this agent. The default agent handles unmatched pages.</p>
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setRoutePatterns((current) => [...current, ""])}
-              disabled={routePatterns.length >= 8}
-            >
-              <Plus size={16} />
-              Add
-            </Button>
-          </div>
-          <div className="space-y-5 p-5">
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
-              <div className="rounded-lg border border-harlo-line bg-harlo-canvas p-4">
-                <div className="flex items-start gap-3">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white text-harlo-teal shadow-sm">
-                    <RouteIcon size={17} />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-harlo-ink">
-                      {cleanRoutePatterns.length > 0 ? `${botName || "This agent"} opens on selected pages` : selectedAgent.isDefault ? "Default coverage" : "Pinned or routed"}
-                    </p>
-                    <p className="mt-1 text-sm leading-6 text-harlo-muted">
-                      {cleanRoutePatterns.length > 0
-                        ? "The workspace snippet will choose this agent when a visitor lands on any matching path."
-                        : selectedAgent.isDefault
-                          ? "This agent answers every page that does not match another route."
-                          : "Add route rules below, or use this agent's pinned snippet on the Widget page."}
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <RouteSummary patterns={cleanRoutePatterns} fallbackLabel={selectedAgent.isDefault ? "All unmatched pages" : "No route rules yet"} />
-                      {cleanRoutePatterns.length > 0 ? (
-                        <a
-                          href={`/widget-test?path=${encodeURIComponent(getExampleRoutePath(cleanRoutePatterns[0]))}`}
-                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-harlo-line bg-white px-3 text-xs font-semibold text-harlo-ink shadow-sm transition hover:border-harlo-teal hover:text-harlo-teal"
-                        >
-                          Test route
-                          <ArrowUpRight size={13} />
-                        </a>
-                      ) : null}
+          <div className="p-5">
+            {activeTab === "role" ? (
+              <div className="space-y-5">
+                <TabHeader
+                  eyebrow="Agent role"
+                  title={`Tune ${botName || "this agent"}`}
+                  description="Choose the operating mode, handoff behavior, and the instructions that shape every response."
+                  action={
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="secondary" disabled={selectedAgent.isDefault || agentMutation === "default"} onClick={handleSetDefault}>
+                        {agentMutation === "default" ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
+                        {selectedAgent.isDefault ? "Default agent" : "Make default"}
+                      </Button>
+                      <Button type="button" variant="ghost" disabled={agents.length <= 1 || agentMutation === "archive"} onClick={handleArchiveAgent}>
+                        {agentMutation === "archive" ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
+                        Archive
+                      </Button>
                     </div>
-                  </div>
+                  }
+                />
+                <div className="grid gap-3 lg:grid-cols-3">
+                  {AGENT_TEMPLATES.map((template) => {
+                    const isActive = agentType === template.type;
+
+                    return (
+                      <button
+                        key={template.type}
+                        type="button"
+                        onClick={() => applyAgentType(template.type)}
+                        className={`rounded-lg border p-4 text-left transition ${
+                          isActive
+                            ? "border-harlo-teal bg-harlo-teal-soft shadow-soft"
+                            : "border-harlo-line bg-white hover:border-harlo-teal/40 hover:bg-harlo-canvas"
+                        }`}
+                      >
+                        <span className="inline-flex items-center gap-2 rounded-full border border-harlo-line bg-white px-3 py-1 text-xs font-semibold text-harlo-teal">
+                          <span className="h-2 w-2 rounded-full bg-harlo-teal" />
+                          {template.badge}
+                        </span>
+                        <span className="mt-3 block text-base font-semibold text-harlo-ink">{template.label}</span>
+                        <span className="mt-2 block text-sm leading-6 text-harlo-muted">{template.description}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <Field icon={Bot} label="Agent description">
+                    <textarea
+                      value={description}
+                      onChange={(event) => setDescription(event.target.value)}
+                      required
+                      maxLength={180}
+                      rows={3}
+                      className={textareaClass}
+                      placeholder="What this agent is responsible for."
+                    />
+                  </Field>
+                  <Field icon={MessageSquare} label="Handoff instructions">
+                    <textarea
+                      value={handoffInstructions}
+                      onChange={(event) => setHandoffInstructions(event.target.value)}
+                      maxLength={800}
+                      rows={3}
+                      className={textareaClass}
+                      placeholder="What context should the team receive when this agent captures a lead?"
+                    />
+                  </Field>
+                  <Field icon={Sparkles} label="Agent instructions" className="lg:col-span-2">
+                    <textarea
+                      value={systemInstructions}
+                      onChange={(event) => setSystemInstructions(event.target.value)}
+                      maxLength={1200}
+                      rows={5}
+                      className={textareaClass}
+                      placeholder="How this agent should answer, qualify, and route visitors."
+                    />
+                  </Field>
                 </div>
               </div>
-              <div className="rounded-lg border border-harlo-line bg-white p-4">
-                <p className="text-sm font-semibold text-harlo-ink">Quick routes</p>
-                <p className="mt-1 text-xs leading-5 text-harlo-muted">Use exact pages or wildcard groups.</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {ROUTE_EXAMPLES.map((pattern) => (
-                    <button
-                      key={pattern}
-                      type="button"
-                      onClick={() => addRoutePattern(pattern)}
-                      className="rounded-full border border-harlo-line bg-harlo-canvas px-3 py-1.5 text-xs font-semibold text-harlo-muted transition hover:border-harlo-teal hover:text-harlo-teal"
-                    >
-                      {pattern}
-                    </button>
+            ) : null}
+
+            {activeTab === "widget" ? (
+              <div className="space-y-5">
+                <TabHeader
+                  eyebrow="Widget"
+                  title="Configure customer-facing chat"
+                  description="Set the widget copy, brand color, launcher position, and welcome prompts."
+                />
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <Field icon={Bot} label="Bot name">
+                    <input value={botName} onChange={(event) => setBotName(event.target.value)} required maxLength={80} className={inputClass} />
+                  </Field>
+                  <Field icon={Sparkles} label="Widget title">
+                    <input value={widgetTitle} onChange={(event) => setWidgetTitle(event.target.value)} required maxLength={80} className={inputClass} />
+                  </Field>
+                  <Field icon={MessageSquare} label="Greeting">
+                    <textarea value={greeting} onChange={(event) => setGreeting(event.target.value)} required maxLength={240} rows={3} className={textareaClass} />
+                  </Field>
+                  <Field icon={MessageSquare} label="Default fallback">
+                    <textarea value={fallbackMessage} onChange={(event) => setFallbackMessage(event.target.value)} required maxLength={240} rows={3} className={textareaClass} />
+                  </Field>
+                </div>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <Panel title="Brand styling" description="Match the widget to the business website.">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field icon={Palette} label="Accent color">
+                        <div className="flex gap-3">
+                          <input
+                            type="color"
+                            value={accent}
+                            onChange={(event) => setAccent(event.target.value)}
+                            className="h-11 w-14 rounded-lg border border-harlo-line bg-white p-1"
+                            aria-label="Accent color picker"
+                          />
+                          <input
+                            value={accent}
+                            onChange={(event) => setAccent(event.target.value)}
+                            required
+                            pattern="#[0-9a-fA-F]{6}"
+                            className={inputClass}
+                          />
+                        </div>
+                      </Field>
+                      <Field icon={Sparkles} label="Launcher position">
+                        <div className="grid grid-cols-2 rounded-lg border border-harlo-line bg-harlo-canvas p-1">
+                          {(["bottom-right", "bottom-left"] as const).map((position) => (
+                            <button
+                              key={position}
+                              type="button"
+                              onClick={() => setLauncherPosition(position)}
+                              className={`rounded-md px-3 py-2 text-sm font-semibold transition ${
+                                launcherPosition === position ? "bg-white text-harlo-ink shadow-sm" : "text-harlo-muted hover:text-harlo-ink"
+                              }`}
+                            >
+                              {position === "bottom-right" ? "Right" : "Left"}
+                            </button>
+                          ))}
+                        </div>
+                      </Field>
+                    </div>
+                  </Panel>
+                  <Panel
+                    title="Welcome prompts"
+                    description="Quick-start questions customers can tap."
+                    action={
+                      <Button type="button" variant="secondary" onClick={() => setWelcomePrompts((current) => [...current, ""])} disabled={welcomePrompts.length >= 4}>
+                        <Plus size={16} />
+                        Add
+                      </Button>
+                    }
+                  >
+                    <div className="space-y-3">
+                      {welcomePrompts.map((prompt, index) => (
+                        <div key={index} className="flex gap-2">
+                          <input
+                            value={prompt}
+                            onChange={(event) => updatePrompt(index, event.target.value)}
+                            maxLength={90}
+                            className={inputClass}
+                            placeholder="What services do you offer?"
+                          />
+                          <Button type="button" variant="ghost" className="px-3" onClick={() => removePrompt(index)} aria-label="Remove prompt">
+                            <Trash2 size={16} />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </Panel>
+                </div>
+              </div>
+            ) : null}
+
+            {activeTab === "leads" ? (
+              <div className="space-y-5">
+                <TabHeader
+                  eyebrow="Leads"
+                  title="Capture the right follow-up details"
+                  description={`Choose what ${botName || "your chatbot"} asks before handing a visitor to the team.`}
+                />
+                <div className="grid gap-3">
+                  {leadCaptureFields.map((field, index) => (
+                    <div key={field.key} className="grid gap-3 rounded-lg border border-harlo-line bg-harlo-canvas p-3 lg:grid-cols-[170px_130px_minmax(0,1fr)]">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={field.enabled}
+                          disabled={isLockedLeadField(field.key)}
+                          onChange={(event) => updateLeadField(index, { enabled: event.target.checked, required: event.target.checked ? field.required : false })}
+                          className="h-4 w-4 accent-harlo-teal"
+                          aria-label={`Enable ${field.label}`}
+                        />
+                        <div>
+                          <p className="text-sm font-semibold text-harlo-ink">{field.label}</p>
+                          <p className="text-xs text-harlo-muted">{isLockedLeadField(field.key) ? "Required" : "Optional"}</p>
+                        </div>
+                      </div>
+                      <select
+                        value={field.type}
+                        disabled={isLockedLeadField(field.key)}
+                        onChange={(event) => updateLeadField(index, { type: event.target.value as LeadFieldType })}
+                        className="h-10 rounded-lg border border-harlo-line bg-white px-3 text-sm text-harlo-ink outline-none focus:border-harlo-teal disabled:text-harlo-muted"
+                      >
+                        <option value="text">Text</option>
+                        <option value="email">Email</option>
+                        <option value="phone">Phone</option>
+                        <option value="date">Date</option>
+                      </select>
+                      <div className="flex gap-2">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-harlo-line bg-white text-harlo-teal">
+                          <ClipboardList size={16} />
+                        </span>
+                        <input
+                          value={field.prompt}
+                          onChange={(event) => updateLeadField(index, { prompt: event.target.value })}
+                          disabled={!field.enabled}
+                          maxLength={120}
+                          className="h-10 w-full rounded-lg border border-harlo-line bg-white px-3 text-sm text-harlo-ink outline-none transition placeholder:text-harlo-muted focus:border-harlo-teal disabled:bg-harlo-canvas disabled:text-harlo-muted"
+                        />
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
-            </div>
-            {routePatterns.map((pattern, index) => (
-              <div key={index} className="flex gap-2">
-                <span className="grid h-11 w-11 place-items-center rounded-lg border border-harlo-line bg-harlo-canvas text-harlo-muted">
-                  <RouteIcon size={16} />
-                </span>
-                <input
-                  value={pattern}
-                  onChange={(event) => updateRoutePattern(index, event.target.value)}
-                  className={inputClass}
-                  placeholder="/pricing, /services/*, or *"
+            ) : null}
+
+            {activeTab === "routing" ? (
+              <div className="space-y-5">
+                <TabHeader
+                  eyebrow="Routing"
+                  title="Control where this agent appears"
+                  description="Use page paths to auto-select this agent and domains to control where the widget can load."
                 />
-                <Button type="button" variant="ghost" className="px-3" onClick={() => removeRoutePattern(index)} aria-label="Remove route pattern">
-                  <Trash2 size={16} />
-                </Button>
+                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+                  <Panel
+                    title="Page routing"
+                    description="Match website paths to this agent. The default agent handles unmatched pages."
+                    action={
+                      <Button type="button" variant="secondary" onClick={() => setRoutePatterns((current) => [...current, ""])} disabled={routePatterns.length >= 8}>
+                        <Plus size={16} />
+                        Add
+                      </Button>
+                    }
+                  >
+                    <div className="space-y-4">
+                      <div className="rounded-lg border border-harlo-line bg-harlo-canvas p-4">
+                        <div className="flex items-start gap-3">
+                          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white text-harlo-teal shadow-sm">
+                            <RouteIcon size={17} />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-harlo-ink">
+                              {cleanRoutePatterns.length > 0 ? `${botName || "This agent"} opens on selected pages` : selectedAgent.isDefault ? "Default coverage" : "Pinned or routed"}
+                            </p>
+                            <p className="mt-1 text-sm leading-6 text-harlo-muted">
+                              {cleanRoutePatterns.length > 0
+                                ? "The workspace snippet will choose this agent when a visitor lands on any matching path."
+                                : selectedAgent.isDefault
+                                  ? "This agent answers every page that does not match another route."
+                                  : "Add route rules below, or use this agent's pinned snippet on the Widget page."}
+                            </p>
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                              <RouteSummary patterns={cleanRoutePatterns} fallbackLabel={selectedAgent.isDefault ? "All unmatched pages" : "No route rules yet"} />
+                              {cleanRoutePatterns.length > 0 ? (
+                                <a
+                                  href={`/widget-test?path=${encodeURIComponent(getExampleRoutePath(cleanRoutePatterns[0]))}`}
+                                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-harlo-line bg-white px-3 text-xs font-semibold text-harlo-ink shadow-sm transition hover:border-harlo-teal hover:text-harlo-teal"
+                                >
+                                  Test route
+                                  <ArrowUpRight size={13} />
+                                </a>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {ROUTE_EXAMPLES.map((pattern) => (
+                          <button
+                            key={pattern}
+                            type="button"
+                            onClick={() => addRoutePattern(pattern)}
+                            className="rounded-full border border-harlo-line bg-harlo-canvas px-3 py-1.5 text-xs font-semibold text-harlo-muted transition hover:border-harlo-teal hover:text-harlo-teal"
+                          >
+                            {pattern}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="space-y-3">
+                        {routePatterns.map((pattern, index) => (
+                          <div key={index} className="flex gap-2">
+                            <span className="grid h-11 w-11 place-items-center rounded-lg border border-harlo-line bg-harlo-canvas text-harlo-muted">
+                              <RouteIcon size={16} />
+                            </span>
+                            <input
+                              value={pattern}
+                              onChange={(event) => updateRoutePattern(index, event.target.value)}
+                              className={inputClass}
+                              placeholder="/pricing, /services/*, or *"
+                            />
+                            <Button type="button" variant="ghost" className="px-3" onClick={() => removeRoutePattern(index)} aria-label="Remove route pattern">
+                              <Trash2 size={16} />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs leading-5 text-harlo-muted">Use exact paths like /pricing or wildcard paths like /services/*. Route order is preserved from top to bottom.</p>
+                    </div>
+                  </Panel>
+                  <Panel
+                    title="Allowed domains"
+                    description="Only these websites can load this bot. Localhost stays allowed for testing."
+                    action={
+                      <Button type="button" variant="secondary" onClick={() => setAllowedDomains((current) => [...current, ""])} disabled={allowedDomains.length >= 10}>
+                        <Plus size={16} />
+                        Add
+                      </Button>
+                    }
+                  >
+                    <div className="space-y-3">
+                      {allowedDomains.map((domain, index) => (
+                        <div key={index} className="flex gap-2">
+                          <span className="grid h-11 w-11 place-items-center rounded-lg border border-harlo-line bg-harlo-canvas text-harlo-muted">
+                            <Globe2 size={16} />
+                          </span>
+                          <input value={domain} onChange={(event) => updateDomain(index, event.target.value)} className={inputClass} placeholder="example.com" />
+                          <Button type="button" variant="ghost" className="px-3" onClick={() => removeDomain(index)} aria-label="Remove domain">
+                            <Trash2 size={16} />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </Panel>
+                </div>
               </div>
-            ))}
-            <p className="text-xs leading-5 text-harlo-muted">
-              Use exact paths like /pricing or wildcard paths like /services/*. Route order is preserved from top to bottom.
-            </p>
+            ) : null}
+
+            {activeTab === "preview" ? (
+              <div className="space-y-5">
+                <TabHeader
+                  eyebrow="Preview"
+                  title="Review the live widget"
+                  description="Check the widget copy, accent color, launcher position, welcome prompts, and page test links before saving."
+                  action={
+                    <a
+                      href={cleanRoutePatterns.length > 0 ? `/widget-test?path=${encodeURIComponent(getExampleRoutePath(cleanRoutePatterns[0]))}` : `/widget-test?botId=${selectedAgent.id}`}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-harlo-line bg-white px-4 text-sm font-semibold text-harlo-ink transition hover:border-harlo-teal hover:text-harlo-teal"
+                    >
+                      Test widget
+                      <ArrowUpRight size={14} />
+                    </a>
+                  }
+                />
+                <div className="grid gap-5 xl:grid-cols-[460px_minmax(0,1fr)]">
+                  <ChatWidgetPreview
+                    title={widgetTitle}
+                    greeting={greeting}
+                    accent={accent}
+                    launcherPosition={launcherPosition}
+                    welcomePrompts={cleanPrompts}
+                    brandLogoUrl={initial.brandLogoUrl}
+                  />
+                  <div className="grid content-start gap-3 md:grid-cols-2">
+                    <SummaryCard label="Agent" value={botName || "Unnamed agent"} detail={`${getAgentTemplate(agentType).badge}${selectedAgent.isDefault ? " · Default" : ""}`} />
+                    <SummaryCard label="Widget title" value={widgetTitle || "Ask Harlo"} detail={`${cleanPrompts.length} prompt${cleanPrompts.length === 1 ? "" : "s"}`} />
+                    <SummaryCard label="Lead fields" value={`${leadCaptureFields.filter((field) => field.enabled).length} enabled`} detail="Name and email stay required" />
+                    <SummaryCard label="Routing" value={cleanRoutePatterns.length > 0 ? `${cleanRoutePatterns.length} route${cleanRoutePatterns.length === 1 ? "" : "s"}` : "Fallback"} detail={selectedAgent.isDefault ? "Handles unmatched pages" : "Use routes or pinned snippet"} />
+                    <SummaryCard label="Domains" value={cleanDomains.length > 0 ? `${cleanDomains.length} allowed` : "Local testing"} detail={cleanDomains[0] ?? "No live domains added"} />
+                    <SummaryCard label="Launcher" value={launcherPosition === "bottom-right" ? "Bottom right" : "Bottom left"} detail={accent} />
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         </section>
 
-        <section className="rounded-lg border border-harlo-line bg-white">
-          <div className="flex items-center justify-between gap-4 border-b border-harlo-line p-5">
-            <div>
-              <h2 className="text-lg font-semibold text-harlo-ink">Allowed domains</h2>
-              <p className="mt-1 text-sm text-harlo-muted">Only these websites can load this bot. Localhost stays allowed for testing.</p>
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setAllowedDomains((current) => [...current, ""])}
-              disabled={allowedDomains.length >= 10}
-            >
-              <Plus size={16} />
-              Add
+        <div className="sticky bottom-4 z-10 flex justify-end">
+          <div className="rounded-lg border border-harlo-line bg-white/95 p-2 shadow-soft backdrop-blur">
+            <Button type="submit" disabled={isSaving} className="shadow-soft">
+              {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
+              Save agent settings
             </Button>
           </div>
-          <div className="space-y-3 p-5">
-            {allowedDomains.map((domain, index) => (
-              <div key={index} className="flex gap-2">
-                <span className="grid h-11 w-11 place-items-center rounded-lg border border-harlo-line bg-harlo-canvas text-harlo-muted">
-                  <Globe2 size={16} />
-                </span>
-                <input
-                  value={domain}
-                  onChange={(event) => updateDomain(index, event.target.value)}
-                  className={inputClass}
-                  placeholder="example.com"
-                />
-                <Button type="button" variant="ghost" className="px-3" onClick={() => removeDomain(index)} aria-label="Remove domain">
-                  <Trash2 size={16} />
-                </Button>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <div className="flex justify-end">
-          <Button type="submit" disabled={isSaving} className="shadow-soft">
-            {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
-            Save agent settings
-          </Button>
         </div>
       </form>
-
-      <aside className="xl:sticky xl:top-6 xl:self-start">
-        <ChatWidgetPreview
-          title={widgetTitle}
-          greeting={greeting}
-          accent={accent}
-          launcherPosition={launcherPosition}
-          welcomePrompts={cleanPrompts}
-          brandLogoUrl={initial.brandLogoUrl}
-        />
-      </aside>
     </div>
   );
 }
@@ -864,6 +911,64 @@ function Field({
       </span>
       {children}
     </label>
+  );
+}
+
+function TabHeader({
+  eyebrow,
+  title,
+  description,
+  action
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-harlo-teal">{eyebrow}</p>
+        <h2 className="mt-1 text-xl font-semibold text-harlo-ink">{title}</h2>
+        <p className="mt-1 max-w-3xl text-sm leading-6 text-harlo-muted">{description}</p>
+      </div>
+      {action ? <div className="flex shrink-0 flex-wrap gap-2">{action}</div> : null}
+    </div>
+  );
+}
+
+function Panel({
+  title,
+  description,
+  action,
+  children
+}: {
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-lg border border-harlo-line bg-white">
+      <div className="flex flex-col gap-3 border-b border-harlo-line p-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="font-semibold text-harlo-ink">{title}</h3>
+          <p className="mt-1 text-sm leading-6 text-harlo-muted">{description}</p>
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
+      </div>
+      <div className="p-4">{children}</div>
+    </section>
+  );
+}
+
+function SummaryCard({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-lg border border-harlo-line bg-white p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-harlo-muted">{label}</p>
+      <p className="mt-2 text-lg font-semibold text-harlo-ink">{value}</p>
+      <p className="mt-1 text-sm leading-6 text-harlo-muted">{detail}</p>
+    </div>
   );
 }
 
