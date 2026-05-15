@@ -77,6 +77,7 @@ export async function ingestTextSource({
         ...metadata,
         character_count: cleanContent.length,
         chunk_count: chunks.length,
+        last_ingested_at: new Date().toISOString(),
         ...(sourceType === "manual" ? { content: cleanContent } : {})
       }
     })
@@ -110,6 +111,7 @@ export async function ingestTextSource({
           ...metadata,
           character_count: cleanContent.length,
           chunk_count: chunks.length,
+          last_ingested_at: new Date().toISOString(),
           ...(sourceType === "manual" ? { content: cleanContent } : {})
         }
       })
@@ -244,6 +246,7 @@ export async function ingestUrlSource({
       page_count: pages.length,
       character_count: characterCount,
       chunk_count: chunksWithPage.length,
+      last_crawled_at: new Date().toISOString(),
       pages: pages.map((page) => ({
         url: page.url,
         title: page.title,
@@ -349,6 +352,7 @@ ${page.text}`);
       page_count: pages.length,
       character_count: characterCount,
       chunk_count: chunksWithPage.length,
+      last_crawled_at: new Date().toISOString(),
       pages: pages.map((page) => ({
         url: page.url,
         title: page.title,

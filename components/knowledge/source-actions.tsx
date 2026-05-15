@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Loader2, Pencil, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,12 @@ export function SourceActions({ source, isCrawling = false }: SourceActionsProps
   const isUrl = source.source_type === "url";
   const syncLabel = source.status === "ready" ? "Sync" : "Crawl";
   const isSyncActionLoading = isSyncing || isCrawling || source.status === "processing";
+
+  useEffect(() => {
+    setIsEditing(false);
+    setName(source.name);
+    setContent(typeof source.metadata.content === "string" ? source.metadata.content : "");
+  }, [source.id, source.name, source.metadata]);
 
   async function handleSave() {
     setIsSaving(true);

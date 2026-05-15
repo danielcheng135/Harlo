@@ -82,7 +82,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         name,
         metadata: {
           ...source.metadata,
-          source_name: name
+          source_name: name,
+          last_ingested_at: new Date().toISOString()
         }
       })
       .eq("id", source.id);
@@ -117,6 +118,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         ...source.metadata,
         character_count: content.length,
         chunk_count: chunks.length,
+        last_ingested_at: new Date().toISOString(),
         content
       }
     })
@@ -156,6 +158,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           ...source.metadata,
           character_count: content.length,
           chunk_count: chunks.length,
+          last_ingested_at: new Date().toISOString(),
           content
         }
       })
@@ -174,6 +177,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           ...source.metadata,
           character_count: content.length,
           chunk_count: chunks.length,
+          last_ingested_at: new Date().toISOString(),
           content,
           error: error instanceof Error ? error.message : "Unknown ingestion error"
         }

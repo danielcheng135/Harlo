@@ -69,13 +69,19 @@ export type KnowledgeSourceRow = {
   status: string;
   created_at: string;
   metadata: Record<string, unknown>;
+  chunks: KnowledgeChunkContentRow[];
 };
 
-type KnowledgeChunkContentRow = {
+export type KnowledgeChunkContentRow = {
   source_id: string;
   content: string;
   metadata: {
     chunk_index?: number;
+    chunk_count?: number;
+    page_title?: string;
+    page_url?: string;
+    source_name?: string;
+    source_url?: string;
   } | null;
 };
 
@@ -624,32 +630,30 @@ export async function getKnowledgeSources(workspace: Workspace): Promise<Knowled
     .order("created_at", { ascending: false })
     .limit(20);
 
-  const sources = data ?? [];
-  const manualSourcesMissingContent = sources.filter(
-    (source) => source.source_type === "manual" && typeof source.metadata?.content !== "string"
-  );
-
-  if (manualSourcesMissingContent.length === 0) {
-    return sources;
-  }
-
-  const { data: chunks } = await supabase
-    .from("knowledge_chunks")
-    .select("source_id, content, metadata")
-    .in("source_id", manualSourcesMissingContent.map((source) => source.id));
-  const chunksBySource = ((chunks ?? []) as KnowledgeChunkContentRow[]).reduce<Record<string, KnowledgeChunkContentRow[]>>((current, chunk) => {
+  const sources = (data ?? []) as Omit<KnowledgeSourceRow, "chunks">[];
+  const { data: allChunks } = sources.length > 0
+    ? await supabase
+      .from("knowledge_chunks")
+      .select("source_id, content, metadata")
+      .in("source_id", sources.map((source) => source.id))
+    : { data: [] };
+  const chunksBySource = ((allChunks ?? []) as KnowledgeChunkContentRow[]).reduce<Record<string, KnowledgeChunkContentRow[]>>((current, chunk) => {
     current[chunk.source_id] ??= [];
     current[chunk.source_id].push(chunk);
     return current;
   }, {});
-
   return sources.map((source) => {
+    const sourceChunks = (chunksBySource[source.id] ?? [])
+      .sort((a, b) => (a.metadata?.chunk_index ?? 0) - (b.metadata?.chunk_index ?? 0));
+
     if (source.source_type !== "manual" || typeof source.metadata?.content === "string") {
-      return source;
+      return {
+        ...source,
+        chunks: sourceChunks
+      };
     }
 
-    const reconstructedContent = (chunksBySource[source.id] ?? [])
-      .sort((a, b) => (a.metadata?.chunk_index ?? 0) - (b.metadata?.chunk_index ?? 0))
+    const reconstructedContent = sourceChunks
       .map((chunk) => chunk.content)
       .join("\n\n");
 
@@ -658,7 +662,8 @@ export async function getKnowledgeSources(workspace: Workspace): Promise<Knowled
       metadata: {
         ...source.metadata,
         content: reconstructedContent
-      }
+      },
+      chunks: sourceChunks
     };
   });
 }

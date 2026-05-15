@@ -20,7 +20,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { ChatRequest } from "@/lib/types";
 
 export async function POST(request: NextRequest) {
-  const body = (await request.json()) as ChatRequest;
+  const body = (await request.json()) as ChatRequest & { testOnly?: boolean };
 
   if (!body.botId || !body.message) {
     return NextResponse.json({ error: "botId and message are required." }, { status: 400 });
@@ -46,6 +46,33 @@ export async function POST(request: NextRequest) {
     systemInstructions: typeof bot.system_instructions === "string" ? bot.system_instructions : "",
     handoffInstructions: typeof bot.handoff_instructions === "string" ? bot.handoff_instructions : ""
   };
+
+  if (body.testOnly) {
+    const chunks = await retrieveKnowledgeChunks({
+      botId,
+      organizationId,
+      query: body.message
+    });
+    const answer = await generateAnswer({
+      question: body.message,
+      chunks,
+      conversationContext: "",
+      intent: "answer_or_question",
+      agent
+    });
+
+    return NextResponse.json({
+      conversationId: "dashboard-test",
+      answer,
+      fallback: chunks.length === 0,
+      leadCaptured: false,
+      retrieval: chunks.map((chunk) => ({
+        sourceTitle: chunk.sourceTitle,
+        similarity: chunk.similarity
+      }))
+    });
+  }
+
   let conversationId = await getExistingConversationId({
     supabase,
     conversationId: body.conversationId,
