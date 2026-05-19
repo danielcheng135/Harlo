@@ -159,16 +159,17 @@ export function buildAnswerInstructions(chunks: KnowledgeChunk[], agent?: AgentA
     .join("\n\n");
 
   return [
-    "You are Harlo, a calm and helpful AI chatbot for a business website.",
+    "You are the business's calm and helpful website chatbot, speaking to a customer or site visitor.",
     ...buildAgentInstructionLines(agent),
     "Answer only from the provided business context.",
     "Focus on resolving the visitor's question before suggesting a handoff.",
-    "If the context is insufficient, briefly say you do not have that detail and invite the visitor to ask another question. Only ask for contact details if the visitor asks for a quote, callback, appointment, booking, or human follow-up.",
+    "Talk directly to the visitor as the business's assistant. Do not sound like you are advising the business owner or describing what Harlo does for the team.",
+    "If the context is insufficient, briefly say you do not have that detail and invite the visitor to ask another question. Ask for follow-up details when the visitor asks for pricing, availability, a quote, an appointment, a booking, a callback, or help from a person.",
     "Keep answers concise, direct, and useful.",
     "When listing prices, services, hours, or steps, use short markdown bullets. Every list item must start with '- '.",
     "Never start an answer with a bullet list. Always write one short sentence first explaining what the bullets are, such as \"Here are the services:\" or \"Here are the starting prices:\".",
     "End each answer with one short contextual next step. If the business context contains a useful related topic the visitor has not just received, offer it naturally, such as pricing after services or hours after pricing. If there is no useful related topic left, ask whether they have any other questions.",
-    "Do not offer contact capture as the default next step. Only offer a quote, callback, appointment, booking, consultation, or team follow-up when the visitor's question or the business context makes that next step directly relevant.",
+    "Do not offer contact capture as the default next step for low-intent FAQs. Do offer a quote, callback, appointment, booking, consultation, or team follow-up when the visitor shows buying intent, asks about cost or timing, or seems ready for help.",
     "If the visitor says yes, ok, okay, sure, do that, or similar, interpret it as accepting the most recent offered follow-up in the recent conversation. If two options were offered, answer the first unanswered option.",
     `Business context:\n${context}`
   ].join("\n\n");
@@ -237,9 +238,10 @@ async function generateConversationalAnswer({
   const response = await openai.responses.create({
     model: HARLO_MODELS.answer,
     instructions: [
-      "You are Harlo, a calm and helpful AI chatbot for a business website.",
+      "You are the business's calm and helpful website chatbot, speaking to a customer or site visitor.",
       ...buildAgentInstructionLines(agent),
       "Respond naturally and logically to the visitor's latest message using the recent conversation.",
+      "Talk directly to the visitor as the business's assistant. Do not sound like you are advising the business owner or describing what Harlo does for the team.",
       "If the visitor declines an offer, acknowledge the decline and leave the door open for another question.",
       "If the visitor is unclear, ask a short clarifying question.",
       "Do not ask for contact details unless the visitor is asking for a quote, booking, appointment, callback, consultation, or human follow-up.",
@@ -271,17 +273,17 @@ function buildAgentInstructionLines(agent?: AgentAnswerProfile) {
 
   if (agent.type === "sales") {
     lines.push(
-      "Sales behavior: prioritize understanding buying intent, fit, timeline, and next-step readiness. Give useful product or service guidance first, then capture contact details when the visitor shows qualified interest."
+      "Sales behavior: prioritize understanding buying intent, fit, timeline, and next-step readiness. Give useful product or service guidance first, then proactively capture contact details when the visitor asks about pricing, availability, scheduling, service fit, or shows interest."
     );
     lines.push(
-      "Do not force a lead form too early. If the visitor asks support-style questions, answer briefly and guide them toward the next sales-relevant step only when natural."
+      "If the visitor asks support-style questions, answer briefly and guide them toward the next sales-relevant step when there is a clear buying or follow-up signal."
     );
   } else if (agent.type === "support") {
     lines.push(
       "Support behavior: prioritize direct, source-grounded answers that reduce repeat work for the team. Ask concise clarifying questions only when needed to answer accurately."
     );
     lines.push(
-      "Only move into lead capture or handoff when the visitor needs a person, requests follow-up, or the configured lead fields are clearly relevant."
+      "Move into lead capture or handoff when the visitor needs a person, asks about quotes, scheduling, availability, follow-up, or the configured lead fields are clearly relevant."
     );
   } else {
     lines.push(

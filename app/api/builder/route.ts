@@ -481,7 +481,7 @@ async function getAgentCapacity(
   const [{ data: billing }, { data: addOns }, { count }] = await Promise.all([
     serviceClient
       .from("organization_billing")
-      .select("plan_key")
+      .select("plan_key, status")
       .eq("organization_id", organizationId)
       .maybeSingle(),
     serviceClient
@@ -496,9 +496,11 @@ async function getAgentCapacity(
   ]);
 
   const plan = getBillingPlan(typeof billing?.plan_key === "string" ? billing.plan_key : null);
-  const extra = ((addOns ?? []) as Array<{ add_on_key: AddOnKey; enabled: boolean; quantity: number }>)
-    .filter((row) => row.add_on_key === "extra_agent" && row.enabled)
-    .reduce((total, row) => total + Math.max(0, row.quantity ?? 0), 0);
+  const extra = billing?.status === "active"
+    ? ((addOns ?? []) as Array<{ add_on_key: AddOnKey; enabled: boolean; quantity: number }>)
+      .filter((row) => row.add_on_key === "extra_agent" && row.enabled)
+      .reduce((total, row) => total + Math.max(0, row.quantity ?? 0), 0)
+    : 0;
   const limit = plan.includedAgents + extra;
 
   return {
@@ -717,8 +719,8 @@ function getDefaultGreeting(agentType: AgentType) {
   }
 
   if (agentType === "custom") {
-    return "Hi, I can help with questions and route the right details to the team.";
+    return "Hi, I can help answer questions and get you to the right next step.";
   }
 
-  return "Hi, I can answer questions from approved business knowledge. What can I help with?";
+  return "Hi, I can help answer questions about this business. What can I help you with?";
 }

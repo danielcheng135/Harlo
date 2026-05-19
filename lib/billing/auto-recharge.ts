@@ -43,7 +43,7 @@ export async function attemptAutoRecharge({
       .maybeSingle(),
     supabase
       .from("organization_billing")
-      .select("stripe_customer_id, stripe_subscription_id")
+      .select("stripe_customer_id, stripe_subscription_id, status")
       .eq("organization_id", organizationId)
       .maybeSingle(),
     supabase
@@ -56,6 +56,10 @@ export async function attemptAutoRecharge({
 
   if (addOnRow?.enabled !== true) {
     return { recharged: false, skipped: "auto_recharge_disabled" };
+  }
+
+  if (billing?.status !== "active") {
+    return { recharged: false, skipped: "billing_not_active" };
   }
 
   const stripe = getStripe();

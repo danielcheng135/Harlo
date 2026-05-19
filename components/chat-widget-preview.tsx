@@ -12,7 +12,7 @@ type ChatWidgetPreviewProps = {
 
 export function ChatWidgetPreview({
   title = "Harlo Assistant",
-  greeting = "Hi, I can answer questions about services, pricing, and availability.",
+  greeting = "Hi, I can help answer questions and get you to the right next step.",
   accent = "#087f95",
   launcherPosition = "bottom-right",
   welcomePrompts = ["What services do you offer?", "How much does it cost?"],

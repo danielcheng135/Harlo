@@ -58,27 +58,35 @@ async function buildBotConfig(bot: Record<string, unknown>): Promise<BotConfig> 
   const supabase = createSupabaseServiceClient();
   const theme = Array.isArray(bot.widget_themes) ? bot.widget_themes[0] : bot.widget_themes;
   const organization = Array.isArray(bot.organizations) ? bot.organizations[0] : bot.organizations;
-  const { data: removeBrandingAddOn } = await supabase
-    .from("organization_add_ons")
-    .select("enabled")
-    .eq("organization_id", String(bot.organization_id))
-    .eq("add_on_key", "remove_branding")
-    .maybeSingle();
+  const [{ data: removeBrandingAddOn }, { data: billing }] = await Promise.all([
+    supabase
+      .from("organization_add_ons")
+      .select("enabled")
+      .eq("organization_id", String(bot.organization_id))
+      .eq("add_on_key", "remove_branding")
+      .maybeSingle(),
+    supabase
+      .from("organization_billing")
+      .select("status")
+      .eq("organization_id", String(bot.organization_id))
+      .maybeSingle()
+  ]);
 
   const themeRecord = theme && typeof theme === "object" ? theme as Record<string, unknown> : {};
   const organizationRecord = organization && typeof organization === "object" ? organization as Record<string, unknown> : {};
+  const businessName = typeof organizationRecord.name === "string" ? organizationRecord.name : String(bot.name);
 
   return {
     id: String(bot.id),
     name: String(bot.name),
     organizationId: String(bot.organization_id),
-    businessName: typeof organizationRecord.name === "string" ? organizationRecord.name : String(bot.name),
+    businessName,
     brandLogoUrl: typeof organizationRecord.brand_logo_url === "string" ? organizationRecord.brand_logo_url : null,
-    greeting: typeof bot.greeting === "string" ? bot.greeting : "Hi, I can help answer questions about this business.",
+    greeting: getCustomerFacingGreeting(typeof bot.greeting === "string" ? bot.greeting : "", businessName),
     fallbackMessage: typeof bot.fallback_message === "string" ? bot.fallback_message : "I do not have enough information to answer that yet.",
     tone: "calm",
     allowedDomains: Array.isArray(bot.allowed_domains) ? bot.allowed_domains.filter((domain): domain is string => typeof domain === "string") : [],
-    removeBranding: removeBrandingAddOn?.enabled === true,
+    removeBranding: billing?.status === "active" && removeBrandingAddOn?.enabled === true,
     theme: {
       accent: typeof themeRecord.accent === "string" ? themeRecord.accent : "#087f95",
       launcherPosition: themeRecord.launcher_position === "bottom-left" ? "bottom-left" : "bottom-right",
@@ -88,6 +96,24 @@ async function buildBotConfig(bot: Record<string, unknown>): Promise<BotConfig> 
         : ["What services do you offer?", "How much does it cost?", "Can I book a consultation?"]
     }
   };
+}
+
+function getCustomerFacingGreeting(greeting: string, businessName: string) {
+  const trimmed = greeting.trim();
+
+  if (!trimmed || isLegacyOwnerFacingGreeting(trimmed)) {
+    return `Hi, I can help with questions about ${businessName}. What can I help you with today?`;
+  }
+
+  return trimmed;
+}
+
+function isLegacyOwnerFacingGreeting(greeting: string) {
+  return [
+    "Hi, I can answer questions, capture useful context, and help your team follow up.",
+    "Hi, I can help answer questions and get the right details for follow-up.",
+    "Hi, I can help with questions and route the right details to the team."
+  ].includes(greeting);
 }
 
 function selectRoutedBot<T extends Record<string, unknown>>(bots: T[], requestedBotId: string | null, pageUrl: string | null | undefined) {

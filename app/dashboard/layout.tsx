@@ -17,6 +17,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const workspace = await getWorkspaceOrRedirect();
   const billingOverview = await getBillingOverview(workspace);
   const initials = getInitials(workspace.user.email);
+  const canManageBilling = isWorkspaceAdmin(workspace.role);
 
   return (
     <div className="min-h-screen bg-harlo-canvas">
@@ -34,7 +35,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <ProfileMenu
             brandLogoUrl={workspace.organization.brand_logo_url ?? null}
             businessName={workspace.organization.name}
-            canManageBilling={isWorkspaceAdmin(workspace.role)}
+            canManageBilling={canManageBilling}
             email={workspace.user.email}
             hasHigherTier={billingOverview.hasHigherTier}
             initials={initials}
@@ -52,7 +53,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </header>
         <main className="min-w-0 overflow-x-clip p-6">
           <AutoRechargeFailureBanner failure={billingOverview.autoRechargeFailure} />
-          <CreditUsageBanner used={billingOverview.creditsUsed} limit={billingOverview.creditLimit} />
+          <CreditUsageBanner canManageBilling={canManageBilling} status={billingOverview.status} used={billingOverview.creditsUsed} limit={billingOverview.creditLimit} />
           {children}
         </main>
       </div>
@@ -89,7 +90,7 @@ function AutoRechargeFailureBanner({ failure }: { failure: { reason: string; fai
   );
 }
 
-function CreditUsageBanner({ used, limit }: { used: number; limit: number }) {
+function CreditUsageBanner({ canManageBilling, status, used, limit }: { canManageBilling: boolean; status: string; used: number; limit: number }) {
   const formatter = new Intl.NumberFormat("en");
   const percent = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
 
@@ -100,6 +101,10 @@ function CreditUsageBanner({ used, limit }: { used: number; limit: number }) {
   const isOverLimit = percent >= 100;
 
   if (isOverLimit) {
+    const trialing = status === "trialing";
+    const href = canManageBilling ? "/dashboard/billing#start-paid" : "/dashboard/billing";
+    const cta = canManageBilling && trialing ? "Start paid now" : "Open billing";
+
     return (
       <div className="mb-5 overflow-hidden rounded-lg border border-harlo-teal/25 bg-gradient-to-r from-harlo-mist via-white to-cyan-50 p-[1px] shadow-sm shadow-harlo-teal/10">
         <div className="rounded-[calc(0.5rem-1px)] bg-white/80 px-4 py-3 backdrop-blur">
@@ -111,12 +116,12 @@ function CreditUsageBanner({ used, limit }: { used: number; limit: number }) {
               <div>
                 <p className="font-semibold text-harlo-ink">Message credits are used up</p>
                 <p className="mt-1 text-sm leading-6 text-harlo-muted">
-                  {formatter.format(used)} of {formatter.format(limit)} credits used. The website chatbot is paused until credits renew, auto-recharge succeeds, or the plan is updated.
+                  {formatter.format(used)} of {formatter.format(limit)} credits used. {trialing ? "Start your paid Starter subscription to unlock monthly credits and resume the website chatbot." : "The website chatbot is paused until credits renew, auto-recharge succeeds, or the plan is updated."}
                 </p>
               </div>
             </div>
-            <Link href="/dashboard/billing" className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-harlo-ink px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-gradient-to-r hover:from-harlo-teal hover:to-cyan-500 hover:shadow-harlo-teal/20">
-              Open billing
+            <Link href={href} className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-harlo-ink px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-gradient-to-r hover:from-harlo-teal hover:to-cyan-500 hover:shadow-harlo-teal/20">
+              {cta}
             </Link>
           </div>
         </div>

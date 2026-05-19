@@ -264,67 +264,6 @@ export function BuilderForm({ initial }: BuilderFormProps) {
     router.refresh();
   }
 
-  async function handleSetDefault() {
-    if (selectedAgent.isDefault) {
-      return;
-    }
-
-    setAgentMutation("default");
-    const response = await fetch("/api/builder", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json"
-      },
-      body: JSON.stringify({
-        action: "set_default",
-        botId: selectedAgent.id
-      })
-    });
-    const result = (await response.json().catch(() => null)) as SaveResult | null;
-    setAgentMutation(null);
-
-    if (!response.ok) {
-      showToast("error", result?.error ?? "Could not set the default agent.");
-      return;
-    }
-
-    setAgents((current) => current.map((agent) => ({ ...agent, isDefault: agent.id === selectedAgent.id })));
-    showToast("success", `${botName} is now the default website agent.`);
-    router.refresh();
-  }
-
-  async function handleArchiveAgent() {
-    if (agents.length <= 1) {
-      showToast("error", "Keep at least one active agent in the workspace.");
-      return;
-    }
-
-    setAgentMutation("archive");
-    const response = await fetch("/api/builder", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json"
-      },
-      body: JSON.stringify({
-        action: "archive",
-        botId: selectedAgent.id
-      })
-    });
-    const result = (await response.json().catch(() => null)) as SaveResult | null;
-    setAgentMutation(null);
-
-    if (!response.ok) {
-      showToast("error", result?.error ?? "Could not archive that agent.");
-      return;
-    }
-
-    const remainingAgents = agents.filter((agent) => agent.id !== selectedAgent.id);
-    setAgents(remainingAgents);
-    loadAgent(remainingAgents[0]);
-    showToast("success", `${botName} archived.`);
-    router.refresh();
-  }
-
   function updatePrompt(index: number, value: string) {
     setWelcomePrompts((current) => current.map((prompt, promptIndex) => promptIndex === index ? value : prompt));
   }
@@ -511,18 +450,6 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                   eyebrow="Agent role"
                   title={`Tune ${botName || "this agent"}`}
                   description="Choose the operating mode, handoff behavior, and the instructions that shape every response."
-                  action={
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="secondary" disabled={selectedAgent.isDefault || agentMutation === "default"} onClick={handleSetDefault}>
-                        {agentMutation === "default" ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
-                        {selectedAgent.isDefault ? "Default agent" : "Make default"}
-                      </Button>
-                      <Button type="button" variant="ghost" disabled={agents.length <= 1 || agentMutation === "archive"} onClick={handleArchiveAgent}>
-                        {agentMutation === "archive" ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
-                        Archive
-                      </Button>
-                    </div>
-                  }
                 />
                 <div className="grid gap-3 lg:grid-cols-3">
                   {AGENT_TEMPLATES.map((template) => {
@@ -814,7 +741,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                   </Panel>
                   <Panel
                     title="Allowed domains"
-                    description="Only these websites can load this bot. Localhost stays allowed for testing."
+                    description="Only these websites can load this bot."
                     action={
                       <Button type="button" variant="secondary" onClick={() => setAllowedDomains((current) => [...current, ""])} disabled={allowedDomains.length >= 10}>
                         <Plus size={16} />

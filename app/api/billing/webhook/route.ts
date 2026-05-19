@@ -7,10 +7,13 @@ import {
   getStripe
 } from "@/lib/billing/stripe";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { createAutoRechargeCreditGrant } from "@/lib/billing/usage";
 import type { AddOnKey, BillingStatus } from "@/lib/billing/plans";
 
-const SUBSCRIPTION_ADD_ONS = ["extra_agent", "extra_seat", "remove_branding"] satisfies AddOnKey[];
+const LEGACY_SUBSCRIPTION_ADD_ONS = ["extra_agent", "extra_seat"] satisfies AddOnKey[];
+const PAID_SUBSCRIPTION_ADD_ONS = ["extra_agent", "extra_seat", "remove_branding"] satisfies AddOnKey[];
 const QUANTITY_ADD_ONS = ["extra_agent", "extra_seat"] satisfies AddOnKey[];
+const AUTO_RECHARGE_CREDITS = 1000;
 
 export async function POST(request: NextRequest) {
   const stripe = getStripe();
@@ -40,24 +43,144 @@ export async function POST(request: NextRequest) {
   }
 
   if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated") {
-    await syncSubscription(stripe, event.data.object as Stripe.Subscription);
+    const subscription = event.data.object as Stripe.Subscription;
+
+    if (isCheckoutAddOnSubscription(subscription)) {
+      await syncCheckoutAddOnSubscription(subscription);
+    } else {
+      await syncSubscription(stripe, subscription);
+    }
   }
 
   if (event.type === "customer.subscription.deleted") {
-    await markSubscriptionCanceled(event.data.object as Stripe.Subscription);
+    const subscription = event.data.object as Stripe.Subscription;
+
+    if (isCheckoutAddOnSubscription(subscription)) {
+      await syncCheckoutAddOnSubscription(subscription, false);
+    } else {
+      await markSubscriptionCanceled(subscription);
+    }
   }
 
   return NextResponse.json({ received: true });
 }
 
 async function handleCheckoutCompleted(stripe: Stripe, session: Stripe.Checkout.Session) {
+  if (session.metadata?.purchase_type === "auto_recharge_enable") {
+    await handleAutoRechargeCheckoutCompleted(session);
+    return;
+  }
+
   if (typeof session.subscription !== "string") {
     return;
   }
 
   const subscription = await stripe.subscriptions.retrieve(session.subscription);
 
+  if (session.metadata?.purchase_type === "subscription_add_on" && isAddOnKey(session.metadata.add_on_key)) {
+    await syncCheckoutAddOnSubscription(subscription, session.payment_status === "paid");
+    return;
+  }
+
   await syncSubscription(stripe, subscription);
+}
+
+async function handleAutoRechargeCheckoutCompleted(session: Stripe.Checkout.Session) {
+  const organizationId = session.metadata?.organization_id;
+
+  if (!organizationId || session.payment_status !== "paid") {
+    return;
+  }
+
+  const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? null;
+  const supabase = createSupabaseServiceClient();
+  const grantedAt = new Date().toISOString();
+
+  if (!paymentIntentId) {
+    return;
+  }
+
+  const { data: existingGrant } = await supabase
+    .from("credit_grants")
+    .select("id")
+    .eq("stripe_payment_intent_id", paymentIntentId)
+    .maybeSingle();
+
+  if (!existingGrant) {
+    await createAutoRechargeCreditGrant({
+      supabase,
+      organizationId,
+      credits: Number(session.metadata?.credits ?? AUTO_RECHARGE_CREDITS),
+      stripePaymentIntentId: paymentIntentId,
+      metadata: {
+        stripe_checkout_session_id: session.id,
+        purchase_type: "auto_recharge_enable",
+        payment_status: session.payment_status,
+        amount_total: session.amount_total,
+        currency: session.currency
+      }
+    });
+  }
+
+  await supabase.from("organization_add_ons").upsert({
+    organization_id: organizationId,
+    add_on_key: "auto_recharge_credits",
+    enabled: true,
+    quantity: 1,
+    metadata: {
+      stripe_checkout_session_id: session.id,
+      stripe_payment_intent_id: paymentIntentId,
+      initial_credits_granted: Number(session.metadata?.credits ?? AUTO_RECHARGE_CREDITS),
+      initial_payment_collected_at: grantedAt,
+      synced_from: "stripe_webhook"
+    },
+    updated_at: grantedAt
+  }, {
+    onConflict: "organization_id,add_on_key"
+  });
+}
+
+async function syncCheckoutAddOnSubscription(subscription: Stripe.Subscription, overrideEnabled?: boolean) {
+  const organizationId = subscription.metadata.organization_id;
+  const addOnKey = subscription.metadata.add_on_key;
+
+  if (!organizationId || !isAddOnKey(addOnKey)) {
+    return;
+  }
+
+  const syncedAt = new Date().toISOString();
+  const item = subscription.items.data[0] ?? null;
+  const supabase = createSupabaseServiceClient();
+  const { data: billing } = await supabase
+    .from("organization_billing")
+    .select("status")
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+  const hasActivePlan = billing?.status === "active";
+  const paidQuantity = isQuantityAddOn(addOnKey) ? Math.max(0, item?.quantity ?? 0) : 1;
+  const enabled = hasActivePlan && paidQuantity > 0 && (overrideEnabled ?? subscription.status === "active");
+
+  await supabase.from("organization_add_ons").upsert({
+    organization_id: organizationId,
+    add_on_key: addOnKey,
+    enabled,
+    quantity: enabled ? paidQuantity : 0,
+    metadata: {
+      stripe_subscription_id: subscription.id,
+      stripe_customer_id: getStripeId(subscription.customer),
+      stripe_price_id: item?.price.id ?? null,
+      stripe_subscription_item_id: item?.id ?? null,
+      stripe_status: subscription.status,
+      plan_status: billing?.status ?? null,
+      current_period_start: toIso(subscription.current_period_start),
+      current_period_end: toIso(subscription.current_period_end),
+      synced_at: syncedAt,
+      synced_from: "stripe_checkout_subscription"
+    },
+    updated_at: syncedAt
+  }, {
+    onConflict: "organization_id,add_on_key"
+  });
 }
 
 async function syncSubscription(stripe: Stripe, subscription: Stripe.Subscription) {
@@ -126,40 +249,42 @@ async function syncSubscriptionAddOns(
   const syncedAt = new Date().toISOString();
   const activeAddOns = new Map<AddOnKey, { quantity: number; metadata: Record<string, unknown> }>();
 
-  for (const item of subscription.items.data) {
-    const addOnKey = await resolveSubscriptionAddOnItem(stripe, item);
+  if (subscription.status === "active") {
+    for (const item of subscription.items.data) {
+      const addOnKey = await resolveSubscriptionAddOnItem(stripe, item);
 
-    if (!addOnKey || !isSubscriptionAddOnKey(addOnKey)) {
-      continue;
-    }
-
-    const quantity = isQuantityAddOn(addOnKey) ? Math.max(0, item.quantity ?? 0) : 1;
-
-    activeAddOns.set(addOnKey, {
-      quantity,
-      metadata: {
-        stripe_price_id: item.price.id,
-        stripe_subscription_item_id: item.id,
-        synced_at: syncedAt,
-        synced_from: "stripe_webhook"
+      if (!addOnKey || !isSubscriptionAddOnKey(addOnKey)) {
+        continue;
       }
-    });
+
+      const quantity = isQuantityAddOn(addOnKey) ? Math.max(0, item.quantity ?? 0) : 1;
+
+      activeAddOns.set(addOnKey, {
+        quantity,
+        metadata: {
+          stripe_price_id: item.price.id,
+          stripe_subscription_item_id: item.id,
+          plan_status: subscription.status,
+          synced_at: syncedAt,
+          synced_from: "stripe_webhook"
+        }
+      });
+    }
   }
 
-  const rows = SUBSCRIPTION_ADD_ONS.map((addOnKey) => {
-    const activeAddOn = activeAddOns.get(addOnKey);
-    const quantity = activeAddOn?.quantity ?? 0;
+  if (activeAddOns.size === 0) {
+    return;
+  }
+
+  const rows = Array.from(activeAddOns.entries()).map(([addOnKey, activeAddOn]) => {
+    const quantity = activeAddOn.quantity;
 
     return {
       organization_id: organizationId,
       add_on_key: addOnKey,
       enabled: quantity > 0,
       quantity,
-      metadata: activeAddOn?.metadata ?? {
-        stripe_subscription_item_id: null,
-        synced_at: syncedAt,
-        synced_from: "stripe_webhook"
-      },
+      metadata: activeAddOn.metadata,
       updated_at: syncedAt
     };
   });
@@ -187,7 +312,7 @@ async function disableSubscriptionAddOns(
       updated_at: disabledAt
     })
     .eq("organization_id", organizationId)
-    .in("add_on_key", SUBSCRIPTION_ADD_ONS);
+    .in("add_on_key", PAID_SUBSCRIPTION_ADD_ONS);
 }
 
 async function resolveSubscriptionPlan(stripe: Stripe, subscription: Stripe.Subscription) {
@@ -250,11 +375,15 @@ async function resolveSubscriptionAddOnItem(stripe: Stripe, item: Stripe.Subscri
 }
 
 function isSubscriptionAddOnKey(value: AddOnKey): value is AddOnKey {
-  return (SUBSCRIPTION_ADD_ONS as readonly AddOnKey[]).includes(value);
+  return (LEGACY_SUBSCRIPTION_ADD_ONS as readonly AddOnKey[]).includes(value);
 }
 
 function isQuantityAddOn(value: AddOnKey) {
   return (QUANTITY_ADD_ONS as readonly AddOnKey[]).includes(value);
+}
+
+function isCheckoutAddOnSubscription(subscription: Stripe.Subscription) {
+  return subscription.metadata.purchase_type === "subscription_add_on" && isAddOnKey(subscription.metadata.add_on_key);
 }
 
 function isAddOnKey(value: string | null | undefined): value is AddOnKey {

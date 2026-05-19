@@ -2,7 +2,6 @@ import { MessageSquare } from "lucide-react";
 import { ConversationHistory } from "@/components/conversations/conversation-history";
 import { AgentFilter } from "@/components/dashboard/agent-filter";
 import { EmptyState } from "@/components/empty-state";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardBody } from "@/components/ui/card";
 import { getInboxConversations, getWorkspaceOrRedirect, type InboxConversationRow } from "@/lib/harlo/data";
 
@@ -26,12 +25,11 @@ export default async function ConversationsPage({ searchParams }: ConversationsP
   const agentCounts = getAgentCounts(conversations);
 
   return (
-    <div className="flex h-[calc(100vh-7rem)] flex-col gap-6 overflow-hidden">
-      <div className="flex shrink-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="flex h-[calc(100vh-7rem)] flex-col gap-5 overflow-hidden">
+      <header className="flex shrink-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <Badge>Conversation history</Badge>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-harlo-ink">Conversations</h1>
-          <p className="mt-2 text-harlo-muted">Review what visitors ask and how Harlo responds.</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-harlo-ink">Conversations</h1>
+          <p className="mt-2 text-harlo-muted">View and respond to conversations with your agents.</p>
         </div>
         <AgentFilter
           basePath="/dashboard/conversations"
@@ -40,7 +38,7 @@ export default async function ConversationsPage({ searchParams }: ConversationsP
           counts={agentCounts}
           allCount={conversations.length}
         />
-      </div>
+      </header>
 
       {visibleConversations.length === 0 ? (
         <Card className="flex min-h-0 flex-1">
@@ -62,6 +60,7 @@ export default async function ConversationsPage({ searchParams }: ConversationsP
           conversations={visibleConversations}
           initialConversationId={selectedConversation?.id}
           activeAgentId={activeAgentId}
+          businessLogoUrl={workspace.organization.brand_logo_url}
         />
       )}
     </div>

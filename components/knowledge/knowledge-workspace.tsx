@@ -430,11 +430,11 @@ export function KnowledgeWorkspace({
         </div>
       </header>
 
-      <section className="grid gap-5 2xl:grid-cols-[380px_minmax(460px,1fr)_360px]">
+      <section className="grid gap-5 xl:grid-cols-[320px_minmax(420px,1fr)_300px] 2xl:grid-cols-[380px_minmax(460px,1fr)_360px]">
         <aside className="flex min-h-[780px] flex-col overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm">
           <div className="border-b border-harlo-line p-4">
             <h2 className="text-base font-semibold text-harlo-ink">Sources</h2>
-            <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_120px] 2xl:grid-cols-1">
+            <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_120px] xl:grid-cols-1">
               <label className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-harlo-muted" size={16} />
                 <input
@@ -604,7 +604,7 @@ export function KnowledgeWorkspace({
           )}
         </main>
 
-        <aside className="space-y-5 2xl:sticky 2xl:top-5 2xl:self-start">
+        <aside className="space-y-5 xl:sticky xl:top-5 xl:self-start">
           <KnowledgeHealth stats={stats} />
           <CommandCenterRagTest botId={botId} />
         </aside>

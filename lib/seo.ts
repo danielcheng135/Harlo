@@ -21,11 +21,15 @@ export const siteConfig = {
 
 export const publicRoutes = [
   { path: "/", priority: 1, changeFrequency: "weekly" },
-  { path: "/ai-website-chatbot", priority: 0.9, changeFrequency: "weekly" },
-  { path: "/ai-lead-capture-chatbot", priority: 0.9, changeFrequency: "weekly" },
-  { path: "/customer-support-ai-agent", priority: 0.9, changeFrequency: "weekly" },
-  { path: "/website-chatbot-for-small-business", priority: 0.85, changeFrequency: "weekly" },
   { path: "/pricing", priority: 0.9, changeFrequency: "weekly" },
+  { path: "/docs", priority: 0.75, changeFrequency: "weekly" },
+  { path: "/docs/widget-install", priority: 0.8, changeFrequency: "weekly" },
+  { path: "/docs/builder", priority: 0.75, changeFrequency: "weekly" },
+  { path: "/docs/knowledge", priority: 0.75, changeFrequency: "weekly" },
+  { path: "/docs/conversations", priority: 0.75, changeFrequency: "weekly" },
+  { path: "/docs/leads", priority: 0.75, changeFrequency: "weekly" },
+  { path: "/docs/analytics", priority: 0.75, changeFrequency: "weekly" },
+  { path: "/docs/team", priority: 0.7, changeFrequency: "weekly" },
   { path: "/privacy", priority: 0.35, changeFrequency: "yearly" },
   { path: "/terms", priority: 0.35, changeFrequency: "yearly" }
 ] as const;
@@ -183,6 +187,22 @@ export function createPageMetadata(page: SeoLandingPage): Metadata {
       title: page.title,
       description: page.description,
       images: [siteConfig.ogImage]
+    }
+  };
+}
+
+export function createNoIndexPageMetadata(page: SeoLandingPage): Metadata {
+  const metadata = createPageMetadata(page);
+
+  return {
+    ...metadata,
+    robots: {
+      index: false,
+      follow: true,
+      googleBot: {
+        index: false,
+        follow: true
+      }
     }
   };
 }

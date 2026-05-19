@@ -80,6 +80,7 @@ export const DEFAULT_LEAD_FIELDS: LeadCaptureField[] = [
 
 const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 const PHONE_PATTERN = /(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}/;
+const NUMERIC_GROUP_PATTERN = /\B(?=(\d{3})+(?!\d))/g;
 const NAME_CORRECTION_PREFIX_PATTERN =
   /^(?:sorry|apologies|actually|oops|oh|wait|no|nah|correction|to clarify|i mean)\b[,.\s]*/i;
 
@@ -132,6 +133,10 @@ export function getRequiredLeadFields(fields: LeadCaptureField[]) {
   return fields.filter((field) => field.enabled && field.required);
 }
 
+export function getLeadFieldsToCollect(fields: LeadCaptureField[]) {
+  return fields.filter((field) => field.enabled);
+}
+
 export function extractLeadDraftFromMessages(messages: Array<{ role: string; content: string }>, fields: LeadCaptureField[]) {
   return messages.reduce<LeadDraft>((draft, message, index) => {
     if (message.role !== "user") {
@@ -165,7 +170,7 @@ export function extractLeadFieldsFromMessage(
 }
 
 export function getMissingConfiguredLeadFields(draft: LeadDraft, fields: LeadCaptureField[]) {
-  return getRequiredLeadFields(fields).filter((field) => !draft[field.key]);
+  return getLeadFieldsToCollect(fields).filter((field) => !draft[field.key]);
 }
 
 export function isConfiguredLeadComplete(draft: LeadDraft, fields: LeadCaptureField[]) {
@@ -187,6 +192,9 @@ export function buildConfiguredLeadReply(
 
   const nextField = missing[0];
   const prefix = Object.keys(draft).length > 0 ? "Got it. " : "";
+  const consentPrefix = shouldAskLeadCaptureConsent(draft, messages)
+    ? "I can collect a few details and pass them to someone who can help follow up. If that is okay, "
+    : "";
 
   if (isDateField(nextField)) {
     const partialDate = latestIncompleteDateMention(messages);
@@ -196,7 +204,33 @@ export function buildConfiguredLeadReply(
     }
   }
 
-  return `${prefix}${nextField.prompt}`;
+  return `${prefix}${consentPrefix}${consentPrefix ? lowercaseFirstLetter(nextField.prompt) : nextField.prompt}`;
+}
+
+function shouldAskLeadCaptureConsent(draft: LeadDraft, messages: Array<{ role: string; content: string }>) {
+  if (Object.keys(draft).length > 0) {
+    return false;
+  }
+
+  return !messages.some((message) => {
+    if (message.role !== "assistant") {
+      return false;
+    }
+
+    return /\b(?:collect|get)\b[\s\S]{0,80}\b(?:details|info|information)\b[\s\S]{0,120}\b(?:someone|team|follow up|help)\b/i.test(
+      message.content
+    );
+  });
+}
+
+function lowercaseFirstLetter(value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  return `${trimmed[0].toLowerCase()}${trimmed.slice(1)}`;
 }
 
 export function configuredLeadMetadata(draft: LeadDraft, fields: LeadCaptureField[]) {
@@ -324,7 +358,7 @@ function extractValueForField(message: string, field: LeadCaptureField, messages
   }
 
   if (field.type === "phone" || field.key === "phone") {
-    return message.match(PHONE_PATTERN)?.[0]?.replace(/[^\d+]/g, "") ?? null;
+    return formatPhoneValue(message.match(PHONE_PATTERN)?.[0] ?? "") ?? null;
   }
 
   if (field.type === "date" || field.key.includes("date")) {
@@ -410,10 +444,21 @@ function normalizeFieldValue(value: string, type: LeadFieldType) {
   }
 
   if (type === "phone") {
-    return value.match(PHONE_PATTERN)?.[0]?.replace(/[^\d+]/g, "") ?? null;
+    return formatPhoneValue(value.match(PHONE_PATTERN)?.[0] ?? value);
   }
 
-  return cleanText(value, 120);
+  return cleanLeadText(value, 120);
+}
+
+function formatPhoneValue(value: string) {
+  const digits = value.replace(/\D/g, "");
+  const normalized = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+
+  if (normalized.length !== 10) {
+    return null;
+  }
+
+  return `(${normalized.slice(0, 3)}) ${normalized.slice(3, 6)}-${normalized.slice(6)}`;
 }
 
 function previousAssistantAskedForField(messages: Array<{ role: string; content: string }>, index: number, fieldKey: string) {
@@ -493,6 +538,17 @@ function cleanText(value: string | undefined, maxLength: number) {
   const text = value?.trim();
 
   return text ? text.slice(0, maxLength) : "";
+}
+
+function cleanLeadText(value: string | undefined, maxLength: number) {
+  const text = cleanText(value, maxLength)
+    .replace(/\s+/g, " ")
+    .replace(/\b(\d{4,})\s*(?:sq\s*ft|sqft|square feet|sf)\b/gi, (_match, size: string) => `${size.replace(NUMERIC_GROUP_PATTERN, ",")} sq ft`)
+    .replace(/\b(?:around|about|roughly)\s+\$/gi, "$")
+    .replace(/[,.\s]+$/g, "")
+    .trim();
+
+  return text || null;
 }
 
 function normalizeKey(value: string) {

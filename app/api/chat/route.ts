@@ -14,7 +14,8 @@ import {
   buildConfiguredLeadReply,
   configuredLeadMetadata,
   isConfiguredLeadComplete,
-  normalizeLeadFields
+  normalizeLeadFields,
+  type LeadCaptureField
 } from "@/lib/lead-fields";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { ChatRequest } from "@/lib/types";
@@ -40,6 +41,7 @@ export async function POST(request: NextRequest) {
 
   const botId = bot.id;
   const organizationId = bot.organization_id;
+  const leadFields = normalizeLeadFields(bot.lead_capture_fields);
   const agent = {
     type: normalizeAgentType(bot.agent_type),
     description: typeof bot.description === "string" ? bot.description : "",
@@ -219,6 +221,12 @@ export async function POST(request: NextRequest) {
     .reverse()
     .map((message) => `${message.role}: ${message.content}`)
     .join("\n");
+  const conversationMessages = (recentMessages ?? [])
+    .reverse()
+    .map((message) => ({
+      role: message.role,
+      content: message.content
+    }));
   const retrievalQuery = conversationContext
     ? `${conversationContext}\nvisitor latest: ${body.message}`
     : body.message;
@@ -231,7 +239,8 @@ export async function POST(request: NextRequest) {
     agentType: agent.type,
     intent: intent.intent,
     message: body.message,
-    conversationContext
+    conversationMessages,
+    leadFields
   });
 
   if (isCollectingLead) {
@@ -270,7 +279,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const leadFields = normalizeLeadFields(bot.lead_capture_fields);
     const draft = await extractLeadDraftWithModel(leadConversationMessages, leadFields);
     const answer = buildConfiguredLeadReply(draft, leadFields, leadConversationMessages);
 
@@ -407,30 +415,125 @@ function shouldCollectLeadForAgent({
   agentType,
   intent,
   message,
-  conversationContext
+  conversationMessages,
+  leadFields
 }: {
   agentType: AgentType;
   intent: VisitorIntent;
   message: string;
-  conversationContext: string;
+  conversationMessages: Array<{ role: string; content: string }>;
+  leadFields: LeadCaptureField[];
 }) {
+  const latest = message.toLowerCase();
+  const recentAssistantAskedConfiguredField = isAnsweringConfiguredLeadPrompt(conversationMessages, leadFields);
+  const lastAssistant = findLastAssistantBeforeLatestVisitor(conversationMessages);
+  const recentAssistantOfferedLead = lastAssistant ? assistantOfferedLeadCapture(lastAssistant.content) : false;
+
   if (intent === "provide_contact_info" || intent === "request_human_follow_up") {
     return true;
   }
 
-  const latest = message.toLowerCase();
-  const context = conversationContext.toLowerCase();
-
-  if (agentType === "support") {
-    return /\b(?:quote|estimate|callback|call me|contact me|email me|book|booking|appointment|schedule|talk to a person|human|follow up)\b/.test(latest);
+  if (intent === "accept_follow_up") {
+    return recentAssistantAskedConfiguredField || recentAssistantOfferedLead;
   }
 
-  const recentAssistantOfferedLead =
-    /\b(?:quote|estimate|callback|call you|follow up|reach out|book|booking|appointment|consultation|send this to|share your details|best email|contact details|what email|what date|what year|what is your name|property size)\b/.test(context);
+  const fieldSpecificAnswer = mentionsConfiguredLeadField(latest, leadFields);
   const visitorProvidesLeadLike =
+    fieldSpecificAnswer ||
     /@|(?:\+?\d[\d\s().-]{6,})|\b(?:my name is|name is|i am|i'm|call me|email me|contact me|company|timeline|budget|date|tomorrow|today|next week|january|february|march|april|may|june|july|august|september|october|november|december|20\d{2}|\d{2,5}\s*(?:sq\s*ft|sqft|square feet|sf))\b/.test(latest);
-  const buyingIntent =
-    /\b(?:pricing|price|quote|estimate|demo|book|booking|hire|buy|start|sign up|talk to sales|call me|follow up|interested)\b/.test(latest);
 
-  return (recentAssistantOfferedLead && visitorProvidesLeadLike) || (agentType === "sales" && buyingIntent);
+  if (agentType === "support") {
+    return (
+      recentAssistantAskedConfiguredField ||
+      visitorProvidesLeadLike ||
+      /\b(?:quote|estimate|callback|call me|contact me|email me|book|booking|appointment|schedule|talk to a person|human|follow up|someone to help|speak to|talk to)\b/.test(latest)
+    );
+  }
+
+  const buyingIntent =
+    /\b(?:pricing|price|cost|budget|quote|estimate|demo|book|booking|appointment|schedule|consultation|hire|buy|start|sign up|talk to sales|call me|follow up|interested|looking for|need|want|available|availability|can you help|help me|ready)\b/.test(latest);
+
+  return (
+    recentAssistantAskedConfiguredField ||
+    visitorProvidesLeadLike ||
+    (recentAssistantOfferedLead && (visitorProvidesLeadLike || buyingIntent)) ||
+    ((agentType === "sales" || agentType === "custom") && buyingIntent)
+  );
+}
+
+function mentionsConfiguredLeadField(message: string, fields: LeadCaptureField[]) {
+  return fields
+    .filter((field) => field.enabled)
+    .some((field) => {
+      const label = normalizePromptText(field.label);
+      const key = normalizePromptText(field.key.replace(/_/g, " "));
+
+      return Boolean(
+        (label && new RegExp(`\\b${escapeRegExp(label)}\\b`, "i").test(message)) ||
+          (key && new RegExp(`\\b${escapeRegExp(key)}\\b`, "i").test(message))
+      );
+    });
+}
+
+function assistantOfferedLeadCapture(message: string) {
+  return /\b(?:quote|estimate|callback|call you|follow up|reach out|book|booking|appointment|consultation|send this to|share your details|best email|contact details|pass this along|connect you|someone can help|someone who can help|team can follow up|team follow up)\b/i.test(
+    message
+  );
+}
+
+function isAnsweringConfiguredLeadPrompt(messages: Array<{ role: string; content: string }>, fields: LeadCaptureField[]) {
+  const lastAssistant = findLastAssistantBeforeLatestVisitor(messages);
+
+  if (!lastAssistant) {
+    return false;
+  }
+
+  const enabledFields = fields.filter((field) => field.enabled);
+  const normalizedAssistant = normalizePromptText(lastAssistant.content);
+
+  return enabledFields.some((field) => {
+    const prompt = normalizePromptText(field.prompt);
+    const label = normalizePromptText(field.label);
+
+    return (
+      Boolean(prompt && normalizedAssistant.includes(prompt)) ||
+      new RegExp(`\\b(?:share|provide|send|what is|what's|what|which)\\b[\\s\\S]{0,120}\\b${escapeRegExp(label)}\\b`, "i").test(
+        lastAssistant.content
+      )
+    );
+  });
+}
+
+function findLastAssistantBeforeLatestVisitor(messages: Array<{ role: string; content: string }>) {
+  let sawLatestVisitor = false;
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+
+    if (!sawLatestVisitor) {
+      if (message.role === "user") {
+        sawLatestVisitor = true;
+      }
+
+      continue;
+    }
+
+    if (message.role === "assistant") {
+      return message;
+    }
+
+    if (message.role === "user") {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+function normalizePromptText(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

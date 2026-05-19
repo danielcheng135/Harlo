@@ -2,13 +2,13 @@ import { Users } from "lucide-react";
 import { AgentFilter } from "@/components/dashboard/agent-filter";
 import { EmptyState } from "@/components/empty-state";
 import { LeadsWorkspace } from "@/components/leads/leads-workspace";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardBody } from "@/components/ui/card";
 import { getLeads, getWorkspaceOrRedirect, type LeadRow } from "@/lib/harlo/data";
 
 type LeadsPageProps = {
   searchParams?: Promise<{
     agent?: string;
+    lead?: string;
   }>;
 };
 
@@ -18,15 +18,15 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
   const params = await searchParams;
   const activeAgentId = workspace.bots.some((bot) => bot.id === params?.agent) ? params?.agent : undefined;
   const visibleLeads = activeAgentId ? leads.filter((lead) => lead.bot_id === activeAgentId) : leads;
+  const initialLeadId = visibleLeads.some((lead) => lead.id === params?.lead) ? params?.lead : undefined;
   const agentCounts = getAgentCounts(leads);
 
   return (
-    <div className="flex h-[calc(100vh-7rem)] flex-col gap-6 overflow-hidden">
-      <div className="flex shrink-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="flex h-[calc(100vh-7rem)] flex-col gap-5 overflow-hidden">
+      <header className="flex shrink-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <Badge>Lead capture</Badge>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-harlo-ink">Leads</h1>
-          <p className="mt-2 text-harlo-muted">Follow up when Harlo turns a visitor question into a business opportunity.</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-harlo-ink">Leads</h1>
+          <p className="mt-2 text-harlo-muted">Manage and qualify leads captured by your agents.</p>
         </div>
         <AgentFilter
           basePath="/dashboard/leads"
@@ -35,7 +35,7 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
           counts={agentCounts}
           allCount={leads.length}
         />
-      </div>
+      </header>
 
       {visibleLeads.length === 0 ? (
         <Card className="flex min-h-0 flex-1">
@@ -45,7 +45,7 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
               title={activeAgentId ? "No leads for this agent yet" : "No leads captured yet"}
               body={
                 activeAgentId
-                  ? "Qualified visitors captured by this agent will appear here with their conversation context."
+                  ? "Visitors captured by this agent will appear here with their conversation context."
                   : "When Harlo cannot answer confidently, it will collect contact details and show them here."
               }
               className="min-h-full flex-1"
@@ -53,7 +53,7 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
           </CardBody>
         </Card>
       ) : (
-        <LeadsWorkspace leads={visibleLeads} />
+        <LeadsWorkspace leads={visibleLeads} initialLeadId={initialLeadId} activeAgentId={activeAgentId} />
       )}
     </div>
   );

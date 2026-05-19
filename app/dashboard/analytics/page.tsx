@@ -77,7 +77,6 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
   const scopedVisitorMessages = scopedConversations.flatMap((conversation) => conversation.messages).filter((message) => message.role === "user");
   const leadConversationCount = scopedConversations.filter((conversation) => conversation.outcome === "Lead captured").length;
   const contactedLeadCount = scopedLeads.filter((lead) => lead.status === "contacted").length;
-  const qualifiedCount = getQualifiedConversationCount(scopedConversations);
   const responseQuality = getResponseQuality(scopedConversations);
   const averageResponseSeconds = getAverageResponseSeconds(scopedConversations);
   const sourceBreakdown = getTopKnowledgeSources(sources);
@@ -166,10 +165,9 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
           </div>
         </Panel>
 
-        <Panel title="Lead Funnel" footerDivider>
+        <Panel title="Lead Funnel" contentClassName="flex min-h-[220px] items-center" footerDivider>
           <LeadFunnel
             conversations={scopedConversations.length}
-            qualified={qualifiedCount}
             leads={leadConversationCount}
             contacted={contactedLeadCount}
           />
@@ -212,8 +210,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
                 gradientId="responseQualityTrendFill"
                 data={dailyData.map((point) => ({
                   label: point.label,
-                  value: point.quality,
-                  tooltip: `${point.label}: ${point.quality.toFixed(2)} quality`
+                  value: point.quality
                 }))}
               />
             </div>
@@ -221,11 +218,11 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
         </Card>
 
         <Card>
-          <CardBody className="p-5">
+          <CardBody className="flex h-full flex-col p-5">
             <h2 className="text-base font-semibold text-harlo-ink">Conversations by Outcome</h2>
-            <div className="mt-5 grid gap-5 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
+            <div className="mt-5 grid flex-1 gap-5 sm:grid-cols-[minmax(8.5rem,0.85fr)_minmax(0,1.15fr)] sm:items-center md:gap-6 2xl:grid-cols-[minmax(11rem,0.9fr)_minmax(0,1.1fr)]">
               <DonutChart items={outcomeBreakdown} />
-              <div className="space-y-3">
+              <div className="min-w-0 space-y-3 sm:space-y-4">
                 {outcomeBreakdown.map((item) => (
                   <div key={item.label} className="flex items-center justify-between gap-3 text-sm">
                     <span className="flex items-center gap-2 font-medium text-harlo-ink">
@@ -252,8 +249,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
                 gradientId="averageResponseTimeFill"
                 data={dailyData.map((point) => ({
                   label: point.label,
-                  value: point.responseTime,
-                  tooltip: `${point.label}: ${formatSeconds(point.responseTime)} average response time`
+                  value: point.responseTime
                 }))}
               />
             </div>
@@ -283,8 +279,8 @@ function AnalyticsFilters({
 
   return (
     <div className="grid gap-3 lg:min-w-[548px] sm:grid-cols-2">
-      <details className="group relative">
-        <summary className="flex h-16 cursor-pointer list-none items-center justify-between gap-3 rounded-lg border border-harlo-line bg-white px-4 shadow-sm transition hover:border-harlo-teal focus:outline-none focus:ring-2 focus:ring-harlo-mist [&::-webkit-details-marker]:hidden">
+      <div className="group relative" tabIndex={0}>
+        <div className="flex h-16 cursor-default items-center justify-between gap-3 rounded-lg border border-harlo-line bg-white px-4 shadow-sm transition group-hover:border-harlo-teal group-focus-within:border-harlo-teal group-focus:outline-none group-focus:ring-2 group-focus:ring-harlo-mist">
           <span className="min-w-0">
             <span className="block text-xs font-semibold text-harlo-teal">Agents</span>
             <span className="mt-0.5 block truncate text-sm font-semibold text-harlo-ink">{selectedAgentLabel}</span>
@@ -292,23 +288,25 @@ function AnalyticsFilters({
           <span className="text-harlo-muted">
             <Bot size={14} />
           </span>
-        </summary>
-        <form action="/dashboard/analytics" className="absolute right-0 top-[calc(100%+8px)] z-20 w-[min(340px,calc(100vw-2rem))] rounded-lg border border-harlo-line bg-white p-4 shadow-xl">
-          <input name="from" type="hidden" value={fromValue} />
-          <input name="to" type="hidden" value={toValue} />
-          <p className="text-sm font-semibold text-harlo-ink">Select agent</p>
-          <div className="mt-3 space-y-2">
-            <AgentOption checked={selectedAgentId === "all"} label="All Agents" value="all" />
-            {bots.map((bot) => (
-              <AgentOption key={bot.id} checked={selectedAgentId === bot.id} label={bot.name} value={bot.id} />
-            ))}
+        </div>
+        <form action="/dashboard/analytics" className="pointer-events-none absolute right-0 top-full z-20 w-[min(340px,calc(100vw-2rem))] translate-y-1 pt-2 opacity-0 transition duration-150 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100">
+          <div className="rounded-lg border border-harlo-line bg-white p-4 shadow-xl">
+            <input name="from" type="hidden" value={fromValue} />
+            <input name="to" type="hidden" value={toValue} />
+            <p className="text-sm font-semibold text-harlo-ink">Select agent</p>
+            <div className="mt-3 space-y-2">
+              <AgentOption checked={selectedAgentId === "all"} label="All Agents" value="all" />
+              {bots.map((bot) => (
+                <AgentOption key={bot.id} checked={selectedAgentId === bot.id} label={bot.name} value={bot.id} />
+              ))}
+            </div>
+            <FilterSubmitButton label="Apply agent" pendingLabel="Applying..." />
           </div>
-          <FilterSubmitButton label="Apply agent" pendingLabel="Applying..." />
         </form>
-      </details>
+      </div>
 
-      <details className="group relative">
-        <summary className="flex h-16 cursor-pointer list-none items-center justify-between gap-3 rounded-lg border border-harlo-line bg-white px-4 shadow-sm transition hover:border-harlo-teal focus:outline-none focus:ring-2 focus:ring-harlo-mist [&::-webkit-details-marker]:hidden">
+      <div className="group relative" tabIndex={0}>
+        <div className="flex h-16 cursor-default items-center justify-between gap-3 rounded-lg border border-harlo-line bg-white px-4 shadow-sm transition group-hover:border-harlo-teal group-focus-within:border-harlo-teal group-focus:outline-none group-focus:ring-2 group-focus:ring-harlo-mist">
           <span className="min-w-0">
             <span className="block text-xs font-semibold text-harlo-teal">Date range</span>
             <span className="mt-0.5 block truncate text-sm font-semibold text-harlo-ink">{dateLabel}</span>
@@ -316,35 +314,37 @@ function AnalyticsFilters({
           <span className="text-harlo-muted">
             <Calendar size={14} />
           </span>
-        </summary>
-        <form action="/dashboard/analytics" className="absolute right-0 top-[calc(100%+8px)] z-20 w-[min(420px,calc(100vw-2rem))] rounded-lg border border-harlo-line bg-white p-4 shadow-xl">
-          <input name="agent" type="hidden" value={selectedAgentId} />
-          <p className="text-sm font-semibold text-harlo-ink">Select date range</p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <label className="text-xs font-semibold text-harlo-muted">
-              Start
-              <input
-                aria-label="Start date"
-                className="mt-1 h-10 w-full rounded-md border border-harlo-line bg-harlo-canvas px-3 text-sm font-semibold text-harlo-ink outline-none transition focus:border-harlo-teal focus:bg-white"
-                defaultValue={fromValue}
-                name="from"
-                type="date"
-              />
-            </label>
-            <label className="text-xs font-semibold text-harlo-muted">
-              End
-              <input
-                aria-label="End date"
-                className="mt-1 h-10 w-full rounded-md border border-harlo-line bg-harlo-canvas px-3 text-sm font-semibold text-harlo-ink outline-none transition focus:border-harlo-teal focus:bg-white"
-                defaultValue={toValue}
-                name="to"
-                type="date"
-              />
-            </label>
+        </div>
+        <form action="/dashboard/analytics" className="pointer-events-none absolute right-0 top-full z-20 w-[min(420px,calc(100vw-2rem))] translate-y-1 pt-2 opacity-0 transition duration-150 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100">
+          <div className="rounded-lg border border-harlo-line bg-white p-4 shadow-xl">
+            <input name="agent" type="hidden" value={selectedAgentId} />
+            <p className="text-sm font-semibold text-harlo-ink">Select date range</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="text-xs font-semibold text-harlo-muted">
+                Start
+                <input
+                  aria-label="Start date"
+                  className="mt-1 h-10 w-full rounded-md border border-harlo-line bg-harlo-canvas px-3 text-sm font-semibold text-harlo-ink outline-none transition focus:border-harlo-teal focus:bg-white"
+                  defaultValue={fromValue}
+                  name="from"
+                  type="date"
+                />
+              </label>
+              <label className="text-xs font-semibold text-harlo-muted">
+                End
+                <input
+                  aria-label="End date"
+                  className="mt-1 h-10 w-full rounded-md border border-harlo-line bg-harlo-canvas px-3 text-sm font-semibold text-harlo-ink outline-none transition focus:border-harlo-teal focus:bg-white"
+                  defaultValue={toValue}
+                  name="to"
+                  type="date"
+                />
+              </label>
+            </div>
+            <FilterSubmitButton label="Apply date range" pendingLabel="Applying..." />
           </div>
-          <FilterSubmitButton label="Apply date range" pendingLabel="Applying..." />
         </form>
-      </details>
+      </div>
     </div>
   );
 }
@@ -439,12 +439,14 @@ function CreditProgress({ value }: { value: number }) {
 
 function Panel({
   children,
+  contentClassName,
   footer,
   footerDivider = false,
   href,
   title
 }: {
   children: ReactNode;
+  contentClassName?: string;
   footer?: string;
   footerDivider?: boolean;
   href?: "/dashboard/knowledge" | "/dashboard/conversations";
@@ -461,7 +463,7 @@ function Panel({
     <Card className="flex min-h-[280px] flex-col">
       <CardBody className="flex flex-1 flex-col p-5">
         <h2 className="text-base font-semibold text-harlo-ink">{title}</h2>
-        <div className="mt-4 flex-1">{children}</div>
+        <div className={`mt-4 flex-1 ${contentClassName ?? ""}`}>{children}</div>
         {footer ? (
           <div className="mt-4 min-h-9 border-t border-harlo-line pt-4">
             {href ? (
@@ -508,29 +510,25 @@ function SourceRow({ source }: { source: ReturnType<typeof getTopKnowledgeSource
 function LeadFunnel({
   contacted,
   conversations,
-  leads,
-  qualified
+  leads
 }: {
   contacted: number;
   conversations: number;
   leads: number;
-  qualified: number;
 }) {
   return (
-    <div className="mx-auto w-full max-w-[520px] overflow-hidden">
-      <svg viewBox="0 0 520 246" className="block h-auto w-full" role="img" aria-label="Lead funnel">
+    <div className="mx-auto flex h-full w-full max-w-[620px] items-center overflow-hidden">
+      <svg viewBox="0 0 520 210" className="block h-auto max-h-[270px] w-full" role="img" aria-label="Lead funnel">
         <defs>
           <filter id="leadFunnelShadow" x="-10%" y="-15%" width="120%" height="140%">
             <feDropShadow dx="0" dy="10" stdDeviation="9" floodColor="#087f95" floodOpacity="0.08" />
           </filter>
         </defs>
-        <FunnelSegment color="#087f95" label="Conversations" textColor="#ffffff" value={conversations} y={0} y2={56} />
-        <FunnelSegment color="#1f9cab" label="Qualified" textColor="#ffffff" value={qualified} y={62} y2={118} />
-        <FunnelSegment color="#5fc2cb" label="Leads Captured" textColor="#ffffff" value={leads} y={124} y2={180} />
-        <FunnelSegment color="#c2e8ee" label="Contacted" textColor="#263445" value={contacted} y={186} y2={242} />
-        <FunnelCallout percent={formatPercent(qualified, conversations)} y={90} />
-        <FunnelCallout percent={formatPercent(leads, qualified)} y={152} />
-        <FunnelCallout percent={formatPercent(contacted, leads)} y={214} />
+        <FunnelSegment color="#087f95" label="Conversations" textColor="#ffffff" value={conversations} y={0} y2={62} />
+        <FunnelSegment color="#5fc2cb" label="Leads Captured" textColor="#ffffff" value={leads} y={70} y2={132} />
+        <FunnelSegment color="#c2e8ee" label="Contacted" textColor="#263445" value={contacted} y={140} y2={202} />
+        <FunnelCallout percent={formatPercent(leads, conversations)} y={101} />
+        <FunnelCallout percent={formatPercent(contacted, leads)} y={171} />
       </svg>
     </div>
   );
@@ -593,7 +591,7 @@ function FunnelCallout({ percent, y }: { percent: string; y: number }) {
 function getFunnelWidthAtY(y: number) {
   const topWidth = 318;
   const bottomWidth = 152;
-  const progress = Math.max(0, Math.min(1, y / 242));
+  const progress = Math.max(0, Math.min(1, y / 202));
 
   return topWidth - (topWidth - bottomWidth) * progress;
 }
@@ -738,7 +736,7 @@ function Sparkline({ values }: { values: number[] }) {
   );
 }
 
-function MiniLineChart({ data, gradientId }: { data: Array<{ label: string; tooltip: string; value: number }>; gradientId: string }) {
+function MiniLineChart({ data, gradientId }: { data: Array<{ label: string; value: number }>; gradientId: string }) {
   const chart = buildTrendChart(data.map((point) => point.value));
   const linePath = toPolyline(chart.points);
   const areaPath = `${chart.points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ")} L ${chart.right} ${chart.bottom} L ${chart.left} ${chart.bottom} Z`;
@@ -760,51 +758,9 @@ function MiniLineChart({ data, gradientId }: { data: Array<{ label: string; tool
         <polyline points={linePath} fill="none" stroke="#087f95" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />
         {chart.points.map((point, index) => (
           <g key={`${data[index].label}-${index}`}>
-            <circle cx={point.x} cy={point.y} r="5" fill="#ffffff" stroke="#087f95" strokeWidth="2.5">
-              <title>{data[index].tooltip}</title>
-            </circle>
-            <text x={point.x} y={chart.height - 8} textAnchor="middle" className="fill-harlo-muted text-[11px]">
-            {data[index].label.replace("May ", "")}
-          </text>
-        </g>
-      ))}
-        {data.map((point, index) => {
-          const currentX = chart.points[index].x;
-          const previousX = index === 0 ? chart.left : (chart.points[index - 1].x + currentX) / 2;
-          const nextX = index === data.length - 1 ? chart.right : (currentX + chart.points[index + 1].x) / 2;
-          const tooltipWidth = 176;
-          const tooltipHeight = 44;
-          const tooltipX = clamp(currentX - tooltipWidth / 2, chart.left, chart.right - tooltipWidth);
-          const tooltipY = chart.top + 8;
-
-          return (
-            <g key={`trend-hover-${point.label}-${index}`} className="group">
-              <rect
-                x={previousX}
-                y={chart.top}
-                width={Math.max(1, nextX - previousX)}
-                height={chart.bottom - chart.top}
-                fill="transparent"
-                pointerEvents="all"
-              />
-              <line
-                x1={currentX}
-                x2={currentX}
-                y1={chart.top}
-                y2={chart.bottom}
-                stroke="#cbd5e1"
-                strokeDasharray="4 6"
-                className="opacity-0 transition-opacity group-hover:opacity-100"
-                pointerEvents="none"
-              />
-              <g className="opacity-0 transition-opacity group-hover:opacity-100" pointerEvents="none">
-                <rect x={tooltipX} y={tooltipY} width={tooltipWidth} height={tooltipHeight} rx="8" fill="#101827" />
-                <text x={tooltipX + 12} y={tooltipY + 18} className="fill-white text-[12px] font-semibold">{point.label}</text>
-                <text x={tooltipX + 12} y={tooltipY + 34} className="fill-white/90 text-[11px]">{point.tooltip.replace(`${point.label}: `, "")}</text>
-              </g>
-            </g>
-          );
-        })}
+            <circle cx={point.x} cy={point.y} r="5" fill="#ffffff" stroke="#087f95" strokeWidth="2.5" />
+          </g>
+        ))}
       </svg>
     </div>
   );
@@ -820,8 +776,11 @@ function DonutChart({ items }: { items: Array<{ color: string; label: string; pe
     : `conic-gradient(${stops.map((stop) => `${stop.color} ${stop.start}% ${stop.end}%`).join(", ")}, #e2e8ee 0)`;
 
   return (
-    <div className="mx-auto grid h-32 w-32 place-items-center rounded-full" style={{ background }}>
-      <div className="h-20 w-20 rounded-full bg-white" />
+    <div
+      className="mx-auto grid aspect-square w-36 place-items-center rounded-full sm:w-full sm:max-w-44 2xl:max-w-52"
+      style={{ background }}
+    >
+      <div className="h-[62%] w-[62%] rounded-full bg-white" />
     </div>
   );
 }
@@ -887,16 +846,6 @@ function isWithinPeriod(value: string, start: Date, end: Date) {
   const date = new Date(value);
 
   return date >= start && date < end;
-}
-
-function getQualifiedConversationCount(conversations: InboxConversationRow[]) {
-  return conversations.filter((conversation) => conversation.lead || conversation.messages.some((message) => {
-    if (message.role !== "user") {
-      return false;
-    }
-
-    return /\b(price|pricing|cost|quote|demo|book|call|buy|hire|service|plan|contact|consultation|appointment)\b/i.test(message.content);
-  })).length;
 }
 
 function getResponseQuality(conversations: InboxConversationRow[]) {

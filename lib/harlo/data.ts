@@ -480,16 +480,18 @@ export async function getBillingOverview(workspace: Workspace): Promise<BillingO
   const addOnCreditsAvailable = activeCreditGrants.reduce((total, grant) => total + grant.creditsRemaining, 0);
   const planCreditsUsed = Math.max(0, creditsUsed - addOnCreditsUsed);
   const creditLimit = planCreditLimit + addOnCreditsUsed + addOnCreditsAvailable;
+  const addOnsAvailable = status === "active";
   const addOnsByKey = new Map(
     ((addOnRows ?? []) as Array<{ add_on_key: AddOnKey; enabled: boolean; quantity: number; metadata?: Record<string, unknown> | null }>).map((row) => [row.add_on_key, row])
   );
   const autoRechargeRow = addOnsByKey.get("auto_recharge_credits");
-  const extraAgentQuantity = getEnabledAddOnQuantity(addOnsByKey.get("extra_agent"));
-  const extraSeatQuantity = getEnabledAddOnQuantity(addOnsByKey.get("extra_seat"));
+  const extraAgentQuantity = addOnsAvailable ? getEnabledAddOnQuantity(addOnsByKey.get("extra_agent")) : 0;
+  const extraSeatQuantity = addOnsAvailable ? getEnabledAddOnQuantity(addOnsByKey.get("extra_seat")) : 0;
   const agentLimit = getBillingPlan(planKey).includedAgents + extraAgentQuantity;
   const seatLimit = getBillingPlan(planKey).seats + extraSeatQuantity;
   const autoRechargeMetadata = isRecord(autoRechargeRow?.metadata) ? autoRechargeRow.metadata : {};
-  const autoRechargeFailure = autoRechargeRow?.enabled === true &&
+  const autoRechargeFailure = addOnsAvailable &&
+    autoRechargeRow?.enabled === true &&
     typeof autoRechargeMetadata.last_failure_reason === "string" &&
     typeof autoRechargeMetadata.last_failed_at === "string"
       ? {
@@ -523,8 +525,8 @@ export async function getBillingOverview(workspace: Workspace): Promise<BillingO
 
       return {
         ...addOn,
-        enabled: row?.enabled ?? false,
-        quantity: row?.quantity ?? 0
+        enabled: addOnsAvailable && (row?.enabled ?? false),
+        quantity: addOnsAvailable ? row?.quantity ?? 0 : 0
       };
     }),
     capacity: {

@@ -81,7 +81,7 @@ async function getSeatCapacity(service: ReturnType<typeof createSupabaseServiceC
   const [{ data: billing }, { data: addOns }, { count: memberCount }] = await Promise.all([
     service
       .from("organization_billing")
-      .select("plan_key")
+      .select("plan_key, status")
       .eq("organization_id", organizationId)
       .maybeSingle(),
     service
@@ -94,9 +94,11 @@ async function getSeatCapacity(service: ReturnType<typeof createSupabaseServiceC
       .eq("organization_id", organizationId)
   ]);
   const plan = getBillingPlan(typeof billing?.plan_key === "string" ? billing.plan_key : null);
-  const extraSeats = ((addOns ?? []) as Array<{ add_on_key: string; enabled: boolean; quantity: number }>)
-    .filter((row) => row.add_on_key === "extra_seat" && row.enabled)
-    .reduce((total, row) => total + Math.max(0, row.quantity ?? 0), 0);
+  const extraSeats = billing?.status === "active"
+    ? ((addOns ?? []) as Array<{ add_on_key: string; enabled: boolean; quantity: number }>)
+      .filter((row) => row.add_on_key === "extra_seat" && row.enabled)
+      .reduce((total, row) => total + Math.max(0, row.quantity ?? 0), 0)
+    : 0;
 
   return {
     limit: plan.seats + extraSeats,

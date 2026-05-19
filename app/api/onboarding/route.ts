@@ -470,15 +470,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function getGreeting(goal: string, tone: string) {
   if (goal === "lead_capture") {
     return tone === "direct"
-      ? "Tell me what you need and I can help route your request."
-      : "Hi, I can help answer questions and get the right details for follow-up.";
+      ? "Tell me what you need help with, and I can point you in the right direction."
+      : "Hi, I can help answer questions and collect details if you need a follow-up.";
   }
 
   if (goal === "support") {
-    return "Hi, I can help answer questions from our approved website knowledge.";
+    return "Hi, I can help answer questions about this business. What can I help you with?";
   }
 
-  return "Hi, I can answer questions, capture useful context, and help your team follow up.";
+  return "Hi, I can help answer questions and get you to the right next step.";
 }
 
 function getFallbackMessage(goal: string) {

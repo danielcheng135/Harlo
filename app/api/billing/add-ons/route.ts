@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { getAddOnProductId, getStripe, resolveAddOnPriceId } from "@/lib/billing/stripe";
+import {
+  getAddOnKeyByProductId,
+  getAddOnProductId,
+  getAddOnPriceId,
+  getAppUrl,
+  getStripe
+} from "@/lib/billing/stripe";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
-import { getBillingPlan, type AddOnKey } from "@/lib/billing/plans";
+import { BILLING_ADD_ONS, getBillingPlan, type AddOnKey } from "@/lib/billing/plans";
 
 const SUPPORTED_ADD_ONS = new Set<AddOnKey>([
   "auto_recharge_credits",
@@ -11,7 +17,9 @@ const SUPPORTED_ADD_ONS = new Set<AddOnKey>([
   "remove_branding"
 ]);
 const QUANTITY_ADD_ONS = new Set<AddOnKey>(["extra_agent", "extra_seat"]);
-const SUBSCRIPTION_ADD_ONS = new Set<AddOnKey>(["extra_agent", "extra_seat", "remove_branding"]);
+const CHECKOUT_SUBSCRIPTION_ADD_ONS = new Set<AddOnKey>(["extra_agent", "extra_seat", "remove_branding"]);
+const AUTO_RECHARGE_CREDITS = 1000;
+const AUTO_RECHARGE_AMOUNT_CENTS = 2900;
 
 export async function PATCH(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
@@ -61,16 +69,22 @@ export async function PATCH(request: NextRequest) {
   const service = createSupabaseServiceClient();
   const { data: billing } = await service
     .from("organization_billing")
-    .select("plan_key, stripe_customer_id, stripe_subscription_id, status")
+    .select("plan_key, stripe_customer_id, status")
     .eq("organization_id", membership.organization_id)
+    .maybeSingle();
+  const { data: currentAddOn } = await service
+    .from("organization_add_ons")
+    .select("enabled, quantity, metadata")
+    .eq("organization_id", membership.organization_id)
+    .eq("add_on_key", addOnKey)
     .maybeSingle();
 
   if (enabled && !billing?.stripe_customer_id) {
     return NextResponse.json({ error: "Start a subscription before enabling add-ons." }, { status: 400 });
   }
 
-  if (enabled && billing?.status !== "active" && billing?.status !== "trialing") {
-    return NextResponse.json({ error: "Add-ons require an active subscription." }, { status: 400 });
+  if (enabled && billing?.status !== "active") {
+    return NextResponse.json({ error: "Add-ons are only available on an active paid plan." }, { status: 400 });
   }
 
   const capacityError = await validateCapacityChange({
@@ -85,29 +99,123 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: capacityError }, { status: 400 });
   }
 
-  let metadata: Record<string, unknown> = {};
+  let metadata: Record<string, unknown> = isRecord(currentAddOn?.metadata) ? currentAddOn.metadata : {};
 
-  if (SUBSCRIPTION_ADD_ONS.has(addOnKey)) {
-    if (enabled && !billing?.stripe_subscription_id) {
-      return NextResponse.json({ error: "No active Stripe subscription was found for this add-on." }, { status: 400 });
+  if (addOnKey === "auto_recharge_credits") {
+    metadata = enabled
+      ? {
+          ...metadata,
+          enabled_without_initial_charge: true,
+          next_charge_amount_cents: AUTO_RECHARGE_AMOUNT_CENTS,
+          credits_per_recharge: AUTO_RECHARGE_CREDITS,
+          updated_from: "billing_add_on_toggle"
+        }
+      : {
+          ...metadata,
+          disabled_at: new Date().toISOString(),
+          updated_from: "billing_add_on_toggle"
+        };
+
+    return upsertLocalAddOn({
+      addOnKey,
+      enabled,
+      metadata,
+      organizationId: membership.organization_id,
+      quantity,
+      service
+    });
+  }
+
+  if (CHECKOUT_SUBSCRIPTION_ADD_ONS.has(addOnKey)) {
+    const customerId = billing?.stripe_customer_id ?? null;
+    const currentQuantity = currentAddOn?.enabled ? Math.max(0, currentAddOn.quantity ?? 0) : 0;
+
+    if (enabled && !customerId) {
+      return NextResponse.json({ error: "Start a subscription before enabling this add-on." }, { status: 400 });
     }
 
-    if (billing?.stripe_subscription_id) {
+    if (enabled && currentAddOn?.enabled && currentQuantity === quantity) {
+      return NextResponse.json({ addOnKey, enabled: true, quantity: currentQuantity, requiresStripe: false });
+    }
+
+    if (enabled) {
       try {
-        metadata = await syncStripeSubscriptionAddOn({
+        const subscriptionId = typeof metadata.stripe_subscription_id === "string" ? metadata.stripe_subscription_id : null;
+        const result = subscriptionId && currentAddOn?.enabled
+          ? await updateMonthlyAddOnSubscriptionQuantity({
+            addOnKey,
+            organizationId: membership.organization_id,
+            quantity,
+            subscriptionId,
+            customerId,
+            requestUrl: request.url
+          })
+          : await createMonthlyAddOnCheckout({
+            addOnKey,
+            organizationId: membership.organization_id,
+            customerId,
+            quantity,
+            requestUrl: request.url
+          });
+
+        return NextResponse.json({
           addOnKey,
-          enabled,
-          quantity,
-          subscriptionId: billing.stripe_subscription_id
+          enabled: currentAddOn?.enabled ?? false,
+          quantity: currentAddOn?.quantity ?? 0,
+          ...result
         });
       } catch (error) {
         return NextResponse.json({ error: getErrorMessage(error) }, { status: 400 });
       }
     }
+
+    try {
+      await cancelMonthlyAddOnSubscription(metadata);
+    } catch (error) {
+      return NextResponse.json({ error: getErrorMessage(error) }, { status: 400 });
+    }
+
+    return upsertLocalAddOn({
+      addOnKey,
+      enabled: false,
+      metadata: {
+        ...metadata,
+        disabled_at: new Date().toISOString(),
+        updated_from: "billing_add_on_toggle"
+      },
+      organizationId: membership.organization_id,
+      quantity: 0,
+      service
+    });
   }
 
+  return upsertLocalAddOn({
+    addOnKey,
+    enabled,
+    metadata,
+    organizationId: membership.organization_id,
+    quantity,
+    service
+  });
+}
+
+async function upsertLocalAddOn({
+  addOnKey,
+  enabled,
+  metadata,
+  organizationId,
+  quantity,
+  service
+}: {
+  addOnKey: AddOnKey;
+  enabled: boolean;
+  metadata: Record<string, unknown>;
+  organizationId: string;
+  quantity: number;
+  service: ReturnType<typeof createSupabaseServiceClient>;
+}) {
   const { error } = await service.from("organization_add_ons").upsert({
-    organization_id: membership.organization_id,
+    organization_id: organizationId,
     add_on_key: addOnKey,
     enabled,
     quantity,
@@ -122,6 +230,156 @@ export async function PATCH(request: NextRequest) {
   }
 
   return NextResponse.json({ addOnKey, enabled, quantity });
+}
+
+async function createMonthlyAddOnCheckout({
+  addOnKey,
+  organizationId,
+  customerId,
+  quantity,
+  requestUrl
+}: {
+  addOnKey: AddOnKey;
+  organizationId: string;
+  customerId: string;
+  quantity: number;
+  requestUrl: string;
+}) {
+  const stripe = getStripe();
+
+  if (!stripe) {
+    throw new Error("Stripe is not configured for add-on billing.");
+  }
+
+  const priceId = await resolveOrCreateMonthlyAddOnPriceId(stripe, addOnKey);
+  const appUrl = getAppUrl(requestUrl);
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    customer: customerId,
+    line_items: [
+      {
+        price: priceId,
+        quantity
+      }
+    ],
+    success_url: `${appUrl}/dashboard/billing?checkout=success&add_on=${addOnKey}&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${appUrl}/dashboard/billing?checkout=canceled&add_on=${addOnKey}`,
+    metadata: {
+      organization_id: organizationId,
+      add_on_key: addOnKey,
+      purchase_type: "subscription_add_on"
+    },
+    subscription_data: {
+      metadata: {
+        organization_id: organizationId,
+        add_on_key: addOnKey,
+        purchase_type: "subscription_add_on"
+      }
+    }
+  });
+
+  if (!session.url) {
+    throw new Error("Stripe did not return a checkout page for this add-on.");
+  }
+
+  return {
+    url: session.url,
+    requiresStripe: true
+  };
+}
+
+async function updateMonthlyAddOnSubscriptionQuantity({
+  addOnKey,
+  customerId,
+  organizationId,
+  quantity,
+  requestUrl,
+  subscriptionId
+}: {
+  addOnKey: AddOnKey;
+  customerId: string;
+  organizationId: string;
+  quantity: number;
+  requestUrl: string;
+  subscriptionId: string;
+}) {
+  const stripe = getStripe();
+
+  if (!stripe) {
+    throw new Error("Stripe is not configured for add-on billing.");
+  }
+
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+    expand: ["items.data.price.product", "latest_invoice"]
+  });
+
+  if (subscription.status !== "active") {
+    return createMonthlyAddOnCheckout({
+      addOnKey,
+      organizationId,
+      customerId,
+      quantity,
+      requestUrl
+    });
+  }
+
+  const existingItem = await findSubscriptionAddOnItem(stripe, subscription, addOnKey);
+  const priceId = existingItem?.price.id ?? await resolveOrCreateMonthlyAddOnPriceId(stripe, addOnKey);
+  const item: Stripe.SubscriptionUpdateParams.Item = existingItem
+    ? {
+        id: existingItem.id,
+        quantity
+      }
+    : {
+        price: priceId,
+        quantity,
+        metadata: {
+          organization_id: organizationId,
+          add_on_key: addOnKey
+        }
+      };
+  const updated = await stripe.subscriptions.update(subscriptionId, {
+    items: [item],
+    proration_behavior: "always_invoice",
+    payment_behavior: "pending_if_incomplete",
+    expand: ["latest_invoice"],
+    metadata: {
+      ...subscription.metadata,
+      organization_id: organizationId,
+      add_on_key: addOnKey,
+      purchase_type: "subscription_add_on"
+    }
+  });
+  const invoice = getExpandedInvoice(updated.latest_invoice);
+
+  if (invoice?.hosted_invoice_url && invoice.status !== "paid") {
+    return {
+      url: invoice.hosted_invoice_url,
+      requiresStripe: true
+    };
+  }
+
+  return {
+    enabled: quantity > 0,
+    quantity,
+    requiresStripe: false
+  };
+}
+
+async function cancelMonthlyAddOnSubscription(metadata: Record<string, unknown>) {
+  const subscriptionId = typeof metadata.stripe_subscription_id === "string" ? metadata.stripe_subscription_id : null;
+
+  if (!subscriptionId) {
+    return;
+  }
+
+  const stripe = getStripe();
+
+  if (!stripe) {
+    throw new Error("Stripe is not configured for add-on billing.");
+  }
+
+  await stripe.subscriptions.cancel(subscriptionId);
 }
 
 function resolveQuantity(addOnKey: AddOnKey, body: Record<string, unknown>) {
@@ -202,80 +460,111 @@ async function getCurrentCapacityUsage(
   return (memberCount ?? 0) + (pendingInviteCount ?? 0);
 }
 
-async function syncStripeSubscriptionAddOn({
-  addOnKey,
-  enabled,
-  quantity,
-  subscriptionId
-}: {
-  addOnKey: AddOnKey;
-  enabled: boolean;
-  quantity: number;
-  subscriptionId: string;
-}) {
-  const stripe = getStripe();
+async function resolveOrCreateMonthlyAddOnPriceId(stripe: Stripe, addOnKey: AddOnKey) {
+  const configuredPriceId = getAddOnPriceId(addOnKey);
 
-  if (!stripe) {
-    throw new Error("Stripe is not configured for add-on billing.");
+  if (configuredPriceId) {
+    const configuredPrice = await stripe.prices.retrieve(configuredPriceId);
+
+    if (
+      configuredPrice.active &&
+      configuredPrice.recurring?.interval === "month" &&
+      (configuredPrice.recurring.interval_count ?? 1) === 1
+    ) {
+      return configuredPrice.id;
+    }
+
+    throw new Error("The configured Stripe add-on price must be an active monthly recurring price.");
   }
 
-  const priceId = await resolveAddOnPriceId(stripe, addOnKey);
-
-  if (!priceId) {
-    throw new Error("No active Stripe price was found for this add-on.");
-  }
-
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
-    expand: ["items.data.price.product"]
+  const addOn = getBillingAddOn(addOnKey);
+  const productId = await resolveOrCreateAddOnProductId(stripe, addOnKey);
+  const prices = await stripe.prices.list({
+    active: true,
+    product: productId,
+    type: "recurring",
+    limit: 100
   });
-  const existingItem = subscription.items.data.find((item) => isMatchingAddOnItem(item, addOnKey, priceId));
+  const amount = addOn.price * 100;
+  const existingPrice = prices.data.find((price) =>
+    price.unit_amount === amount &&
+    price.recurring?.interval === "month" &&
+    (price.recurring.interval_count ?? 1) === 1
+  );
 
-  if (enabled && quantity > 0) {
-    const item = existingItem
-      ? await stripe.subscriptionItems.update(existingItem.id, {
-          quantity,
-          proration_behavior: "create_prorations"
-        })
-      : await stripe.subscriptionItems.create({
-          subscription: subscriptionId,
-          price: priceId,
-          quantity,
-          proration_behavior: "create_prorations"
-        });
-
-    return {
-      stripe_price_id: priceId,
-      stripe_subscription_item_id: item.id,
-      synced_at: new Date().toISOString()
-    };
+  if (existingPrice) {
+    return existingPrice.id;
   }
 
-  if (existingItem) {
-    await stripe.subscriptionItems.del(existingItem.id, {
-      proration_behavior: "create_prorations"
-    });
-  }
+  const price = await stripe.prices.create({
+    currency: "usd",
+    product: productId,
+    unit_amount: amount,
+    recurring: {
+      interval: "month",
+      interval_count: 1
+    },
+    metadata: {
+      add_on_key: addOnKey,
+      billing_behavior: "separate_monthly_subscription"
+    }
+  });
 
-  return {
-    stripe_price_id: priceId,
-    stripe_subscription_item_id: null,
-    synced_at: new Date().toISOString()
-  };
+  return price.id;
 }
 
-function isMatchingAddOnItem(item: Stripe.SubscriptionItem, addOnKey: AddOnKey, priceId: string) {
-  if (item.price.id === priceId) {
-    return true;
+async function resolveOrCreateAddOnProductId(stripe: Stripe, addOnKey: AddOnKey) {
+  const configuredProductId = getAddOnProductId(addOnKey);
+
+  if (configuredProductId) {
+    return configuredProductId;
   }
 
-  const addOnProductId = getAddOnProductId(addOnKey);
-  const productId = getStripeId(item.price.product);
+  const products = await stripe.products.list({
+    active: true,
+    limit: 100
+  });
+  const existingProduct = products.data.find((product) => product.metadata.add_on_key === addOnKey);
 
-  return Boolean(addOnProductId && productId === addOnProductId);
+  if (existingProduct) {
+    return existingProduct.id;
+  }
+
+  const addOn = getBillingAddOn(addOnKey);
+  const product = await stripe.products.create({
+    name: addOn.name,
+    metadata: {
+      add_on_key: addOnKey
+    }
+  });
+
+  return product.id;
 }
 
-function getStripeId(value: string | Stripe.Product | Stripe.DeletedProduct | null | undefined) {
-  return typeof value === "string" ? value : value?.id ?? null;
+async function findSubscriptionAddOnItem(stripe: Stripe, subscription: Stripe.Subscription, addOnKey: AddOnKey) {
+  for (const item of subscription.items.data) {
+    const productId = getStripeId(item.price?.product);
+
+    if (!productId) {
+      continue;
+    }
+
+    const configuredAddOnKey = getAddOnKeyByProductId(productId);
+
+    if (configuredAddOnKey === addOnKey) {
+      return item;
+    }
+
+    const product = typeof item.price?.product === "object" && item.price.product && !("deleted" in item.price.product)
+      ? item.price.product
+      : await stripe.products.retrieve(productId);
+
+    if ("metadata" in product && product.metadata.add_on_key === addOnKey) {
+      return item;
+    }
+  }
+
+  return null;
 }
 
 function getErrorMessage(error: unknown) {
@@ -284,4 +573,26 @@ function getErrorMessage(error: unknown) {
   }
 
   return "Could not update this add-on.";
+}
+
+function getBillingAddOn(addOnKey: AddOnKey) {
+  const addOn = BILLING_ADD_ONS.find((item) => item.key === addOnKey);
+
+  if (!addOn) {
+    throw new Error("Choose a valid add-on.");
+  }
+
+  return addOn;
+}
+
+function getExpandedInvoice(value: string | Stripe.Invoice | null | undefined) {
+  return typeof value === "object" && value ? value : null;
+}
+
+function getStripeId(value: string | Stripe.Product | Stripe.DeletedProduct | null | undefined) {
+  return typeof value === "string" ? value : value?.id ?? null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

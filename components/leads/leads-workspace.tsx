@@ -1,22 +1,54 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { AlertTriangle, CalendarDays, CheckCircle2, Loader2, Mail, Maximize2, PhoneCall, Search, Trash2, UserRound } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  BookOpen,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Circle,
+  Code2,
+  Download,
+  ExternalLink,
+  Globe2,
+  Loader2,
+  MessageSquare,
+  PhoneCall,
+  Search,
+  SlidersHorizontal,
+  Table2,
+  Trash2,
+  UserRound,
+  Workflow
+} from "lucide-react";
 import { AgentBadge } from "@/components/agent-badge";
-import { ToastViewport, useToast } from "@/components/ui/toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ToastViewport, useToast } from "@/components/ui/toast";
 import type { LeadRow } from "@/lib/harlo/data";
 import { cn } from "@/lib/utils";
 
 type LeadsWorkspaceProps = {
   leads: LeadRow[];
+  initialLeadId?: string;
+  activeAgentId?: string;
 };
 
-export function LeadsWorkspace({ leads }: LeadsWorkspaceProps) {
+type LeadView = "table" | "pipeline" | "activity";
+type StageFilter = "all" | "new" | "contacted";
+
+const ROWS_PER_PAGE = 10;
+
+export function LeadsWorkspace({ leads, initialLeadId, activeAgentId }: LeadsWorkspaceProps) {
   const [items, setItems] = useState(leads);
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState(leads[0]?.id ?? "");
+  const [selectedId, setSelectedId] = useState(initialLeadId ?? leads[0]?.id ?? "");
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [view, setView] = useState<LeadView>("table");
+  const [stageFilter, setStageFilter] = useState<StageFilter>("all");
+  const [page, setPage] = useState(1);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<LeadRow | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -24,32 +56,57 @@ export function LeadsWorkspace({ leads }: LeadsWorkspaceProps) {
 
   useEffect(() => {
     setItems(leads);
-    setSelectedId((current) => leads.some((lead) => lead.id === current) ? current : leads[0]?.id ?? "");
-  }, [leads]);
+    setSelectedId((current) => {
+      if (initialLeadId && leads.some((lead) => lead.id === initialLeadId)) {
+        return initialLeadId;
+      }
+
+      return leads.some((lead) => lead.id === current) ? current : leads[0]?.id ?? "";
+    });
+    setSelectedRows(new Set());
+  }, [initialLeadId, leads]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, stageFilter, view]);
 
   const filteredLeads = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    if (!normalizedQuery) {
-      return items;
-    }
-
-    return items.filter((lead) =>
-      [
+    return items.filter((lead) => {
+      const metadata = getLeadMetadataItems(lead);
+      const source = getLeadSource(lead);
+      const stage = getLeadStage(lead);
+      const queryMatches = !normalizedQuery || [
         lead.name,
         lead.email,
+        getLeadPhone(lead) ?? "",
+        getLeadCompany(lead) ?? "",
         lead.question,
         lead.status,
+        source.label,
         lead.bot_name ?? "",
         lead.agent_type ?? "",
-        ...getLeadMetadataItems(lead).map((item) => item.value)
-      ].some((value) => value.toLowerCase().includes(normalizedQuery))
-    );
-  }, [items, query]);
+        ...metadata.map((item) => item.value)
+      ].some((value) => value.toLowerCase().includes(normalizedQuery));
+      const stageMatches = stageFilter === "all" || stageFilter === stage;
 
-  const selectedLead = items.find((lead) => lead.id === selectedId) ?? filteredLeads[0] ?? items[0] ?? null;
+      return queryMatches && stageMatches;
+    });
+  }, [items, query, stageFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredLeads.length / ROWS_PER_PAGE));
+  const pagedLeads = filteredLeads.slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE);
+  const selectedLead =
+    filteredLeads.find((lead) => lead.id === selectedId) ??
+    filteredLeads[0] ??
+    items.find((lead) => lead.id === selectedId) ??
+    items[0] ??
+    null;
+  const selectedLeadIds = new Set(pagedLeads.map((lead) => lead.id));
+  const selectedOnPage = pagedLeads.filter((lead) => selectedRows.has(lead.id)).length;
+  const newCount = items.filter((lead) => getLeadStage(lead) === "new").length;
   const contactedCount = items.filter((lead) => lead.status === "contacted").length;
-  const newCount = items.filter((lead) => lead.status !== "contacted").length;
 
   async function updateLeadStatus(leadId: string, status: "new" | "contacted") {
     setSavingId(leadId);
@@ -117,6 +174,11 @@ export function LeadsWorkspace({ leads }: LeadsWorkspaceProps) {
 
         return next;
       });
+      setSelectedRows((current) => {
+        const next = new Set(current);
+        next.delete(lead.id);
+        return next;
+      });
       setDeleteTarget(null);
       showToast("success", "Lead deleted.");
     } catch {
@@ -126,140 +188,199 @@ export function LeadsWorkspace({ leads }: LeadsWorkspaceProps) {
     }
   }
 
+  function toggleSelectedRow(lead: LeadRow) {
+    selectLead(lead.id);
+    setSelectedRows((current) => {
+      const next = new Set(current);
+
+      if (next.has(lead.id)) {
+        next.delete(lead.id);
+      } else {
+        next.add(lead.id);
+      }
+
+      return next;
+    });
+  }
+
+  function selectLead(leadId: string) {
+    setSelectedId(leadId);
+    const params = new URLSearchParams();
+
+    if (activeAgentId) {
+      params.set("agent", activeAgentId);
+    }
+
+    params.set("lead", leadId);
+    window.history.pushState(null, "", `/dashboard/leads?${params.toString()}`);
+  }
+
+  function togglePageSelection() {
+    setSelectedRows((current) => {
+      const next = new Set(current);
+      const allSelected = pagedLeads.length > 0 && pagedLeads.every((lead) => next.has(lead.id));
+
+      pagedLeads.forEach((lead) => {
+        if (allSelected) {
+          next.delete(lead.id);
+        } else {
+          next.add(lead.id);
+        }
+      });
+
+      return next;
+    });
+  }
+
+  function exportLeads() {
+    const csv = buildLeadCsv(filteredLeads);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "harlo-leads.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
-    <div className="grid min-h-0 flex-1 overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm xl:grid-cols-[420px_1fr]">
-      <aside className="flex min-h-0 flex-col border-b border-harlo-line bg-harlo-canvas/40 xl:border-b-0 xl:border-r">
-        <div className="shrink-0 space-y-4 border-b border-harlo-line bg-white p-4">
-          <div className="grid grid-cols-2 gap-3">
-            <LeadStat label="New" value={newCount.toString()} />
-            <LeadStat label="Contacted" value={contactedCount.toString()} />
-          </div>
-          <label className="flex h-10 items-center gap-3 rounded-lg border border-harlo-line bg-white px-3 text-sm text-harlo-muted focus-within:border-harlo-teal">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-harlo-line">
+        <ViewTab active={view === "table"} icon={<Table2 size={15} />} label="Table" count={items.length} onClick={() => setView("table")} />
+        <ViewTab active={view === "pipeline"} icon={<Workflow size={15} />} label="Pipeline" count={items.length} onClick={() => setView("pipeline")} />
+        <ViewTab active={view === "activity"} icon={<Activity size={15} />} label="Activity" count={items.length} onClick={() => setView("activity")} />
+      </div>
+
+      <div className="flex shrink-0 flex-col gap-3 rounded-lg border border-harlo-line bg-white p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+        <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[minmax(0,1fr)_160px_auto]">
+          <label className="flex h-10 min-w-0 items-center gap-2 rounded-lg border border-harlo-line bg-white px-3 text-sm text-harlo-muted focus-within:border-harlo-teal">
             <Search size={16} />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-harlo-muted"
-              placeholder="Search leads"
+              placeholder="Search leads..."
             />
           </label>
+
+          <SelectControl label="Stage" value={stageFilter} onChange={(value) => setStageFilter(value as StageFilter)}>
+            <option value="all">All stages</option>
+            <option value="new">New</option>
+            <option value="contacted">Contacted</option>
+          </SelectControl>
+
+          <button
+            type="button"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-harlo-line bg-white px-3 text-sm font-semibold text-harlo-ink transition hover:border-harlo-teal hover:text-harlo-teal"
+            onClick={() => {
+              setQuery("");
+              setStageFilter("all");
+            }}
+          >
+            <SlidersHorizontal size={15} />
+            Clear filters
+          </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto p-3">
-          {filteredLeads.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-harlo-line bg-white p-5 text-sm text-harlo-muted">
-              No leads match that search.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {filteredLeads.map((lead) => (
-                <button
-                  type="button"
-                  key={lead.id}
-                  onClick={() => setSelectedId(lead.id)}
-                  className={cn(
-                    "w-full rounded-lg border bg-white p-3 text-left transition hover:border-harlo-teal hover:shadow-sm",
-                    lead.id === selectedLead?.id ? "border-harlo-teal shadow-sm ring-1 ring-harlo-teal/10" : "border-harlo-line"
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-harlo-ink">{lead.name}</p>
-                      <p className="mt-1 truncate text-xs text-harlo-muted">{lead.email}</p>
-                    </div>
-                    <LeadStatusBadge status={lead.status} />
-                  </div>
-                  <p className="mt-3 line-clamp-2 text-xs leading-5 text-harlo-muted">{lead.question}</p>
-                  <div className="mt-3 flex items-center justify-between gap-3 text-xs text-harlo-muted">
-                    <AgentBadge
-                      compact
-                      name={lead.bot_name}
-                      type={lead.agent_type}
-                      accent={lead.bot_accent}
-                      className="max-w-[70%]"
-                    />
-                    <span className="shrink-0">{formatDateTime(lead.created_at)}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </aside>
+        <button
+          type="button"
+          onClick={exportLeads}
+          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-harlo-line bg-white px-3 text-sm font-semibold text-harlo-ink transition hover:border-harlo-teal hover:text-harlo-teal"
+        >
+          <Download size={15} />
+          Export
+        </button>
+      </div>
 
-      {selectedLead ? (
-        <section className="flex min-h-0 flex-col">
-          <header className="shrink-0 border-b border-harlo-line p-5">
-            <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
-              <div className="min-w-0">
-                <h2 className="text-2xl font-semibold tracking-tight text-harlo-ink">{selectedLead.name}</h2>
-                <p className="mt-2 flex items-center gap-2 text-sm text-harlo-muted">
-                  <Mail size={15} />
-                  <span className="truncate">{selectedLead.email}</span>
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <AgentBadge name={selectedLead.bot_name} type={selectedLead.agent_type} accent={selectedLead.bot_accent} />
-                <LeadStatusBadge status={selectedLead.status} />
-              </div>
-            </div>
-          </header>
-
-          <div className="min-h-0 flex-1 overflow-auto p-5">
-            <div className="grid gap-4 lg:grid-cols-2">
-              <DetailCard icon={<UserRound size={16} />} label="Agent" value={selectedLead.bot_name ?? "Harlo"} />
-              <DetailCard icon={<UserRound size={16} />} label="Lead source" value={selectedLead.conversation_id ? "Chat conversation" : "Manual capture"} />
-              <DetailCard icon={<CalendarDays size={16} />} label="Captured" value={formatDateTime(selectedLead.created_at)} />
-              {getLeadMetadataItems(selectedLead).map((item) => (
-                <DetailCard
-                  key={item.key}
-                  icon={item.type === "date" ? <CalendarDays size={16} /> : <Maximize2 size={16} />}
-                  label={item.label}
-                  value={item.value}
-                />
-              ))}
-            </div>
-
-            <div className="mt-5 rounded-lg border border-harlo-line bg-harlo-canvas p-5">
-              <p className="text-xs font-medium uppercase tracking-[0.08em] text-harlo-muted">Question</p>
-              <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-harlo-ink">{selectedLead.question}</p>
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-3">
-              <Button
-                type="button"
-                disabled={savingId === selectedLead.id}
-                onClick={() => updateLeadStatus(selectedLead.id, selectedLead.status === "contacted" ? "new" : "contacted")}
-              >
-                <PhoneCall size={16} />
-                {savingId === selectedLead.id
-                  ? "Saving..."
-                  : selectedLead.status === "contacted"
-                    ? "Mark new"
-                    : "Mark contacted"}
-              </Button>
-              {selectedLead.conversation_id ? (
-                <a
-                  href={getConversationHref(selectedLead)}
-                  className="inline-flex h-10 items-center justify-center rounded-lg border border-harlo-line bg-white px-4 text-sm font-semibold text-harlo-ink transition hover:border-harlo-teal hover:text-harlo-teal"
-                >
-                  View conversation
-                </a>
-              ) : null}
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={deletingId === selectedLead.id}
-                onClick={() => setDeleteTarget(selectedLead)}
-                className="border-red-200 text-red-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700"
-              >
-                <Trash2 size={16} />
-                Delete lead
-              </Button>
-            </div>
+      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_390px]">
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm">
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-harlo-line px-4 py-3">
+            <p className="text-sm font-semibold text-harlo-ink">{filteredLeads.length} leads</p>
+            {selectedRows.size > 0 ? (
+              <p className="text-xs font-medium text-harlo-teal">{selectedRows.size} selected</p>
+            ) : (
+              <p className="text-xs text-harlo-muted">
+                {newCount} new / {contactedCount} contacted
+              </p>
+            )}
           </div>
+
+          {filteredLeads.length === 0 ? (
+            <div className="grid min-h-0 flex-1 place-items-center p-8 text-center">
+              <div>
+                <span className="mx-auto grid h-12 w-12 place-items-center rounded-lg bg-harlo-mist text-harlo-teal">
+                  <UserRound size={20} />
+                </span>
+                <h2 className="mt-4 text-lg font-semibold text-harlo-ink">No leads match your filters</h2>
+                <p className="mt-2 text-sm text-harlo-muted">Adjust the search or stage filter to see more leads.</p>
+              </div>
+            </div>
+          ) : view === "table" ? (
+            <LeadTable
+              leads={pagedLeads}
+              selectedId={selectedLead?.id}
+              selectedRows={selectedRows}
+              selectedOnPage={selectedOnPage}
+              pageCount={selectedLeadIds.size}
+              onSelect={(lead) => selectLead(lead.id)}
+              onToggleRow={toggleSelectedRow}
+              onTogglePage={togglePageSelection}
+            />
+          ) : view === "pipeline" ? (
+            <PipelineView leads={filteredLeads} selectedId={selectedLead?.id} onSelect={(lead) => selectLead(lead.id)} />
+          ) : (
+            <ActivityView leads={filteredLeads} selectedId={selectedLead?.id} onSelect={(lead) => selectLead(lead.id)} />
+          )}
+
+          {view === "table" ? (
+            <div className="flex shrink-0 flex-col gap-3 border-t border-harlo-line px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2 text-sm text-harlo-muted">
+                <span>Rows per page</span>
+                <span className="inline-flex h-9 items-center rounded-lg border border-harlo-line bg-white px-3 font-semibold text-harlo-ink">
+                  {ROWS_PER_PAGE}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3 sm:justify-end">
+                <p className="text-sm text-harlo-muted">
+                  {filteredLeads.length === 0 ? "0" : `${(page - 1) * ROWS_PER_PAGE + 1}-${Math.min(page * ROWS_PER_PAGE, filteredLeads.length)}`} of {filteredLeads.length}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={page === 1}
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                    className="grid h-9 w-9 place-items-center rounded-lg border border-harlo-line text-harlo-muted transition hover:border-harlo-teal hover:text-harlo-teal disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Previous page"
+                  >
+                    <ChevronDown size={16} className="rotate-90" />
+                  </button>
+                  <span className="grid h-9 min-w-9 place-items-center rounded-lg bg-harlo-mist px-3 text-sm font-semibold text-harlo-teal">
+                    {page}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={page === totalPages}
+                    onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                    className="grid h-9 w-9 place-items-center rounded-lg border border-harlo-line text-harlo-muted transition hover:border-harlo-teal hover:text-harlo-teal disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Next page"
+                  >
+                    <ChevronDown size={16} className="-rotate-90" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </section>
-      ) : null}
+
+        <LeadDetailPanel
+          lead={selectedLead}
+          savingId={savingId}
+          deletingId={deletingId}
+          onUpdateStatus={updateLeadStatus}
+          onDelete={setDeleteTarget}
+        />
+      </div>
 
       {deleteTarget ? (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-harlo-ink/35 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-lead-title">
@@ -298,28 +419,472 @@ export function LeadsWorkspace({ leads }: LeadsWorkspaceProps) {
   );
 }
 
-function LeadStat({ label, value }: { label: string; value: string }) {
+function ViewTab({
+  active,
+  icon,
+  label,
+  count,
+  onClick
+}: {
+  active: boolean;
+  icon: ReactNode;
+  label: string;
+  count: number;
+  onClick: () => void;
+}) {
   return (
-    <div className="rounded-lg border border-harlo-line bg-harlo-canvas p-3">
-      <p className="text-xs font-medium text-harlo-muted">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-harlo-ink">{value}</p>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "relative inline-flex h-11 items-center gap-2 px-2 text-sm font-semibold transition",
+        active ? "text-harlo-teal" : "text-harlo-muted hover:text-harlo-ink"
+      )}
+    >
+      <span className={cn("grid h-7 w-7 place-items-center rounded-lg", active ? "bg-harlo-mist" : "bg-transparent")}>{icon}</span>
+      {label}
+      <span className={cn("rounded-full px-1.5 py-0.5 text-[11px]", active ? "bg-harlo-mist text-harlo-teal" : "bg-harlo-canvas text-harlo-muted")}>
+        {count}
+      </span>
+      {active ? <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-harlo-teal" /> : null}
+    </button>
+  );
+}
+
+function SelectControl({
+  label,
+  value,
+  onChange,
+  children
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <label className="relative block">
+      <span className="sr-only">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-10 w-full appearance-none rounded-lg border border-harlo-line bg-white px-3 pr-9 text-sm font-medium text-harlo-ink outline-none transition focus:border-harlo-teal"
+      >
+        {children}
+      </select>
+      <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-harlo-muted" />
+    </label>
+  );
+}
+
+function LeadTable({
+  leads,
+  selectedId,
+  selectedRows,
+  selectedOnPage,
+  pageCount,
+  onSelect,
+  onToggleRow,
+  onTogglePage
+}: {
+  leads: LeadRow[];
+  selectedId?: string;
+  selectedRows: Set<string>;
+  selectedOnPage: number;
+  pageCount: number;
+  onSelect: (lead: LeadRow) => void;
+  onToggleRow: (lead: LeadRow) => void;
+  onTogglePage: () => void;
+}) {
+  return (
+    <div className="min-h-0 flex-1 overflow-auto">
+      <table className="min-w-[920px] w-full border-separate border-spacing-0 text-left text-sm">
+        <thead className="sticky top-0 z-10 bg-white text-xs font-semibold text-harlo-muted">
+          <tr>
+            <th className="w-10 border-b border-harlo-line px-4 py-3">
+              <button
+                type="button"
+                onClick={onTogglePage}
+                className={cn(
+                  "grid h-5 w-5 place-items-center rounded border transition",
+                  selectedOnPage === pageCount && pageCount > 0
+                    ? "border-harlo-teal bg-harlo-teal text-white"
+                    : selectedOnPage > 0
+                      ? "border-harlo-teal bg-harlo-mist text-harlo-teal"
+                      : "border-harlo-line bg-white text-white"
+                )}
+                aria-label="Select page"
+              >
+                {selectedOnPage > 0 ? <Check size={13} /> : null}
+              </button>
+            </th>
+            <th className="border-b border-harlo-line px-3 py-3">Lead</th>
+            <th className="border-b border-harlo-line px-3 py-3">Score</th>
+            <th className="border-b border-harlo-line px-3 py-3">Stage</th>
+            <th className="border-b border-harlo-line px-3 py-3">Source</th>
+            <th className="border-b border-harlo-line px-3 py-3">Last question</th>
+            <th className="border-b border-harlo-line px-3 py-3 text-right">Captured</th>
+          </tr>
+        </thead>
+        <tbody>
+          {leads.map((lead) => {
+            const score = getLeadScore(lead);
+            const source = getLeadSource(lead);
+            const selected = selectedId === lead.id;
+            const checked = selectedRows.has(lead.id);
+
+            return (
+              <tr
+                key={lead.id}
+                onClick={() => onSelect(lead)}
+                className={cn(
+                  "cursor-pointer transition hover:bg-harlo-canvas/70",
+                  selected ? "bg-harlo-mist/60 outline outline-1 -outline-offset-1 outline-harlo-teal" : "bg-white"
+                )}
+              >
+                <td className="border-b border-harlo-line px-4 py-4 align-middle">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onToggleRow(lead);
+                    }}
+                    className={cn(
+                      "grid h-5 w-5 place-items-center rounded border transition",
+                      checked ? "border-harlo-teal bg-harlo-teal text-white" : "border-harlo-line bg-white text-white"
+                    )}
+                    aria-label={`Select ${lead.name}`}
+                  >
+                    {checked ? <Check size={13} /> : null}
+                  </button>
+                </td>
+                <td className="border-b border-harlo-line px-3 py-4 align-middle">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-harlo-ink">{lead.name}</p>
+                    <p className="mt-1 truncate text-xs text-harlo-muted">{lead.email}</p>
+                    {getLeadPhone(lead) ? <p className="mt-1 truncate text-xs text-harlo-muted">{getLeadPhone(lead)}</p> : null}
+                  </div>
+                </td>
+                <td className="border-b border-harlo-line px-3 py-4 align-middle">
+                  <div className="flex items-center gap-2">
+                    <MiniScore score={score} />
+                    <div>
+                      <p className="text-xs font-semibold text-harlo-ink">{score}</p>
+                      <p className="text-[11px] text-harlo-muted">{getScoreLabel(score)}</p>
+                    </div>
+                  </div>
+                </td>
+                <td className="border-b border-harlo-line px-3 py-4 align-middle">
+                  <LeadStatusBadge status={lead.status} score={score} />
+                </td>
+                <td className="border-b border-harlo-line px-3 py-4 align-middle">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-harlo-muted">
+                    {source.icon}
+                    {source.label}
+                  </span>
+                </td>
+                <td className="max-w-[260px] border-b border-harlo-line px-3 py-4 align-middle">
+                  <p className="line-clamp-2 text-sm leading-5 text-harlo-ink">{lead.question}</p>
+                </td>
+                <td className="border-b border-harlo-line px-3 py-4 text-right align-middle text-xs text-harlo-muted">
+                  <p>{formatDate(lead.created_at)}</p>
+                  <p className="mt-1">{formatTime(lead.created_at)}</p>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-function DetailCard({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+function PipelineView({ leads, selectedId, onSelect }: { leads: LeadRow[]; selectedId?: string; onSelect: (lead: LeadRow) => void }) {
+  const groups = [
+    { id: "new", label: "New", items: leads.filter((lead) => lead.status !== "contacted") },
+    { id: "contacted", label: "Contacted", items: leads.filter((lead) => lead.status === "contacted") }
+  ];
+
   return (
-    <div className="rounded-lg border border-harlo-line bg-white p-4">
-      <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.08em] text-harlo-muted">
-        <span className="text-harlo-teal">{icon}</span>
-        {label}
-      </p>
-      <p className="mt-3 text-sm font-semibold text-harlo-ink">{value}</p>
+    <div className="min-h-0 flex-1 overflow-auto p-4">
+      <div className="grid min-h-full gap-3 lg:grid-cols-2">
+        {groups.map((group) => (
+          <section key={group.id} className="flex min-h-[240px] flex-col rounded-lg border border-harlo-line bg-harlo-canvas p-3">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-harlo-ink">{group.label}</h3>
+              <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-harlo-muted">{group.items.length}</span>
+            </div>
+            <div className="mt-3 space-y-2">
+              {group.items.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-harlo-line bg-white p-3 text-xs leading-5 text-harlo-muted">No leads in this stage.</p>
+              ) : group.items.map((lead) => (
+                <button
+                  type="button"
+                  key={lead.id}
+                  onClick={() => onSelect(lead)}
+                  className={cn(
+                    "w-full rounded-lg border bg-white p-3 text-left transition hover:border-harlo-teal hover:shadow-sm",
+                    selectedId === lead.id ? "border-harlo-teal ring-1 ring-harlo-teal/10" : "border-harlo-line"
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-harlo-ink">{lead.name}</p>
+                      <p className="mt-1 truncate text-xs text-harlo-muted">{lead.email}</p>
+                    </div>
+                    <MiniScore score={getLeadScore(lead)} />
+                  </div>
+                  <p className="mt-3 line-clamp-2 text-xs leading-5 text-harlo-muted">{lead.question}</p>
+                </button>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
     </div>
   );
 }
 
-function LeadStatusBadge({ status }: { status: string }) {
+function ActivityView({ leads, selectedId, onSelect }: { leads: LeadRow[]; selectedId?: string; onSelect: (lead: LeadRow) => void }) {
+  return (
+    <div className="min-h-0 flex-1 overflow-auto p-4">
+      <div className="space-y-3">
+        {leads.map((lead) => (
+          <button
+            type="button"
+            key={lead.id}
+            onClick={() => onSelect(lead)}
+            className={cn(
+              "grid w-full gap-3 rounded-lg border bg-white p-4 text-left transition hover:border-harlo-teal hover:shadow-sm sm:grid-cols-[auto_1fr_auto] sm:items-start",
+              selectedId === lead.id ? "border-harlo-teal ring-1 ring-harlo-teal/10" : "border-harlo-line"
+            )}
+          >
+            <span className="grid h-9 w-9 place-items-center rounded-lg bg-harlo-mist text-harlo-teal">
+              <UserRound size={16} />
+            </span>
+            <div className="min-w-0">
+              <p className="font-semibold text-harlo-ink">{lead.name} was captured as a lead</p>
+              <p className="mt-1 line-clamp-2 text-sm leading-6 text-harlo-muted">{lead.question}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <LeadStatusBadge status={lead.status} score={getLeadScore(lead)} />
+                <AgentBadge compact name={lead.bot_name} type={lead.agent_type} accent={lead.bot_accent} />
+              </div>
+            </div>
+            <p className="text-sm text-harlo-muted sm:text-right">{formatDateTime(lead.created_at)}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LeadDetailPanel({
+  lead,
+  savingId,
+  deletingId,
+  onUpdateStatus,
+  onDelete
+}: {
+  lead: LeadRow | null;
+  savingId: string | null;
+  deletingId: string | null;
+  onUpdateStatus: (leadId: string, status: "new" | "contacted") => void;
+  onDelete: (lead: LeadRow) => void;
+}) {
+  if (!lead) {
+    return (
+      <aside className="grid min-h-0 place-items-center rounded-lg border border-harlo-line bg-white p-8 text-center shadow-sm">
+        <div>
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-lg bg-harlo-mist text-harlo-teal">
+            <UserRound size={20} />
+          </span>
+          <h2 className="mt-4 text-lg font-semibold text-harlo-ink">Select a lead</h2>
+          <p className="mt-2 text-sm text-harlo-muted">Lead details will appear here.</p>
+        </div>
+      </aside>
+    );
+  }
+
+  const score = getLeadScore(lead);
+  const source = getLeadSource(lead);
+  const metadata = getLeadMetadataItems(lead);
+  const phone = getLeadPhone(lead);
+  const company = getLeadCompany(lead);
+
+  return (
+    <aside className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm">
+      <div className="min-h-0 flex-1 overflow-auto p-4">
+        <div className="text-center">
+          <LeadAvatar name={lead.name} />
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            <h2 className="max-w-full truncate text-xl font-semibold text-harlo-ink">{lead.name}</h2>
+            <LeadStatusBadge status={lead.status} score={score} />
+          </div>
+          <p className="mt-1 truncate text-sm text-harlo-muted">{lead.email}</p>
+          {phone ? <p className="mt-1 text-sm text-harlo-muted">{phone}</p> : null}
+          {company ? <p className="mt-1 text-sm text-harlo-muted">{company}</p> : null}
+        </div>
+
+        <div className="mt-5 rounded-lg border border-harlo-line bg-harlo-canvas p-4">
+          <div className="flex items-center gap-4">
+            <ScoreRing score={score} />
+            <div>
+              <p className="text-sm font-semibold text-harlo-teal">{getScoreLabel(score)}</p>
+              <p className="mt-1 text-sm leading-6 text-harlo-muted">Lead score is calculated from captured fields, conversation context, and follow-up status.</p>
+            </div>
+          </div>
+        </div>
+
+        <dl className="mt-5 space-y-3 text-sm">
+          <DetailRow label="Stage" value={getStageLabel(lead)} />
+          <DetailRow label="Source" value={source.label} />
+          <DetailRow label="Captured" value={formatDateTime(lead.created_at)} />
+          <DetailRow label="Agent" value={lead.bot_name ?? "Harlo"} />
+          <DetailRow label="Last question" value={lead.question} link={lead.conversation_id ? getConversationHref(lead) : undefined} />
+        </dl>
+
+        <div className="mt-5 space-y-2">
+          <DetailDisclosure title="Lead capture" defaultOpen>
+            {metadata.length > 0 ? (
+              <div className="space-y-3">
+                {metadata.map((item) => (
+                  <DetailRow key={item.key} label={item.label} value={item.value} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm leading-6 text-harlo-muted">No additional lead fields were captured.</p>
+            )}
+          </DetailDisclosure>
+          <DetailDisclosure title="Activity timeline">
+            <ol className="space-y-3 text-sm">
+              <TimelineItem title="Lead captured" description={formatDateTime(lead.created_at)} />
+              {lead.conversation_id ? <TimelineItem title="Conversation linked" description="Open the conversation to review the full transcript." /> : null}
+              {lead.status === "contacted" ? <TimelineItem title="Marked contacted" description="This lead is ready for follow-up reporting." /> : null}
+            </ol>
+          </DetailDisclosure>
+        </div>
+      </div>
+
+      <div className="shrink-0 space-y-2 border-t border-harlo-line p-4">
+        {lead.conversation_id ? (
+          <a
+            href={getConversationHref(lead)}
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-harlo-teal px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-harlo-navy"
+          >
+            <MessageSquare size={16} />
+            Open in Conversations
+          </a>
+        ) : null}
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto] xl:grid-cols-1 2xl:grid-cols-[1fr_auto]">
+          <Button
+            type="button"
+            variant={lead.status === "contacted" ? "secondary" : "primary"}
+            disabled={savingId === lead.id}
+            onClick={() => onUpdateStatus(lead.id, lead.status === "contacted" ? "new" : "contacted")}
+            className={lead.status === "contacted" ? undefined : "bg-harlo-teal hover:bg-harlo-navy"}
+          >
+            {savingId === lead.id ? <Loader2 size={16} className="animate-spin" /> : <PhoneCall size={16} />}
+            {savingId === lead.id
+              ? "Saving..."
+              : lead.status === "contacted"
+                ? "Mark new"
+                : "Mark contacted"}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={deletingId === lead.id}
+            onClick={() => onDelete(lead)}
+            className="border-red-200 px-3 text-red-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+            aria-label="Delete lead"
+          >
+            <Trash2 size={16} />
+          </Button>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function DetailDisclosure({ title, children, defaultOpen = false }: { title: string; children: ReactNode; defaultOpen?: boolean }) {
+  return (
+    <details open={defaultOpen} className="group rounded-lg border border-harlo-line bg-white">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 text-sm font-semibold text-harlo-ink">
+        {title}
+        <ChevronDown size={16} className="text-harlo-muted transition group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-harlo-line px-3 py-3">{children}</div>
+    </details>
+  );
+}
+
+function DetailRow({ label, value, link }: { label: string; value: string; link?: string }) {
+  return (
+    <div className="grid grid-cols-[110px_minmax(0,1fr)] gap-3">
+      <dt className="text-harlo-muted">{label}</dt>
+      <dd className="min-w-0 text-right font-semibold text-harlo-ink">
+        {link ? (
+          <a href={link} className="inline-flex min-w-0 items-center justify-end gap-1 text-harlo-teal hover:text-harlo-navy">
+            <span className="truncate">{value}</span>
+            <ExternalLink size={13} />
+          </a>
+        ) : (
+          <span className="line-clamp-2">{value}</span>
+        )}
+      </dd>
+    </div>
+  );
+}
+
+function TimelineItem({ title, description }: { title: string; description: string }) {
+  return (
+    <li className="flex gap-3">
+      <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-harlo-teal" />
+      <span>
+        <span className="block font-semibold text-harlo-ink">{title}</span>
+        <span className="mt-0.5 block text-harlo-muted">{description}</span>
+      </span>
+    </li>
+  );
+}
+
+function LeadAvatar({ name }: { name: string }) {
+  return (
+    <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-harlo-mist text-base font-semibold text-harlo-teal">
+      {getInitials(name)}
+    </span>
+  );
+}
+
+function MiniScore({ score }: { score: number }) {
+  const color = getScoreColor(score);
+
+  return (
+    <span
+      className="grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 bg-white text-[11px] font-bold"
+      style={{ borderColor: color, color }}
+    >
+      {score}
+    </span>
+  );
+}
+
+function ScoreRing({ score }: { score: number }) {
+  const color = getScoreColor(score);
+
+  return (
+    <div className="relative grid h-20 w-20 shrink-0 place-items-center rounded-full" style={{ background: `conic-gradient(${color} ${score}%, #e2e8ee 0)` }}>
+      <div className="grid h-14 w-14 place-items-center rounded-full bg-white">
+        <div className="text-center">
+          <p className="text-xl font-semibold leading-none text-harlo-teal">{score}</p>
+          <p className="text-[10px] text-harlo-muted">of 100</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LeadStatusBadge({ status }: { status: string; score?: number }) {
   if (status === "contacted") {
     return (
       <Badge className="w-fit border-harlo-teal/25 bg-harlo-mist text-harlo-teal">
@@ -329,27 +894,176 @@ function LeadStatusBadge({ status }: { status: string }) {
     );
   }
 
-  return <Badge className="w-fit capitalize">{status}</Badge>;
+  return (
+    <Badge className="w-fit border-harlo-line bg-white text-harlo-muted">
+      <Circle size={12} />
+      New
+    </Badge>
+  );
 }
 
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(new Date(value));
+function getLeadScore(lead: LeadRow) {
+  const metadataItems = getLeadMetadataItems(lead).filter((item) => item.value.trim().length > 0);
+  let score = 42;
+
+  if (lead.name.trim().length > 0) {
+    score += 12;
+  }
+
+  if (lead.email.includes("@")) {
+    score += 14;
+  }
+
+  if (getLeadPhone(lead)) {
+    score += 8;
+  }
+
+  if (getLeadCompany(lead)) {
+    score += 6;
+  }
+
+  if (lead.question.trim().length > 12) {
+    score += 10;
+  }
+
+  if (lead.conversation_id) {
+    score += 5;
+  }
+
+  score += Math.min(8, metadataItems.length * 2);
+
+  if (lead.status === "contacted") {
+    score += 3;
+  }
+
+  return Math.max(40, Math.min(100, score));
+}
+
+function getLeadStage(lead: LeadRow) {
+  if (lead.status === "contacted") {
+    return "contacted";
+  }
+
+  return "new";
+}
+
+function getStageLabel(lead: LeadRow) {
+  const stage = getLeadStage(lead);
+
+  if (stage === "contacted") {
+    return "Contacted";
+  }
+
+  return "New";
+}
+
+function getScoreLabel(score: number) {
+  if (score >= 85) {
+    return "Excellent";
+  }
+
+  if (score >= 70) {
+    return "Good";
+  }
+
+  if (score >= 55) {
+    return "Fair";
+  }
+
+  return "Low";
+}
+
+function getScoreColor(score: number) {
+  if (score >= 85) {
+    return "#087f95";
+  }
+
+  if (score >= 70) {
+    return "#2f9fb0";
+  }
+
+  if (score >= 55) {
+    return "#d6a11f";
+  }
+
+  return "#e05252";
+}
+
+function getLeadSource(lead: LeadRow): { label: string; icon: ReactNode } {
+  const rawSource = getMetadataString(lead, ["source", "lead_source", "channel", "capture_source"]);
+  const source = rawSource?.toLowerCase();
+
+  if (source?.includes("api")) {
+    return { label: "API", icon: <Code2 size={14} /> };
+  }
+
+  if (source?.includes("widget")) {
+    return { label: "Widget", icon: <Code2 size={14} /> };
+  }
+
+  if (source?.includes("manual")) {
+    return { label: "Manual", icon: <BookOpen size={14} /> };
+  }
+
+  if (lead.conversation_id) {
+    return { label: "Website", icon: <Globe2 size={14} /> };
+  }
+
+  return { label: "Manual", icon: <BookOpen size={14} /> };
+}
+
+function getLeadPhone(lead: LeadRow) {
+  return getMetadataString(lead, ["phone", "phone_number", "mobile", "tel"]);
+}
+
+function getLeadCompany(lead: LeadRow) {
+  return getMetadataString(lead, ["company", "company_name", "business", "organization"]);
+}
+
+function getMetadataString(lead: LeadRow, keys: string[]) {
+  for (const key of keys) {
+    const value = lead.metadata[key];
+
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  return null;
 }
 
 function getLeadMetadataItems(lead: LeadRow) {
   return Object.entries(lead.metadata)
     .filter(([key, value]) => typeof value === "string" && !key.endsWith("_label") && !key.endsWith("_type"))
+    .filter(([key]) => !["source", "lead_source", "channel", "capture_source"].includes(key))
     .map(([key, value]) => ({
       key,
       value: value as string,
       label: typeof lead.metadata[`${key}_label`] === "string" ? lead.metadata[`${key}_label`] as string : formatMetadataLabel(key),
       type: typeof lead.metadata[`${key}_type`] === "string" ? lead.metadata[`${key}_type`] as string : "text"
     }));
+}
+
+function buildLeadCsv(leads: LeadRow[]) {
+  const headers = ["Name", "Email", "Phone", "Company", "Stage", "Status", "Source", "Question", "Captured", "Agent"];
+  const rows = leads.map((lead) => [
+    lead.name,
+    lead.email,
+    getLeadPhone(lead) ?? "",
+    getLeadCompany(lead) ?? "",
+    getStageLabel(lead),
+    lead.status,
+    getLeadSource(lead).label,
+    lead.question,
+    formatDateTime(lead.created_at),
+    lead.bot_name ?? "Harlo"
+  ]);
+
+  return [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
+}
+
+function csvCell(value: string) {
+  return `"${value.replace(/"/g, "\"\"")}"`;
 }
 
 function getConversationHref(lead: LeadRow) {
@@ -370,4 +1084,38 @@ function getConversationHref(lead: LeadRow) {
 
 function formatMetadataLabel(key: string) {
   return key.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(value));
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric"
+  }).format(new Date(value));
+}
+
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat("en", {
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(value));
+}
+
+function getInitials(value: string) {
+  const words = value.trim().split(/\s+/).filter(Boolean);
+
+  if (words.length >= 2) {
+    return `${words[0][0]}${words[1][0]}`.toUpperCase();
+  }
+
+  return value.slice(0, 2).toUpperCase() || "LD";
 }

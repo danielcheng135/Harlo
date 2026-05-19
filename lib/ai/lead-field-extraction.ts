@@ -12,8 +12,8 @@ type LeadMessage = {
 };
 
 export async function extractLeadDraftWithModel(messages: LeadMessage[], fields: LeadCaptureField[]) {
-  const fallbackDraft = extractLeadDraftFromMessages(messages, fields);
   const enabledFields = fields.filter((field) => field.enabled);
+  const fallbackDraft = sanitizeLeadDraft(extractLeadDraftFromMessages(messages, enabledFields), enabledFields);
 
   if (enabledFields.length === 0) {
     return fallbackDraft;
@@ -27,6 +27,9 @@ export async function extractLeadDraftWithModel(messages: LeadMessage[], fields:
         "Extract lead capture fields for a business website chatbot from the full conversation.",
         "Return only JSON with this shape: {\"fields\":{\"field_key\":\"value or null\"}}.",
         "Return every field key you were given. Use null when the visitor has not supplied a usable value.",
+        "Every non-null value must be clean and display-ready for a CRM lead record.",
+        "Standardize names in natural title case, emails in lowercase, US phone numbers as (555) 123-4567, dates as MM/DD/YYYY, sizes like 2,000 sq ft, and budgets with currency symbols when supplied.",
+        "For custom text fields, remove filler words and keep a short polished answer that preserves the visitor's meaning.",
         "Use the latest visitor correction when the visitor says things like actually, sorry, I mean, or correction.",
         "Do not treat filler words, apologies, articles, or acknowledgements as a name.",
         "Never output a single common word such as the, sorry, actually, hi, hello, yes, or no as a name.",
@@ -39,7 +42,7 @@ export async function extractLeadDraftWithModel(messages: LeadMessage[], fields:
       ].join("\n"),
       input: [
         "Lead fields:",
-        enabledFields.map((field) => `- ${field.key}: ${field.label} (${field.type})`).join("\n"),
+        enabledFields.map((field) => `- ${field.key}: ${field.label} (${field.type}); prompt: ${field.prompt}`).join("\n"),
         "",
         "Conversation:",
         messages
@@ -73,6 +76,26 @@ function parseModelDraft(value: string) {
 }
 
 function sanitizeModelDraft(values: Record<string, unknown>, fields: LeadCaptureField[]) {
+  const fieldByKey = new Map(fields.map((field) => [field.key, field]));
+
+  return Object.entries(values).reduce<LeadDraft>((draft, [key, value]) => {
+    const field = fieldByKey.get(key);
+
+    if (!field || typeof value !== "string") {
+      return draft;
+    }
+
+    const normalized = normalizeLeadDraftValue(value, field);
+
+    if (normalized) {
+      draft[key] = normalized;
+    }
+
+    return draft;
+  }, {});
+}
+
+function sanitizeLeadDraft(values: LeadDraft, fields: LeadCaptureField[]) {
   const fieldByKey = new Map(fields.map((field) => [field.key, field]));
 
   return Object.entries(values).reduce<LeadDraft>((draft, [key, value]) => {
