@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBillingPlan } from "@/lib/billing/plans";
+import { INTERNAL_WORKSPACE_SEAT_LIMIT, isInternalWorkspaceMetadata } from "@/lib/internal-admin";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 
 type AcceptRequest = {
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
 }
 
 async function getSeatCapacity(service: ReturnType<typeof createSupabaseServiceClient>, organizationId: string) {
-  const [{ data: billing }, { data: addOns }, { count: memberCount }] = await Promise.all([
+  const [{ data: billing }, { data: addOns }, { count: memberCount }, { data: organization }] = await Promise.all([
     service
       .from("organization_billing")
       .select("plan_key, status")
@@ -91,8 +92,21 @@ async function getSeatCapacity(service: ReturnType<typeof createSupabaseServiceC
     service
       .from("memberships")
       .select("id", { count: "exact", head: true })
-      .eq("organization_id", organizationId)
+      .eq("organization_id", organizationId),
+    service
+      .from("organizations")
+      .select("metadata")
+      .eq("id", organizationId)
+      .maybeSingle()
   ]);
+
+  if (isInternalWorkspaceMetadata(organization?.metadata)) {
+    return {
+      limit: INTERNAL_WORKSPACE_SEAT_LIMIT,
+      members: memberCount ?? 0
+    };
+  }
+
   const plan = getBillingPlan(typeof billing?.plan_key === "string" ? billing.plan_key : null);
   const extraSeats = billing?.status === "active"
     ? ((addOns ?? []) as Array<{ add_on_key: string; enabled: boolean; quantity: number }>)

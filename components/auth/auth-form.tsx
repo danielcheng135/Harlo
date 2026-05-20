@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, CheckCircle2, Chrome, Loader2, Mail } from "lucide-react";
+import { TurnstileField, type TurnstileFieldHandle } from "@/components/auth/turnstile-field";
 import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -14,15 +15,34 @@ type AuthFormProps = {
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const turnstileRef = useRef<TurnstileFieldHandle | null>(null);
   const nextPath = searchParams.get("next") ?? "/dashboard";
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const captchaRequired = Boolean(turnstileSiteKey);
   const isInviteSignUp = mode === "sign-up" && nextPath.startsWith("/invite/");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [businessName, setBusinessName] = useState("");
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [oauthPending, setOauthPending] = useState(false);
+  const resetTurnstile = useCallback(() => {
+    setCaptchaToken(null);
+    turnstileRef.current?.refresh();
+  }, []);
+  const handleTurnstileVerify = useCallback((token: string) => {
+    setCaptchaToken(token);
+  }, []);
+  const handleTurnstileExpire = useCallback(() => {
+    setCaptchaToken(null);
+    setError("The security check expired. Complete it again to continue.");
+  }, []);
+  const handleTurnstileError = useCallback((code?: string) => {
+    setCaptchaToken(null);
+    setError(getTurnstileErrorMessage(code));
+  }, []);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -30,6 +50,19 @@ export function AuthForm({ mode }: AuthFormProps) {
     setError(null);
 
     try {
+      let verifiedCaptchaToken: string | null = null;
+
+      if (captchaRequired) {
+        setCaptchaToken(null);
+        turnstileRef.current?.refresh();
+        verifiedCaptchaToken = (await turnstileRef.current?.execute()) ?? null;
+
+        if (!verifiedCaptchaToken) {
+          setError("The security check could not be completed. Try again.");
+          return;
+        }
+      }
+
       const supabase = createSupabaseBrowserClient();
       const safeNextPath = getSafeNextPath(nextPath);
       const signUpDestination = getSignUpDestination(safeNextPath);
@@ -41,6 +74,7 @@ export function AuthForm({ mode }: AuthFormProps) {
               password,
               options: {
                 emailRedirectTo,
+                captchaToken: verifiedCaptchaToken ?? undefined,
                 data: {
                   business_name: businessName
                 }
@@ -48,11 +82,15 @@ export function AuthForm({ mode }: AuthFormProps) {
             })
           : await supabase.auth.signInWithPassword({
               email,
-              password
+              password,
+              options: {
+                captchaToken: verifiedCaptchaToken ?? undefined
+              }
             });
 
       if (result.error) {
         setError(result.error.message);
+        resetTurnstile();
         return;
       }
 
@@ -66,6 +104,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       router.refresh();
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Something went wrong.");
+      resetTurnstile();
     } finally {
       setIsPending(false);
     }
@@ -186,6 +225,16 @@ export function AuthForm({ mode }: AuthFormProps) {
         />
       </label>
 
+      {turnstileSiteKey ? (
+        <TurnstileField
+          ref={turnstileRef}
+          siteKey={turnstileSiteKey}
+          onVerify={handleTurnstileVerify}
+          onExpire={handleTurnstileExpire}
+          onError={handleTurnstileError}
+        />
+      ) : null}
+
       {error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
@@ -224,4 +273,10 @@ function withQueryParam(path: string, key: string, value: string) {
   params.set(key, value);
 
   return `${pathname}?${params.toString()}`;
+}
+
+function getTurnstileErrorMessage(code: string | undefined) {
+  const suffix = code ? ` Cloudflare error: ${code}.` : "";
+
+  return `The security check could not be completed.${suffix} Check that this Turnstile site key allows the current hostname.`;
 }

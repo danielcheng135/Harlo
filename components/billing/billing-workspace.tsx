@@ -174,7 +174,7 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
   });
   const { toast, showToast, dismissToast } = useToast();
   const currentPlanIndex = BILLING_PLANS.findIndex((plan) => plan.key === billing.planKey);
-  const addOnsLocked = billing.status !== "active";
+  const addOnsLocked = billing.isInternal || billing.status !== "active";
 
   useEffect(() => {
     const checkout = searchParams.get("checkout");
@@ -518,7 +518,7 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
           <div>
             <h2 className="text-lg font-semibold text-harlo-ink">Add-ons</h2>
             <p className="mt-1 text-sm text-harlo-muted">
-              {addOnsLocked ? "Available after your paid Starter subscription begins." : "Configure capacity here, then confirm paid add-ons in Stripe."}
+              {billing.isInternal ? "This internal Harlo workspace already includes expanded capacity." : addOnsLocked ? "Available after your paid Starter subscription begins." : "Configure capacity here, then confirm paid add-ons in Stripe."}
             </p>
           </div>
           <div className="inline-flex w-fit items-center gap-2 rounded-lg border border-harlo-line bg-harlo-canvas px-3 py-2 text-xs font-semibold text-harlo-muted">

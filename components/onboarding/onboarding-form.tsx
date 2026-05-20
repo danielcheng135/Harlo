@@ -107,7 +107,7 @@ export function OnboardingForm({
           interval: initialInterval
         })
       });
-      const onboardingResult = (await onboardingResponse.json().catch(() => null)) as { logoUrl?: string | null; error?: string } | null;
+      const onboardingResult = (await onboardingResponse.json().catch(() => null)) as { logoUrl?: string | null; nextPath?: string; error?: string } | null;
 
       if (!onboardingResponse.ok) {
         throw new Error(onboardingResult?.error ?? "Could not finish onboarding.");
@@ -126,7 +126,7 @@ export function OnboardingForm({
       await sleep(Math.max(0, MIN_PREPARATION_MS - elapsed, MIN_READY_DWELL_MS - readyElapsed));
       setActiveStep(4);
       await sleep(650);
-      window.location.assign("/onboarding/checkout");
+      window.location.assign(onboardingResult?.nextPath ?? "/onboarding/checkout");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Something went wrong.");
       setPhase("form");

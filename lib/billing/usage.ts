@@ -1,4 +1,5 @@
 import { getPlanCreditLimit, type BillingPlanKey, type BillingStatus } from "@/lib/billing/plans";
+import { INTERNAL_WORKSPACE_CREDIT_LIMIT, isInternalWorkspaceMetadata } from "@/lib/internal-admin";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 
 type SupabaseServiceClient = ReturnType<typeof createSupabaseServiceClient>;
@@ -54,17 +55,25 @@ export async function getCreditUsageStatus(
   supabase: SupabaseServiceClient,
   organizationId: string
 ): Promise<CreditUsageStatus> {
-  const { data: billing } = await supabase
-    .from("organization_billing")
-    .select("plan_key, status, current_period_start, current_period_end")
-    .eq("organization_id", organizationId)
-    .maybeSingle();
+  const [{ data: billing }, { data: organization }] = await Promise.all([
+    supabase
+      .from("organization_billing")
+      .select("plan_key, status, current_period_start, current_period_end")
+      .eq("organization_id", organizationId)
+      .maybeSingle(),
+    supabase
+      .from("organizations")
+      .select("metadata")
+      .eq("id", organizationId)
+      .maybeSingle()
+  ]);
   const fallbackPeriod = getFallbackUsagePeriod();
-  const planKey = normalizePlanKey(billing?.plan_key);
-  const status = normalizeBillingStatus(billing?.status);
+  const isInternalWorkspace = isInternalWorkspaceMetadata(organization?.metadata);
+  const planKey = isInternalWorkspace ? "pro" : normalizePlanKey(billing?.plan_key);
+  const status = isInternalWorkspace ? "active" : normalizeBillingStatus(billing?.status);
   const start = typeof billing?.current_period_start === "string" ? billing.current_period_start : fallbackPeriod.start;
   const end = typeof billing?.current_period_end === "string" ? billing.current_period_end : fallbackPeriod.end;
-  const planCreditLimit = getPlanCreditLimit(planKey, status);
+  const planCreditLimit = isInternalWorkspace ? INTERNAL_WORKSPACE_CREDIT_LIMIT : getPlanCreditLimit(planKey, status);
   const [assistantCreditsUsed, addOnCreditsUsed, addOnCreditsAvailable] = await Promise.all([
     getAssistantCreditsUsed(supabase, organizationId, start, end),
     getAddOnCreditsUsed(supabase, organizationId, start, end),

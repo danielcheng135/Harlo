@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { BrandLogo } from "@/components/brand-logo";
 import { OnboardingForm } from "@/components/onboarding/onboarding-form";
+import { isInternalAdminEmail, isInternalWorkspaceMetadata, withInternalWorkspaceMetadata } from "@/lib/internal-admin";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -35,7 +36,7 @@ export default async function OnboardingPage() {
       const [{ data: organization }, { data: bot }, { data: billing }] = await Promise.all([
         service
           .from("organizations")
-          .select("name, website_url")
+          .select("name, website_url, metadata")
           .eq("id", membership.organization_id)
           .maybeSingle(),
         service
@@ -57,8 +58,30 @@ export default async function OnboardingPage() {
       initialBusinessName = organization?.name ?? initialBusinessName;
       initialWebsiteUrl = organization?.website_url ?? "";
       initialAssistantName = bot?.name ?? "";
+      const isInternalWorkspace = isInternalAdminEmail(user.email) || isInternalWorkspaceMetadata(organization?.metadata);
 
-      if (organization && bot && (billing?.status === "active" || billing?.status === "trialing")) {
+      if (organization && isInternalWorkspace && !isInternalWorkspaceMetadata(organization.metadata)) {
+        await Promise.all([
+          service
+            .from("organizations")
+            .update({
+              metadata: withInternalWorkspaceMetadata(organization.metadata),
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", membership.organization_id),
+          service
+            .from("organization_billing")
+            .upsert({
+              organization_id: membership.organization_id,
+              plan_key: "pro",
+              billing_interval: "monthly",
+              status: "active",
+              updated_at: new Date().toISOString()
+            }, { onConflict: "organization_id" })
+        ]);
+      }
+
+      if (organization && bot && (isInternalWorkspace || billing?.status === "active" || billing?.status === "trialing")) {
         redirect("/dashboard?welcome=1");
       }
 

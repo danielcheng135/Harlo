@@ -1,4 +1,5 @@
 import type { BotConfig } from "@/lib/types";
+import { isInternalWorkspaceMetadata } from "@/lib/internal-admin";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 
 export async function getPublicBotConfig(botId: string): Promise<BotConfig> {
@@ -58,7 +59,7 @@ async function buildBotConfig(bot: Record<string, unknown>): Promise<BotConfig> 
   const supabase = createSupabaseServiceClient();
   const theme = Array.isArray(bot.widget_themes) ? bot.widget_themes[0] : bot.widget_themes;
   const organization = Array.isArray(bot.organizations) ? bot.organizations[0] : bot.organizations;
-  const [{ data: removeBrandingAddOn }, { data: billing }] = await Promise.all([
+  const [{ data: removeBrandingAddOn }, { data: billing }, { data: internalOrganization }] = await Promise.all([
     supabase
       .from("organization_add_ons")
       .select("enabled")
@@ -69,8 +70,14 @@ async function buildBotConfig(bot: Record<string, unknown>): Promise<BotConfig> 
       .from("organization_billing")
       .select("status")
       .eq("organization_id", String(bot.organization_id))
+      .maybeSingle(),
+    supabase
+      .from("organizations")
+      .select("metadata")
+      .eq("id", String(bot.organization_id))
       .maybeSingle()
   ]);
+  const isInternalWorkspace = isInternalWorkspaceMetadata(internalOrganization?.metadata);
 
   const themeRecord = theme && typeof theme === "object" ? theme as Record<string, unknown> : {};
   const organizationRecord = organization && typeof organization === "object" ? organization as Record<string, unknown> : {};
@@ -86,7 +93,7 @@ async function buildBotConfig(bot: Record<string, unknown>): Promise<BotConfig> 
     fallbackMessage: typeof bot.fallback_message === "string" ? bot.fallback_message : "I do not have enough information to answer that yet.",
     tone: "calm",
     allowedDomains: Array.isArray(bot.allowed_domains) ? bot.allowed_domains.filter((domain): domain is string => typeof domain === "string") : [],
-    removeBranding: billing?.status === "active" && removeBrandingAddOn?.enabled === true,
+    removeBranding: isInternalWorkspace || (billing?.status === "active" && removeBrandingAddOn?.enabled === true),
     theme: {
       accent: typeof themeRecord.accent === "string" ? themeRecord.accent : "#087f95",
       launcherPosition: themeRecord.launcher_position === "bottom-left" ? "bottom-left" : "bottom-right",

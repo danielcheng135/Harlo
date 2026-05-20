@@ -3,6 +3,7 @@ import { getAgentTemplate, getAgentTypeForGoal } from "@/lib/agents";
 import { createPendingUrlSource, reingestUrlSource } from "@/lib/knowledge/ingestion";
 import { discoverWebsiteLogo, getFallbackLogoUrl, getWebsiteIdentity } from "@/lib/onboarding/website";
 import { isBillingInterval, isBillingPlanKey } from "@/lib/billing/stripe";
+import { isInternalAdminEmail, isInternalWorkspaceMetadata, withInternalWorkspaceMetadata } from "@/lib/internal-admin";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { BillingInterval, BillingPlanKey } from "@/lib/billing/plans";
 
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest) {
   if (userError || !user) {
     return NextResponse.json({ error: "You must be signed in to finish onboarding." }, { status: 401 });
   }
+  const isInternalAdmin = isInternalAdminEmail(user.email);
 
   const serviceClient = createSupabaseServiceClient();
   const { data: existingMembership } = await supabase
@@ -85,7 +87,7 @@ export async function POST(request: NextRequest) {
   if (existingMembership) {
     const { data: existingOrganization } = await serviceClient
       .from("organizations")
-      .select("id, brand_logo_url")
+      .select("id, brand_logo_url, metadata")
       .eq("id", existingMembership.organization_id)
       .maybeSingle();
 
@@ -94,6 +96,7 @@ export async function POST(request: NextRequest) {
     }
 
     const logoUrl = existingOrganization.brand_logo_url ?? fallbackLogoUrl;
+    const isInternalWorkspace = isInternalAdmin || isInternalWorkspaceMetadata(existingOrganization.metadata);
 
     await serviceClient
       .from("organizations")
@@ -101,14 +104,14 @@ export async function POST(request: NextRequest) {
         name: businessName,
         website_url: website.normalizedUrl,
         brand_logo_url: logoUrl,
-        metadata: {
+        metadata: buildOrganizationMetadata(existingOrganization.metadata, isInternalWorkspace, {
           onboarding: {
             goal: primaryGoal,
             tone,
             logo_discovery_status: existingOrganization.brand_logo_url ? "ready" : "fallback",
             logo_discovery_error: null
           }
-        },
+        }),
         updated_at: new Date().toISOString()
       })
       .eq("id", existingMembership.organization_id);
@@ -181,20 +184,21 @@ export async function POST(request: NextRequest) {
     if (!existingBilling) {
       const { error: billingRepairError } = await serviceClient.from("organization_billing").insert({
         organization_id: existingMembership.organization_id,
-        plan_key: planKey,
-        billing_interval: interval,
-        status: "incomplete"
+        plan_key: isInternalWorkspace ? "pro" : planKey,
+        billing_interval: isInternalWorkspace ? "monthly" : interval,
+        status: isInternalWorkspace ? "active" : "incomplete"
       });
 
       if (billingRepairError) {
         return NextResponse.json({ error: billingRepairError.message }, { status: 500 });
       }
-    } else if (existingBilling.status !== "active" && existingBilling.status !== "trialing") {
+    } else if (isInternalWorkspace || (existingBilling.status !== "active" && existingBilling.status !== "trialing")) {
       await serviceClient
         .from("organization_billing")
         .update({
-          plan_key: planKey,
-          billing_interval: interval,
+          plan_key: isInternalWorkspace ? "pro" : planKey,
+          billing_interval: isInternalWorkspace ? "monthly" : interval,
+          ...(isInternalWorkspace ? { status: "active" } : {}),
           updated_at: new Date().toISOString()
         })
         .eq("organization_id", existingMembership.organization_id);
@@ -215,7 +219,8 @@ export async function POST(request: NextRequest) {
       logoUrl,
       websiteUrl: website.normalizedUrl,
       planKey,
-      interval
+      interval,
+      nextPath: isInternalWorkspace ? "/dashboard?welcome=1" : "/onboarding/checkout"
     });
   }
 
@@ -242,14 +247,14 @@ export async function POST(request: NextRequest) {
       name: businessName,
       website_url: website.normalizedUrl,
       brand_logo_url: initialLogoUrl,
-      metadata: {
+      metadata: buildOrganizationMetadata(null, isInternalAdmin, {
         onboarding: {
           goal: primaryGoal,
           tone,
           logo_discovery_status: logoDiscoveryStatus,
           logo_discovery_error: discoveredLogo?.error ?? null
         }
-      }
+      })
     })
     .select("id, brand_logo_url")
     .single();
@@ -269,14 +274,14 @@ export async function POST(request: NextRequest) {
           .from("organizations")
           .update({
             brand_logo_url: result.logoUrl,
-            metadata: {
+            metadata: buildOrganizationMetadata(null, isInternalAdmin, {
               onboarding: {
                 goal: primaryGoal,
                 tone,
                 logo_discovery_status: "ready",
                 logo_discovery_error: null
               }
-            },
+            }),
             updated_at: new Date().toISOString()
           })
           .eq("id", organization.id);
@@ -317,9 +322,9 @@ export async function POST(request: NextRequest) {
 
   const { error: billingError } = await serviceClient.from("organization_billing").insert({
     organization_id: organization.id,
-    plan_key: planKey,
-    billing_interval: interval,
-    status: "incomplete"
+    plan_key: isInternalAdmin ? "pro" : planKey,
+    billing_interval: isInternalAdmin ? "monthly" : interval,
+    status: isInternalAdmin ? "active" : "incomplete"
   });
 
   if (billingError) {
@@ -383,8 +388,25 @@ export async function POST(request: NextRequest) {
     logoUrl: initialLogoUrl,
     websiteUrl: website.normalizedUrl,
     planKey,
-    interval
+    interval,
+    nextPath: isInternalAdmin ? "/dashboard?welcome=1" : "/onboarding/checkout"
   });
+}
+
+function buildOrganizationMetadata(
+  currentMetadata: unknown,
+  internalWorkspace: boolean,
+  updates: Record<string, unknown>
+) {
+  const base = currentMetadata && typeof currentMetadata === "object" && !Array.isArray(currentMetadata)
+    ? currentMetadata as Record<string, unknown>
+    : {};
+  const merged = {
+    ...base,
+    ...updates
+  };
+
+  return internalWorkspace ? withInternalWorkspaceMetadata(merged) : merged;
 }
 
 function wait(milliseconds: number) {

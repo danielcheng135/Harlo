@@ -19,6 +19,14 @@ import {
 } from "@/lib/billing/plans";
 import { normalizeAgentType, type AgentType } from "@/lib/agents";
 import { normalizeLeadFields, normalizeLeadMetadata, type LeadCaptureField } from "@/lib/lead-fields";
+import {
+  INTERNAL_WORKSPACE_AGENT_LIMIT,
+  INTERNAL_WORKSPACE_CREDIT_LIMIT,
+  INTERNAL_WORKSPACE_SEAT_LIMIT,
+  isInternalAdminEmail,
+  withInternalWorkspaceMetadata,
+  isInternalWorkspaceMetadata
+} from "@/lib/internal-admin";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 
 const WORKSPACE_BOT_SELECT_WITH_ROUTES = "id, name, agent_type, description, system_instructions, handoff_instructions, status, is_default, greeting, fallback_message, allowed_domains, lead_capture_fields, widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority)";
@@ -56,6 +64,7 @@ export type Workspace = {
     name: string;
     website_url?: string | null;
     brand_logo_url?: string | null;
+    metadata?: Record<string, unknown> | null;
   };
   bot: WorkspaceBot;
   bots: WorkspaceBot[];
@@ -163,6 +172,7 @@ export type TeamOverview = {
 };
 
 export type BillingOverview = {
+  isInternal: boolean;
   planKey: BillingPlanKey;
   interval: BillingInterval;
   status: BillingStatus;
@@ -246,7 +256,7 @@ export async function getWorkspaceOrRedirect(): Promise<Workspace> {
   const [{ data: organization }, botsResult, { data: billing }] = await Promise.all([
     supabase
       .from("organizations")
-      .select("id, name, website_url, brand_logo_url")
+      .select("id, name, website_url, brand_logo_url, metadata")
       .eq("id", membership.organization_id)
       .single(),
     getWorkspaceBots(supabase, membership.organization_id),
@@ -264,7 +274,33 @@ export async function getWorkspaceOrRedirect(): Promise<Workspace> {
 
   const billingStatus = normalizeBillingStatus(billing?.status);
 
-  if (billingStatus !== "active" && billingStatus !== "trialing") {
+  const isInternalAdmin = isInternalAdminEmail(user.email);
+  const isInternalWorkspace = isInternalAdmin || isInternalWorkspaceMetadata(organization.metadata);
+
+  if (isInternalAdmin && !isInternalWorkspaceMetadata(organization.metadata)) {
+    const service = createSupabaseServiceClient();
+    await Promise.all([
+      service
+        .from("organizations")
+        .update({
+          metadata: withInternalWorkspaceMetadata(organization.metadata),
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", organization.id),
+      service
+        .from("organization_billing")
+        .upsert({
+          organization_id: organization.id,
+          plan_key: "pro",
+          billing_interval: "monthly",
+          status: "active",
+          updated_at: new Date().toISOString()
+        }, { onConflict: "organization_id" })
+    ]);
+    organization.metadata = withInternalWorkspaceMetadata(organization.metadata);
+  }
+
+  if (!isInternalWorkspace && billingStatus !== "active" && billingStatus !== "trialing") {
     redirect("/onboarding/checkout?checkout=required");
   }
 
@@ -411,18 +447,26 @@ export async function getDashboardStats(workspace: Workspace) {
 export async function getBillingOverview(workspace: Workspace): Promise<BillingOverview> {
   const supabase = await createSupabaseServerClient();
   const service = createSupabaseServiceClient();
-  const { data: billing } = await supabase
-    .from("organization_billing")
-    .select("plan_key, billing_interval, status, trial_start, trial_end, current_period_start, current_period_end, cancel_at_period_end")
-    .eq("organization_id", workspace.organization.id)
-    .maybeSingle();
+  const [{ data: billing }, { data: organization }] = await Promise.all([
+    supabase
+      .from("organization_billing")
+      .select("plan_key, billing_interval, status, trial_start, trial_end, current_period_start, current_period_end, cancel_at_period_end")
+      .eq("organization_id", workspace.organization.id)
+      .maybeSingle(),
+    supabase
+      .from("organizations")
+      .select("metadata")
+      .eq("id", workspace.organization.id)
+      .maybeSingle()
+  ]);
+  const isInternalWorkspace = isInternalWorkspaceMetadata(workspace.organization.metadata ?? organization?.metadata);
   const fallbackPeriod = getFallbackBillingPeriod();
-  const planKey = normalizePlanKey(billing?.plan_key);
-  const status = normalizeBillingStatus(billing?.status);
+  const planKey = isInternalWorkspace ? "pro" : normalizePlanKey(billing?.plan_key);
+  const status = isInternalWorkspace ? "active" : normalizeBillingStatus(billing?.status);
   const interval = normalizeBillingInterval(billing?.billing_interval);
   const periodStart = typeof billing?.current_period_start === "string" ? billing.current_period_start : fallbackPeriod.start;
   const periodEnd = typeof billing?.current_period_end === "string" ? billing.current_period_end : fallbackPeriod.end;
-  const planCreditLimit = getPlanCreditLimit(planKey, status);
+  const planCreditLimit = isInternalWorkspace ? INTERNAL_WORKSPACE_CREDIT_LIMIT : getPlanCreditLimit(planKey, status);
 
   const [
     { data: usageEvents },
@@ -485,10 +529,10 @@ export async function getBillingOverview(workspace: Workspace): Promise<BillingO
     ((addOnRows ?? []) as Array<{ add_on_key: AddOnKey; enabled: boolean; quantity: number; metadata?: Record<string, unknown> | null }>).map((row) => [row.add_on_key, row])
   );
   const autoRechargeRow = addOnsByKey.get("auto_recharge_credits");
-  const extraAgentQuantity = addOnsAvailable ? getEnabledAddOnQuantity(addOnsByKey.get("extra_agent")) : 0;
-  const extraSeatQuantity = addOnsAvailable ? getEnabledAddOnQuantity(addOnsByKey.get("extra_seat")) : 0;
-  const agentLimit = getBillingPlan(planKey).includedAgents + extraAgentQuantity;
-  const seatLimit = getBillingPlan(planKey).seats + extraSeatQuantity;
+  const extraAgentQuantity = addOnsAvailable && !isInternalWorkspace ? getEnabledAddOnQuantity(addOnsByKey.get("extra_agent")) : 0;
+  const extraSeatQuantity = addOnsAvailable && !isInternalWorkspace ? getEnabledAddOnQuantity(addOnsByKey.get("extra_seat")) : 0;
+  const agentLimit = isInternalWorkspace ? INTERNAL_WORKSPACE_AGENT_LIMIT : getBillingPlan(planKey).includedAgents + extraAgentQuantity;
+  const seatLimit = isInternalWorkspace ? INTERNAL_WORKSPACE_SEAT_LIMIT : getBillingPlan(planKey).seats + extraSeatQuantity;
   const autoRechargeMetadata = isRecord(autoRechargeRow?.metadata) ? autoRechargeRow.metadata : {};
   const autoRechargeFailure = addOnsAvailable &&
     autoRechargeRow?.enabled === true &&
@@ -501,6 +545,7 @@ export async function getBillingOverview(workspace: Workspace): Promise<BillingO
       : null;
 
   return {
+    isInternal: isInternalWorkspace,
     planKey,
     interval,
     status,
@@ -525,20 +570,20 @@ export async function getBillingOverview(workspace: Workspace): Promise<BillingO
 
       return {
         ...addOn,
-        enabled: addOnsAvailable && (row?.enabled ?? false),
+        enabled: isInternalWorkspace && addOn.key === "remove_branding" ? true : addOnsAvailable && (row?.enabled ?? false),
         quantity: addOnsAvailable ? row?.quantity ?? 0 : 0
       };
     }),
     capacity: {
       agents: {
-        included: getBillingPlan(planKey).includedAgents,
+        included: isInternalWorkspace ? INTERNAL_WORKSPACE_AGENT_LIMIT : getBillingPlan(planKey).includedAgents,
         extra: extraAgentQuantity,
         used: botCount,
         limit: agentLimit,
         remaining: Math.max(0, agentLimit - botCount)
       },
       seats: {
-        included: getBillingPlan(planKey).seats,
+        included: isInternalWorkspace ? INTERNAL_WORKSPACE_SEAT_LIMIT : getBillingPlan(planKey).seats,
         extra: extraSeatQuantity,
         used: memberCount,
         pending: pendingInviteCount,

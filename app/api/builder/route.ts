@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAgentTemplate, normalizeAgentType, type AgentType } from "@/lib/agents";
 import { getBillingPlan, type AddOnKey } from "@/lib/billing/plans";
+import { INTERNAL_WORKSPACE_AGENT_LIMIT, isInternalWorkspaceMetadata } from "@/lib/internal-admin";
 import { normalizeLeadFields, type LeadCaptureField } from "@/lib/lead-fields";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 
@@ -478,7 +479,7 @@ async function getAgentCapacity(
   serviceClient: ReturnType<typeof createSupabaseServiceClient>,
   organizationId: string
 ) {
-  const [{ data: billing }, { data: addOns }, { count }] = await Promise.all([
+  const [{ data: billing }, { data: addOns }, { count }, { data: organization }] = await Promise.all([
     serviceClient
       .from("organization_billing")
       .select("plan_key, status")
@@ -492,8 +493,20 @@ async function getAgentCapacity(
       .from("bots")
       .select("id", { count: "exact", head: true })
       .eq("organization_id", organizationId)
-      .eq("status", "active")
+      .eq("status", "active"),
+    serviceClient
+      .from("organizations")
+      .select("metadata")
+      .eq("id", organizationId)
+      .maybeSingle()
   ]);
+
+  if (isInternalWorkspaceMetadata(organization?.metadata)) {
+    return {
+      used: count ?? 0,
+      limit: INTERNAL_WORKSPACE_AGENT_LIMIT
+    };
+  }
 
   const plan = getBillingPlan(typeof billing?.plan_key === "string" ? billing.plan_key : null);
   const extra = billing?.status === "active"
