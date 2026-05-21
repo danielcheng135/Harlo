@@ -1136,9 +1136,10 @@ function getUrlIconCandidates(value: string | null) {
     const url = new URL(withProtocol);
 
     return [
-      `https://www.google.com/s2/favicons?domain=${encodeURIComponent(url.hostname)}&sz=64`,
+      `${url.origin}/icon.png`,
       `${url.origin}/apple-touch-icon.png`,
-      `${url.origin}/favicon.ico`
+      `${url.origin}/favicon.ico`,
+      `https://www.google.com/s2/favicons?domain=${encodeURIComponent(url.hostname)}&sz=64`
     ];
   } catch {
     return [];
