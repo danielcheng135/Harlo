@@ -2,14 +2,13 @@
 
 import type { Route } from "next";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
   CheckCircle2,
   Rocket,
-  Sparkles,
-  X
+  Sparkles
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -32,10 +31,8 @@ type ChecklistItem = {
 };
 
 export function WelcomeChecklist({ organizationId, sources, initialDoneIds }: WelcomeChecklistProps) {
-  const previousCompleteRef = useRef<boolean | null>(null);
   const [hasLoadedStoredState, setHasLoadedStoredState] = useState(false);
   const [manualDoneIds, setManualDoneIds] = useState<string[]>(() => sanitizeDoneIds(initialDoneIds));
-  const [showCompletionCelebration, setShowCompletionCelebration] = useState(false);
   const storageKey = `harlo:launch-checklist:${organizationId}`;
   const websiteSource = sources.find((source) => source.source_type === "url");
   const sourceStatus = websiteSource?.status ?? "pending";
@@ -96,9 +93,9 @@ export function WelcomeChecklist({ organizationId, sources, initialDoneIds }: We
   useEffect(() => {
     if (hasLoadedStoredState) {
       window.localStorage.setItem(storageKey, JSON.stringify(manualDoneIds));
-      void persistDoneIds(manualDoneIds);
+      void persistDoneIds(organizationId, manualDoneIds);
     }
-  }, [hasLoadedStoredState, manualDoneIds, storageKey]);
+  }, [hasLoadedStoredState, manualDoneIds, organizationId, storageKey]);
 
   const doneIds = new Set([
     ...manualDoneIds,
@@ -106,35 +103,12 @@ export function WelcomeChecklist({ organizationId, sources, initialDoneIds }: We
   ]);
   const isComplete = items.every((item) => doneIds.has(item.id));
 
-  useEffect(() => {
-    if (!hasLoadedStoredState) {
-      return;
-    }
-
-    if (previousCompleteRef.current === null) {
-      previousCompleteRef.current = isComplete;
-      return;
-    }
-
-    if (isComplete && !previousCompleteRef.current) {
-      setShowCompletionCelebration(true);
-    }
-
-    if (!isComplete) {
-      setShowCompletionCelebration(false);
-    }
-
-    previousCompleteRef.current = isComplete;
-  }, [hasLoadedStoredState, isComplete]);
-
   if (!hasLoadedStoredState) {
     return null;
   }
 
   if (isComplete) {
-    return showCompletionCelebration ? (
-      <CompletionCelebration onDismiss={() => setShowCompletionCelebration(false)} />
-    ) : null;
+    return null;
   }
 
   function toggleDone(itemId: ChecklistItem["id"]) {
@@ -229,84 +203,15 @@ function mergeDoneIds(currentIds: string[], storedIds: unknown[]) {
   return sanitizeDoneIds([...currentIds, ...storedIds]);
 }
 
-async function persistDoneIds(doneIds: string[]) {
+async function persistDoneIds(organizationId: string, doneIds: string[]) {
   await fetch("/api/dashboard/launch-checklist", {
     method: "PATCH",
     headers: {
       "content-type": "application/json"
     },
     body: JSON.stringify({
+      organizationId,
       doneIds: sanitizeDoneIds(doneIds)
     })
   }).catch(() => null);
-}
-
-function CompletionCelebration({ onDismiss }: { onDismiss: () => void }) {
-  const confettiPieces = [
-    { left: "9%", top: "24%", color: "#0b8fa3", delay: "0ms", rotate: "-18deg" },
-    { left: "20%", top: "13%", color: "#34d399", delay: "90ms", rotate: "14deg" },
-    { left: "34%", top: "18%", color: "#fbbf24", delay: "170ms", rotate: "-8deg" },
-    { left: "51%", top: "10%", color: "#38bdf8", delay: "260ms", rotate: "22deg" },
-    { left: "68%", top: "19%", color: "#fb7185", delay: "130ms", rotate: "-24deg" },
-    { left: "84%", top: "25%", color: "#0b8fa3", delay: "220ms", rotate: "10deg" }
-  ];
-
-  return (
-    <Card className="harlo-complete-card overflow-hidden border-harlo-teal/30 bg-white p-5 pr-14 shadow-soft">
-      <button
-        type="button"
-        onClick={onDismiss}
-        className="absolute right-4 top-4 z-10 grid h-8 w-8 place-items-center rounded-full border border-harlo-line bg-white text-harlo-muted shadow-sm transition hover:border-harlo-teal/50 hover:text-harlo-ink"
-        aria-label="Dismiss completed checklist"
-      >
-        <X size={15} />
-      </button>
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-16 top-5 h-40 w-40 rounded-full bg-harlo-mist blur-3xl" />
-        <div className="absolute -right-16 bottom-0 h-48 w-48 rounded-full bg-cyan-100/70 blur-3xl" />
-        {confettiPieces.map((piece) => (
-          <span
-            key={`${piece.left}-${piece.top}`}
-            className="harlo-complete-confetti absolute h-2 w-7 rounded-full"
-            style={{
-              animationDelay: piece.delay,
-              backgroundColor: piece.color,
-              left: piece.left,
-              top: piece.top,
-              transform: `rotate(${piece.rotate})`
-            }}
-          />
-        ))}
-      </div>
-
-      <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <span className="relative grid h-16 w-16 shrink-0 place-items-center">
-            <span className="harlo-complete-orbit absolute inset-0 rounded-full border border-harlo-teal/20 border-t-harlo-teal" />
-            <span className="harlo-complete-pop grid h-12 w-12 place-items-center rounded-full bg-gradient-to-br from-harlo-teal to-cyan-500 text-white shadow-lg shadow-harlo-teal/20">
-              <CheckCircle2 size={25} />
-            </span>
-          </span>
-          <span>
-            <Badge>Complete</Badge>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-harlo-ink">Launch checklist complete.</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-harlo-muted">
-              Your first workspace tasks are wrapped up. Harlo is ready for the next launch step.
-            </p>
-          </span>
-        </div>
-
-        <Link
-          href="/dashboard/widget"
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-harlo-ink px-5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5"
-        >
-          Launch widget <ArrowRight className="ml-2" size={16} />
-        </Link>
-      </div>
-
-      <div className="relative mt-5 h-2 overflow-hidden rounded-full bg-harlo-mist">
-        <div className="harlo-complete-shimmer h-full rounded-full bg-gradient-to-r from-harlo-teal via-cyan-400 to-emerald-400" />
-      </div>
-    </Card>
-  );
 }

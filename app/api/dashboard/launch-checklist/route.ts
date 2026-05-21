@@ -4,8 +4,14 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/s
 const CHECKLIST_IDS = new Set(["knowledge", "assistant", "widget"]);
 
 export async function PATCH(request: NextRequest) {
-  const body = (await request.json().catch(() => null)) as { doneIds?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { doneIds?: unknown; organizationId?: unknown } | null;
   const doneIds = sanitizeDoneIds(body?.doneIds);
+  const organizationId = typeof body?.organizationId === "string" ? body.organizationId : "";
+
+  if (!organizationId) {
+    return NextResponse.json({ error: "Workspace not found." }, { status: 400 });
+  }
+
   const supabase = await createSupabaseServerClient();
   const {
     data: { user }
@@ -19,8 +25,7 @@ export async function PATCH(request: NextRequest) {
     .from("memberships")
     .select("organization_id")
     .eq("user_id", user.id)
-    .order("created_at", { ascending: true })
-    .limit(1)
+    .eq("organization_id", organizationId)
     .maybeSingle();
 
   if (!membership) {
@@ -31,7 +36,7 @@ export async function PATCH(request: NextRequest) {
   const { data: organization } = await service
     .from("organizations")
     .select("metadata")
-    .eq("id", membership.organization_id)
+    .eq("id", organizationId)
     .maybeSingle();
   const metadata = isRecord(organization?.metadata) ? organization.metadata : {};
   const nextMetadata = {
@@ -48,7 +53,7 @@ export async function PATCH(request: NextRequest) {
       metadata: nextMetadata,
       updated_at: new Date().toISOString()
     })
-    .eq("id", membership.organization_id);
+    .eq("id", organizationId);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
