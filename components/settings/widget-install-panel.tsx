@@ -18,7 +18,7 @@ type WidgetInstallPanelProps = {
   }[];
 };
 
-const productionOrigin = "https://app.harlo.ai";
+const productionOrigin = normalizeWidgetOrigin(process.env.NEXT_PUBLIC_WIDGET_ORIGIN ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://www.harloai.co");
 
 export function WidgetInstallPanel({ brandLogoUrl, organizationId, allowedDomains, agents }: WidgetInstallPanelProps) {
   const { toast, showToast, dismissToast } = useToast();
@@ -316,6 +316,16 @@ function StatusCard({
 
 function buildWorkspaceSnippet(origin: string, organizationId: string) {
   return `<script src="${origin}/widget.js" data-harlo-organization="${organizationId}" async></script>`;
+}
+
+function normalizeWidgetOrigin(origin: string) {
+  const trimmed = origin.trim().replace(/\/$/, "");
+
+  if (!trimmed) {
+    return "https://www.harloai.co";
+  }
+
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
 function getExamplePath(pattern: string | undefined) {

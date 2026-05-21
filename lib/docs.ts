@@ -36,9 +36,19 @@ export type DocSection = {
   details: { title: string; body: string }[];
 };
 
-const appOrigin = "https://app.harlo.ai";
+const appOrigin = normalizeWidgetOrigin(process.env.NEXT_PUBLIC_WIDGET_ORIGIN ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://www.harloai.co");
 
 export const workspaceSnippet = `<script src="${appOrigin}/widget.js" data-harlo-organization="YOUR_ORGANIZATION_ID" async></script>`;
+
+function normalizeWidgetOrigin(origin: string) {
+  const trimmed = origin.trim().replace(/\/$/, "");
+
+  if (!trimmed) {
+    return "https://www.harloai.co";
+  }
+
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
 
 export const docs: DocSection[] = [
   {

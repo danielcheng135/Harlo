@@ -51,7 +51,7 @@ export default async function HomePage() {
         }}
       />
       <Script
-        src="https://app.harlo.ai/widget.js"
+        src="/widget.js"
         data-harlo-organization="2a007ac5-01c5-4154-8a41-21f4dbcd2b43"
         strategy="afterInteractive"
       />
