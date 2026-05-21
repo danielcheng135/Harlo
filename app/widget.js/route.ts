@@ -35,6 +35,7 @@ export function GET(request: NextRequest) {
 
   var style = document.createElement("style");
   style.textContent = [
+    "#harlo-widget-root,#harlo-widget-root *{box-sizing:border-box}",
     ".harlo-launcher{position:fixed;right:24px;bottom:24px;width:58px;height:58px;border-radius:999px;border:0;background:linear-gradient(135deg,var(--harlo-accent,#087f95),color-mix(in srgb,var(--harlo-accent,#087f95) 82%,#111827));color:var(--harlo-accent-text,#fff);box-shadow:0 18px 38px color-mix(in srgb,var(--harlo-accent,#087f95) 28%,transparent),0 6px 14px rgba(15,23,42,.12);z-index:2147483000;cursor:pointer;display:grid;place-items:center;transition:transform .18s ease,box-shadow .18s ease,filter .18s ease}.harlo-launcher .harlo-icon{width:31px;height:31px;stroke-width:2.1}.harlo-launcher:hover{transform:translateY(-2px);filter:saturate(1.05) brightness(.98);box-shadow:0 22px 46px color-mix(in srgb,var(--harlo-accent,#087f95) 32%,transparent),0 8px 16px rgba(15,23,42,.14)}.harlo-launcher:active{transform:translateY(0) scale(.98)}",
     ".harlo-nudge{position:fixed;right:24px;bottom:104px;width:min(340px,calc(100vw - 32px));z-index:2147482999;display:none;border:1px solid #d7dde5;border-radius:16px;background:#fff;color:#111827;padding:16px;box-shadow:0 16px 38px rgba(15,23,42,.12);font-family:Inter,system-ui,-apple-system,sans-serif;overflow:visible;animation:harloNudgeIn .28s ease-out}.harlo-nudge[data-visible=true]{display:block}.harlo-nudge:after{content:'';position:absolute;bottom:-9px;width:16px;height:16px;background:#fff;border-right:1px solid #d7dde5;border-bottom:1px solid #d7dde5;transform:rotate(45deg);border-bottom-right-radius:4px}.harlo-nudge[data-side=right]:after{right:37px;left:auto}.harlo-nudge[data-side=left]:after{left:37px;right:auto}@keyframes harloNudgeIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}",
     ".harlo-nudge-text{border:0;background:transparent;color:#111827;padding:0;text-align:left;font:inherit;font-size:15px;font-weight:400;line-height:1.38;cursor:pointer;letter-spacing:0}.harlo-nudge-text:hover{color:#111827}.harlo-nudge-close{position:absolute;right:-7px;top:-7px;width:24px;height:24px;border:1px solid #d7dde5;border-radius:999px;background:#eef2f5;color:#5f6876;cursor:pointer;font-size:16px;line-height:1;display:grid;place-items:center;box-shadow:0 6px 14px rgba(15,23,42,.1);transition:background .16s ease,color .16s ease,transform .16s ease}.harlo-nudge-close:hover{background:#e2e8ee;color:#111827;transform:scale(1.03)}",
@@ -285,8 +286,12 @@ export function GET(request: NextRequest) {
 
   function renderSuggestions() {
     suggestions.innerHTML = "";
-    var promptsToShow = config && config.theme && Array.isArray(config.theme.welcomePrompts) && messages.length === 1
-      ? config.theme.welcomePrompts
+    var defaultPrompts = ["What services do you offer?", "How much does it cost?", "Can I book a consultation?"];
+    var configuredPrompts = config && config.theme && Array.isArray(config.theme.welcomePrompts)
+      ? config.theme.welcomePrompts.filter(function (prompt) { return typeof prompt === "string" && prompt.trim(); })
+      : [];
+    var promptsToShow = config && messages.length === 1
+      ? (configuredPrompts.length ? configuredPrompts : defaultPrompts)
       : [];
 
     if (!promptsToShow.length) {
@@ -588,9 +593,11 @@ export function GET(request: NextRequest) {
     .then(function (response) { return response.json().then(function (json) { return { ok: response.ok, json: json }; }); })
     .then(function (result) {
       if (!result.ok) {
-        throw new Error(result.json && result.json.error ? result.json.error : "Widget unavailable.");
+        root.remove();
+        return;
       }
       if (result.json && result.json.disabled) {
+        root.remove();
         return;
       }
       config = result.json;
@@ -610,9 +617,8 @@ export function GET(request: NextRequest) {
       revealWidget();
       scheduleGreetingNudge(greetingMessage);
     })
-    .catch(function (error) {
-      revealWidget();
-      addMessage("assistant", error.message || "Harlo is unavailable right now.");
+    .catch(function () {
+      root.remove();
     });
 })();`;
 
