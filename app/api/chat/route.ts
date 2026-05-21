@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import {
   getInvalidEmailReply,
   leadQuestionFromMessages
@@ -19,24 +19,37 @@ import {
 } from "@/lib/lead-fields";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { ChatRequest } from "@/lib/types";
+import { widgetCorsPreflight, widgetJson } from "@/lib/widget/cors";
+import { isAllowedWidgetOrigin } from "@/lib/widget/config";
+
+export function OPTIONS(request: NextRequest) {
+  return widgetCorsPreflight(request);
+}
 
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as ChatRequest & { testOnly?: boolean };
 
   if (!body.botId || !body.message) {
-    return NextResponse.json({ error: "botId and message are required." }, { status: 400 });
+    return widgetJson(request, { error: "botId and message are required." }, { status: 400 });
   }
 
   const supabase = createSupabaseServiceClient();
   const { data: bot, error: botError } = await supabase
     .from("bots")
-    .select("id, organization_id, agent_type, description, system_instructions, handoff_instructions, lead_capture_fields")
+    .select("id, organization_id, agent_type, description, system_instructions, handoff_instructions, lead_capture_fields, allowed_domains")
     .eq("id", body.botId)
     .eq("status", "active")
     .single();
 
   if (botError || !bot) {
-    return NextResponse.json({ error: "Chatbot not found." }, { status: 404 });
+    return widgetJson(request, { error: "Chatbot not found." }, { status: 404 });
+  }
+
+  const origin = request.headers.get("origin") ?? request.headers.get("referer");
+  const allowedDomains = Array.isArray(bot.allowed_domains) ? bot.allowed_domains.filter((domain): domain is string => typeof domain === "string") : [];
+
+  if (!body.testOnly && !isAllowedWidgetOrigin({ allowedDomains }, origin)) {
+    return widgetJson(request, { error: "Widget domain is not allowed." }, { status: 403 });
   }
 
   const botId = bot.id;
@@ -50,6 +63,33 @@ export async function POST(request: NextRequest) {
   };
 
   if (body.testOnly) {
+    let creditUsage = await getCreditUsageStatus(supabase, organizationId);
+    let autoRechargeSkipped: string | null = null;
+    let autoRechargePaymentIntentId: string | null = null;
+
+    if (!creditUsage.canReply && creditUsage.reason === "limit_reached") {
+      const autoRecharge = await attemptAutoRecharge({ supabase, organizationId });
+      autoRechargeSkipped = autoRecharge.skipped;
+      autoRechargePaymentIntentId = autoRecharge.paymentIntentId ?? null;
+
+      if (autoRecharge.recharged) {
+        creditUsage = await getCreditUsageStatus(supabase, organizationId);
+      }
+    }
+
+    if (!creditUsage.canReply) {
+      return widgetJson(request, {
+        conversationId: "dashboard-test",
+        answer: getCreditLimitReply(creditUsage.reason),
+        fallback: false,
+        leadCaptured: false,
+        billingLimitReached: true,
+        autoRechargeSkipped,
+        autoRechargePaymentIntentId,
+        retrieval: []
+      });
+    }
+
     const chunks = await retrieveKnowledgeChunks({
       botId,
       organizationId,
@@ -62,8 +102,18 @@ export async function POST(request: NextRequest) {
       intent: "answer_or_question",
       agent
     });
+    await recordAssistantMessageUsage({
+      supabase,
+      organizationId,
+      botId,
+      conversationId: null,
+      messageId: null,
+      metadata: {
+        source: "dashboard_test"
+      }
+    });
 
-    return NextResponse.json({
+    return widgetJson(request, {
       conversationId: "dashboard-test",
       answer,
       fallback: chunks.length === 0,
@@ -95,14 +145,14 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (conversationError || !conversation) {
-      return NextResponse.json({ error: conversationError?.message ?? "Could not create conversation." }, { status: 500 });
+      return widgetJson(request, { error: conversationError?.message ?? "Could not create conversation." }, { status: 500 });
     }
 
     conversationId = conversation.id;
   }
 
   if (!conversationId) {
-    return NextResponse.json({ error: "Could not initialize conversation." }, { status: 500 });
+    return widgetJson(request, { error: "Could not initialize conversation." }, { status: 500 });
   }
 
   const activeConversationId = conversationId;
@@ -116,7 +166,7 @@ export async function POST(request: NextRequest) {
     }).select("id").single();
 
     if (assistantMessageError || !assistantMessage) {
-      return NextResponse.json({ error: assistantMessageError?.message ?? "Could not save assistant message." }, { status: 500 });
+      return widgetJson(request, { error: assistantMessageError?.message ?? "Could not save assistant message." }, { status: 500 });
     }
 
     if (options.recordUsage !== false) {
@@ -143,7 +193,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (visitorMessageError) {
-    return NextResponse.json({ error: visitorMessageError.message }, { status: 500 });
+    return widgetJson(request, { error: visitorMessageError.message }, { status: 500 });
   }
 
   let creditUsage = await getCreditUsageStatus(supabase, organizationId);
@@ -199,7 +249,7 @@ export async function POST(request: NextRequest) {
         return { sent: false, skipped: "send_failed" };
       });
 
-    return NextResponse.json({
+    return widgetJson(request, {
       conversationId: activeConversationId,
       answer,
       fallback: false,
@@ -270,7 +320,7 @@ export async function POST(request: NextRequest) {
         return saveError;
       }
 
-      return NextResponse.json({
+      return widgetJson(request, {
         conversationId: activeConversationId,
         answer: invalidEmailReply,
         fallback: false,
@@ -315,7 +365,7 @@ export async function POST(request: NextRequest) {
         return saveError;
       }
 
-      return NextResponse.json({
+      return widgetJson(request, {
         conversationId: activeConversationId,
         answer,
         fallback: false,
@@ -333,7 +383,7 @@ export async function POST(request: NextRequest) {
       return saveError;
     }
 
-    return NextResponse.json({
+    return widgetJson(request, {
       conversationId: activeConversationId,
       answer,
       fallback: false,
@@ -348,12 +398,19 @@ export async function POST(request: NextRequest) {
     query: retrievalQuery
   });
 
-  const answer = await generateAnswer({
+  let answer = await generateAnswer({
     question: body.message,
     chunks,
     conversationContext,
     intent: intent.intent,
     agent
+  });
+  answer = appendLeadQuestionForContactAnswer({
+    answer,
+    intent: intent.intent,
+    message: body.message,
+    conversationMessages,
+    leadFields
   });
 
   const saveError = await saveAssistantReply(answer, {
@@ -370,7 +427,7 @@ export async function POST(request: NextRequest) {
     return saveError;
   }
 
-  return NextResponse.json({
+  return widgetJson(request, {
     conversationId: activeConversationId,
     answer,
     fallback: chunks.length === 0,
@@ -459,6 +516,85 @@ function shouldCollectLeadForAgent({
     (recentAssistantOfferedLead && (visitorProvidesLeadLike || buyingIntent)) ||
     ((agentType === "sales" || agentType === "custom") && buyingIntent)
   );
+}
+
+function appendLeadQuestionForContactAnswer({
+  answer,
+  intent,
+  message,
+  conversationMessages,
+  leadFields
+}: {
+  answer: string;
+  intent: VisitorIntent;
+  message: string;
+  conversationMessages: Array<{ role: string; content: string }>;
+  leadFields: LeadCaptureField[];
+}) {
+  if (!shouldAppendLeadQuestion({ answer, intent, message, leadFields })) {
+    return answer;
+  }
+
+  const prompt = buildConfiguredLeadReply({}, leadFields, conversationMessages);
+  const trimmedAnswer = answer.trim();
+  const trimmedPrompt = prompt.trim();
+
+  if (!trimmedPrompt || answerAlreadyAsksConfiguredLeadField(trimmedAnswer, leadFields)) {
+    return answer;
+  }
+
+  return `${trimmedAnswer}\n\n${trimmedPrompt}`;
+}
+
+function shouldAppendLeadQuestion({
+  answer,
+  intent,
+  message,
+  leadFields
+}: {
+  answer: string;
+  intent: VisitorIntent;
+  message: string;
+  leadFields: LeadCaptureField[];
+}) {
+  if (leadFields.filter((field) => field.enabled).length === 0) {
+    return false;
+  }
+
+  if (intent === "request_human_follow_up") {
+    return true;
+  }
+
+  const normalizedMessage = message.toLowerCase();
+  const normalizedAnswer = answer.toLowerCase();
+  const visitorAskedAboutContact =
+    /\b(?:contact|reach|email|call|phone|text|message|speak|talk)\b[\s\S]{0,80}\b(?:you|someone|team|person|human|representative|rep|agent|business|company)\b/.test(
+      normalizedMessage
+    ) ||
+    /\b(?:how|where|who|what)\b[\s\S]{0,80}\b(?:contact|reach|call|email|message|speak|talk)\b/.test(normalizedMessage);
+  const answerOffersContact =
+    /\b(?:contact|reach out|call|email|speak with|talk with|someone can help|team can follow up|pass this along|share your details|collect .*details)\b/.test(
+      normalizedAnswer
+    );
+
+  return visitorAskedAboutContact || answerOffersContact;
+}
+
+function answerAlreadyAsksConfiguredLeadField(answer: string, fields: LeadCaptureField[]) {
+  return fields
+    .filter((field) => field.enabled)
+    .some((field) => {
+      const prompt = normalizePromptText(field.prompt);
+      const label = normalizePromptText(field.label);
+      const normalizedAnswer = normalizePromptText(answer);
+
+      return (
+        Boolean(prompt && normalizedAnswer.includes(prompt)) ||
+        new RegExp(`\\b(?:share|provide|send|what is|what's|what|which)\\b[\\s\\S]{0,120}\\b${escapeRegExp(label)}\\b`, "i").test(
+          answer
+        )
+      );
+    });
 }
 
 function mentionsConfiguredLeadField(message: string, fields: LeadCaptureField[]) {

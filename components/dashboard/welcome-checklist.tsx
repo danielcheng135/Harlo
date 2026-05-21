@@ -19,6 +19,7 @@ import type { KnowledgeSourceRow } from "@/lib/harlo/data";
 type WelcomeChecklistProps = {
   organizationId: string;
   sources: KnowledgeSourceRow[];
+  initialDoneIds: string[];
 };
 
 type ChecklistItem = {
@@ -30,10 +31,10 @@ type ChecklistItem = {
   icon: LucideIcon;
 };
 
-export function WelcomeChecklist({ organizationId, sources }: WelcomeChecklistProps) {
+export function WelcomeChecklist({ organizationId, sources, initialDoneIds }: WelcomeChecklistProps) {
   const previousCompleteRef = useRef<boolean | null>(null);
   const [hasLoadedStoredState, setHasLoadedStoredState] = useState(false);
-  const [manualDoneIds, setManualDoneIds] = useState<string[]>([]);
+  const [manualDoneIds, setManualDoneIds] = useState<string[]>(() => sanitizeDoneIds(initialDoneIds));
   const [showCompletionCelebration, setShowCompletionCelebration] = useState(false);
   const storageKey = `harlo:launch-checklist:${organizationId}`;
   const websiteSource = sources.find((source) => source.source_type === "url");
@@ -83,7 +84,7 @@ export function WelcomeChecklist({ organizationId, sources }: WelcomeChecklistPr
     try {
       const parsedValue = JSON.parse(storedValue);
       if (Array.isArray(parsedValue)) {
-        setManualDoneIds(parsedValue.filter((id): id is string => typeof id === "string"));
+        setManualDoneIds((currentIds) => mergeDoneIds(currentIds, parsedValue));
       }
     } catch {
       window.localStorage.removeItem(storageKey);
@@ -95,6 +96,7 @@ export function WelcomeChecklist({ organizationId, sources }: WelcomeChecklistPr
   useEffect(() => {
     if (hasLoadedStoredState) {
       window.localStorage.setItem(storageKey, JSON.stringify(manualDoneIds));
+      void persistDoneIds(manualDoneIds);
     }
   }, [hasLoadedStoredState, manualDoneIds, storageKey]);
 
@@ -124,6 +126,10 @@ export function WelcomeChecklist({ organizationId, sources }: WelcomeChecklistPr
 
     previousCompleteRef.current = isComplete;
   }, [hasLoadedStoredState, isComplete]);
+
+  if (!hasLoadedStoredState) {
+    return null;
+  }
 
   if (isComplete) {
     return showCompletionCelebration ? (
@@ -208,6 +214,31 @@ export function WelcomeChecklist({ organizationId, sources }: WelcomeChecklistPr
       </div>
     </Card>
   );
+}
+
+function sanitizeDoneIds(value: unknown) {
+  return Array.from(
+    new Set(
+      (Array.isArray(value) ? value : [])
+        .filter((id): id is string => id === "knowledge" || id === "assistant" || id === "widget")
+    )
+  );
+}
+
+function mergeDoneIds(currentIds: string[], storedIds: unknown[]) {
+  return sanitizeDoneIds([...currentIds, ...storedIds]);
+}
+
+async function persistDoneIds(doneIds: string[]) {
+  await fetch("/api/dashboard/launch-checklist", {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      doneIds: sanitizeDoneIds(doneIds)
+    })
+  }).catch(() => null);
 }
 
 function CompletionCelebration({ onDismiss }: { onDismiss: () => void }) {

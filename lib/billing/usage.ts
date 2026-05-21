@@ -116,14 +116,16 @@ export async function recordAssistantMessageUsage({
   botId,
   conversationId,
   messageId,
-  credits = 1
+  credits = 1,
+  metadata = {}
 }: {
   supabase: SupabaseServiceClient;
   organizationId: string;
   botId: string;
-  conversationId: string;
-  messageId: string;
+  conversationId?: string | null;
+  messageId?: string | null;
   credits?: number;
+  metadata?: Record<string, unknown>;
 }) {
   const period = await getUsagePeriodForOrganization(supabase, organizationId);
   const statusBeforeUsage = await getCreditUsageStatus(supabase, organizationId);
@@ -133,13 +135,13 @@ export async function recordAssistantMessageUsage({
   const { data: usageEvent, error } = await supabase.from("usage_events").upsert({
     organization_id: organizationId,
     bot_id: botId,
-    conversation_id: conversationId,
-    message_id: messageId,
+    conversation_id: conversationId ?? null,
+    message_id: messageId ?? null,
     event_type: "assistant_message",
     credits,
     billing_period_start: period.start,
     billing_period_end: period.end,
-    metadata: { role: "assistant" }
+    metadata: { role: "assistant", ...metadata }
   }, {
     onConflict: "message_id",
     ignoreDuplicates: true

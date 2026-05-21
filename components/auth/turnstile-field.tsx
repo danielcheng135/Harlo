@@ -2,7 +2,6 @@
 
 import Script from "next/script";
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
-import { CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 
 type TurnstileFieldProps = {
   siteKey: string;
@@ -160,26 +159,14 @@ export const TurnstileField = forwardRef<TurnstileFieldHandle, TurnstileFieldPro
   }, [isReady, onError, onExpire, onVerify, siteKey]);
 
   return (
-    <div className="rounded-lg border border-harlo-line bg-harlo-canvas px-3 py-2">
+    <>
       <Script
         src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
         strategy="afterInteractive"
         onLoad={() => setIsReady(true)}
         onReady={() => setIsReady(true)}
       />
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white text-harlo-teal shadow-sm">
-            {isVerified ? <CheckCircle2 size={15} /> : <ShieldCheck size={15} />}
-          </span>
-          <div className="min-w-0">
-            <p className="text-xs font-semibold text-harlo-ink">Protected by Cloudflare Turnstile</p>
-            <p className="text-[11px] text-harlo-muted">Runs quietly when you continue.</p>
-          </div>
-        </div>
-        {!isReady ? <Loader2 size={16} className="shrink-0 animate-spin text-harlo-muted" /> : null}
-      </div>
       <div id={containerId} ref={containerRef} />
-    </div>
+    </>
   );
 });

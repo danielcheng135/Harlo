@@ -21,6 +21,7 @@ export default async function WidgetPage() {
           id: bot.id,
           name: bot.name,
           routePatterns: bot.route_patterns,
+          excludedRoutePatterns: bot.excluded_route_patterns,
           isDefault: bot.is_default
         }))}
       />

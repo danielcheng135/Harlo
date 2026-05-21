@@ -31,6 +31,7 @@ export default async function BuilderPage() {
           brandLogoUrl: workspace.organization.brand_logo_url ?? null,
           allowedDomains: workspace.bot.allowed_domains,
           routePatterns: workspace.bot.route_patterns,
+          excludedRoutePatterns: workspace.bot.excluded_route_patterns,
           leadCaptureFields: workspace.bot.lead_capture_fields,
           agents: workspace.bots.map((bot) => ({
             id: bot.id,
@@ -47,6 +48,7 @@ export default async function BuilderPage() {
             welcomePrompts: bot.widget_theme.welcome_prompts,
             allowedDomains: bot.allowed_domains,
             routePatterns: bot.route_patterns,
+            excludedRoutePatterns: bot.excluded_route_patterns,
             leadCaptureFields: bot.lead_capture_fields,
             isDefault: bot.is_default
           })),

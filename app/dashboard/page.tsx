@@ -53,7 +53,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <WelcomeChecklist organizationId={workspace.organization.id} sources={sources} />
+      <WelcomeChecklist organizationId={workspace.organization.id} sources={sources} initialDoneIds={getLaunchChecklistDoneIds(workspace.organization.metadata)} />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <OverviewMetric
@@ -144,6 +144,18 @@ export default async function DashboardPage() {
       </section>
     </div>
   );
+}
+
+function getLaunchChecklistDoneIds(metadata: Record<string, unknown> | null | undefined) {
+  const checklist = metadata?.launch_checklist;
+
+  if (!checklist || typeof checklist !== "object" || Array.isArray(checklist)) {
+    return [];
+  }
+
+  const doneIds = (checklist as Record<string, unknown>).done_ids;
+
+  return Array.isArray(doneIds) ? doneIds.filter((id): id is string => typeof id === "string") : [];
 }
 
 function OverviewMetric({ label, value, detail, icon: Icon, accent }: { label: string; value: string; detail: string; icon: LucideIcon; accent: "teal" | "violet" | "sky" | "emerald" }) {

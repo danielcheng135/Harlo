@@ -33,6 +33,7 @@ type ConversationHistoryProps = {
 
 type ConversationFilter = "inbox" | "needs-review" | "lead-captured" | "answered";
 type DetailTab = "chat" | "details" | "activity";
+const HARLO_ACCENT = "#087f95";
 
 export function ConversationHistory({ businessLogoUrl, conversations, initialConversationId, activeAgentId }: ConversationHistoryProps) {
   const [query, setQuery] = useState("");
@@ -274,7 +275,7 @@ function ConversationRow({
       )}
     >
       <div className="flex items-start gap-3">
-        <ConversationAvatar name={displayName} accent={conversation.bot_accent} />
+        <ConversationAvatar name={displayName} accent={HARLO_ACCENT} />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -310,7 +311,7 @@ function ConversationTranscript({
 }) {
   const displayName = getConversationDisplayName(conversation);
   const botName = conversation.bot_name ?? "Harlo";
-  const accent = conversation.bot_accent ?? "#087f95";
+  const accent = HARLO_ACCENT;
 
   return (
     <section className="flex min-h-0 min-w-0 flex-col border-b border-harlo-line bg-white xl:border-b-0 xl:border-r">

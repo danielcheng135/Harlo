@@ -39,7 +39,6 @@ export type DocSection = {
 const appOrigin = "https://app.harlo.ai";
 
 export const workspaceSnippet = `<script src="${appOrigin}/widget.js" data-harlo-organization="YOUR_ORGANIZATION_ID" async></script>`;
-export const pinnedAgentSnippet = `<script src="${appOrigin}/widget.js" data-harlo-bot="YOUR_AGENT_ID" async></script>`;
 
 export const docs: DocSection[] = [
   {
@@ -59,7 +58,7 @@ export const docs: DocSection[] = [
       { icon: MonitorCheck, text: "Ask a real customer question from the live website." }
     ],
     steps: [
-      { title: "Copy your install code", body: "Open Dashboard -> Widget and copy the install code for your whole website or for one specific agent." },
+      { title: "Copy your install code", body: "Open Dashboard -> Widget and copy the install code for your whole website." },
       { title: "Add it to your website", body: "Paste the code into your website builder, footer area, or custom code section." },
       { title: "Approve your website", body: "Add your live website domain in Builder so Harlo knows where the widget is allowed to appear." },
       { title: "Test as a visitor", body: "Open your site, ask realistic customer questions, and confirm Harlo records conversations and leads correctly." }
@@ -99,7 +98,7 @@ export const docs: DocSection[] = [
       { title: "Role tab", body: "Sets who the agent is, what it should help with, and how it should speak to visitors." },
       { title: "Widget tab", body: "Controls the title, greeting, color, logo, and suggested questions visitors see." },
       { title: "Leads tab", body: "Controls which customer details Harlo collects before your team follows up." },
-      { title: "Routing tab", body: "Chooses which website pages should open this agent." }
+      { title: "Routing tab", body: "Chooses which website pages should open this agent and which paths should hide the widget." }
     ]
   },
   {

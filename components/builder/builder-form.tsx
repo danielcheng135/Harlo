@@ -26,6 +26,7 @@ type BuilderFormProps = {
     brandLogoUrl: string | null;
     allowedDomains: string[];
     routePatterns: string[];
+    excludedRoutePatterns: string[];
     leadCaptureFields: LeadCaptureField[];
     agents: BuilderAgentDraft[];
     agentCapacity: {
@@ -53,6 +54,7 @@ type BuilderAgentDraft = {
   welcomePrompts: string[];
   allowedDomains: string[];
   routePatterns: string[];
+  excludedRoutePatterns: string[];
   leadCaptureFields: LeadCaptureField[];
   isDefault: boolean;
 };
@@ -122,6 +124,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
   const [welcomePrompts, setWelcomePrompts] = useState(padPrompts(firstAgent.welcomePrompts));
   const [allowedDomains, setAllowedDomains] = useState(padDomains(firstAgent.allowedDomains));
   const [routePatterns, setRoutePatterns] = useState(padRoutePatterns(firstAgent.routePatterns));
+  const [excludedRoutePatterns, setExcludedRoutePatterns] = useState(padRoutePatterns(firstAgent.excludedRoutePatterns));
   const [leadCaptureFields, setLeadCaptureFields] = useState(padLeadFields(firstAgent.leadCaptureFields));
   const [isSaving, setIsSaving] = useState(false);
   const [agentMutation, setAgentMutation] = useState<string | null>(null);
@@ -134,6 +137,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
   const cleanPrompts = useMemo(() => welcomePrompts.map((prompt) => prompt.trim()).filter(Boolean), [welcomePrompts]);
   const cleanDomains = useMemo(() => allowedDomains.map((domain) => domain.trim()).filter(Boolean), [allowedDomains]);
   const cleanRoutePatterns = useMemo(() => normalizeRoutePatternsClient(routePatterns), [routePatterns]);
+  const cleanExcludedRoutePatterns = useMemo(() => normalizeRoutePatternsClient(excludedRoutePatterns), [excludedRoutePatterns]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -160,6 +164,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
         welcomePrompts: cleanPrompts,
         allowedDomains: cleanDomains,
         routePatterns: cleanRoutePatterns,
+        excludedRoutePatterns: cleanExcludedRoutePatterns,
         leadCaptureFields: leadCaptureFields.filter((field) => field.enabled || isLockedLeadField(field.key))
       })
     });
@@ -195,6 +200,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
       welcomePrompts: cleanPrompts,
       allowedDomains: cleanDomains,
       routePatterns: cleanRoutePatterns,
+      excludedRoutePatterns: cleanExcludedRoutePatterns,
       leadCaptureFields: leadCaptureFields.filter((field) => field.enabled || isLockedLeadField(field.key))
     };
   }
@@ -214,6 +220,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
     setWelcomePrompts(padPrompts(agent.welcomePrompts));
     setAllowedDomains(padDomains(agent.allowedDomains));
     setRoutePatterns(padRoutePatterns(agent.routePatterns));
+    setExcludedRoutePatterns(padRoutePatterns(agent.excludedRoutePatterns));
     setLeadCaptureFields(padLeadFields(agent.leadCaptureFields));
   }
 
@@ -246,6 +253,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
         welcomePrompts: cleanPrompts,
         allowedDomains: cleanDomains,
         routePatterns: [],
+        excludedRoutePatterns: [],
         leadCaptureFields: leadCaptureFields.filter((field) => field.enabled || isLockedLeadField(field.key))
       })
     });
@@ -288,8 +296,29 @@ export function BuilderForm({ initial }: BuilderFormProps) {
     setRoutePatterns((current) => current.filter((_, patternIndex) => patternIndex !== index));
   }
 
+  function updateExcludedRoutePattern(index: number, value: string) {
+    setExcludedRoutePatterns((current) => current.map((pattern, patternIndex) => patternIndex === index ? value : pattern));
+  }
+
+  function removeExcludedRoutePattern(index: number) {
+    setExcludedRoutePatterns((current) => current.filter((_, patternIndex) => patternIndex !== index));
+  }
+
   function addRoutePattern(pattern: string) {
     setRoutePatterns((current) => {
+      const normalizedPattern = normalizeRoutePatternClient(pattern);
+
+      if (!normalizedPattern || current.some((item) => normalizeRoutePatternClient(item) === normalizedPattern)) {
+        return current;
+      }
+
+      const next = current.filter((item) => item.trim()).concat(normalizedPattern);
+      return next.length > 0 ? next.slice(0, 8) : [normalizedPattern];
+    });
+  }
+
+  function addExcludedRoutePattern(pattern: string) {
+    setExcludedRoutePatterns((current) => {
       const normalizedPattern = normalizeRoutePatternClient(pattern);
 
       if (!normalizedPattern || current.some((item) => normalizeRoutePatternClient(item) === normalizedPattern)) {
@@ -682,14 +711,14 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                           </span>
                           <div className="min-w-0">
                             <p className="font-semibold text-harlo-ink">
-                              {cleanRoutePatterns.length > 0 ? `${botName || "This agent"} opens on selected pages` : selectedAgent.isDefault ? "Default coverage" : "Pinned or routed"}
+                              {cleanRoutePatterns.length > 0 ? `${botName || "This agent"} opens on selected pages` : selectedAgent.isDefault ? "Default coverage" : "No route rules yet"}
                             </p>
                             <p className="mt-1 text-sm leading-6 text-harlo-muted">
                               {cleanRoutePatterns.length > 0
                                 ? "The workspace snippet will choose this agent when a visitor lands on any matching path."
                                 : selectedAgent.isDefault
                                   ? "This agent answers every page that does not match another route."
-                                  : "Add route rules below, or use this agent's pinned snippet on the Widget page."}
+                                  : "Add route rules below when this agent should answer specific pages."}
                             </p>
                             <div className="mt-3 flex flex-wrap items-center gap-2">
                               <RouteSummary patterns={cleanRoutePatterns} fallbackLabel={selectedAgent.isDefault ? "All unmatched pages" : "No route rules yet"} />
@@ -737,6 +766,48 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                         ))}
                       </div>
                       <p className="text-xs leading-5 text-harlo-muted">Use exact paths like /pricing or wildcard paths like /services/*. Route order is preserved from top to bottom.</p>
+                      <div className="rounded-lg border border-harlo-line bg-white p-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="font-semibold text-harlo-ink">Excluded pages</p>
+                            <p className="mt-1 text-sm leading-6 text-harlo-muted">Hide the widget on paths where you do not want Harlo to appear. Exclusions override agent routes.</p>
+                          </div>
+                          <Button type="button" variant="secondary" onClick={() => setExcludedRoutePatterns((current) => [...current, ""])} disabled={excludedRoutePatterns.length >= 8}>
+                            <Plus size={16} />
+                            Add
+                          </Button>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {["/checkout/*", "/privacy", "/terms"].map((pattern) => (
+                            <button
+                              key={pattern}
+                              type="button"
+                              onClick={() => addExcludedRoutePattern(pattern)}
+                              className="rounded-full border border-harlo-line bg-harlo-canvas px-3 py-1.5 text-xs font-semibold text-harlo-muted transition hover:border-harlo-teal hover:text-harlo-teal"
+                            >
+                              {pattern}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="mt-3 space-y-3">
+                          {excludedRoutePatterns.map((pattern, index) => (
+                            <div key={index} className="flex gap-2">
+                              <span className="grid h-11 w-11 place-items-center rounded-lg border border-harlo-line bg-harlo-canvas text-harlo-muted">
+                                <RouteIcon size={16} />
+                              </span>
+                              <input
+                                value={pattern}
+                                onChange={(event) => updateExcludedRoutePattern(index, event.target.value)}
+                                className={inputClass}
+                                placeholder="/checkout/*, /privacy, or /terms"
+                              />
+                              <Button type="button" variant="ghost" className="px-3" onClick={() => removeExcludedRoutePattern(index)} aria-label="Remove excluded route">
+                                <Trash2 size={16} />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </Panel>
                   <Panel
@@ -796,7 +867,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                     <SummaryCard label="Agent" value={botName || "Unnamed agent"} detail={`${getAgentTemplate(agentType).badge}${selectedAgent.isDefault ? " · Default" : ""}`} />
                     <SummaryCard label="Widget title" value={widgetTitle || "Ask Harlo"} detail={`${cleanPrompts.length} prompt${cleanPrompts.length === 1 ? "" : "s"}`} />
                     <SummaryCard label="Lead fields" value={`${leadCaptureFields.filter((field) => field.enabled).length} enabled`} detail="Name and email stay required" />
-                    <SummaryCard label="Routing" value={cleanRoutePatterns.length > 0 ? `${cleanRoutePatterns.length} route${cleanRoutePatterns.length === 1 ? "" : "s"}` : "Fallback"} detail={selectedAgent.isDefault ? "Handles unmatched pages" : "Use routes or pinned snippet"} />
+                    <SummaryCard label="Routing" value={cleanRoutePatterns.length > 0 ? `${cleanRoutePatterns.length} route${cleanRoutePatterns.length === 1 ? "" : "s"}` : "Fallback"} detail={cleanExcludedRoutePatterns.length > 0 ? `${cleanExcludedRoutePatterns.length} excluded` : selectedAgent.isDefault ? "Handles unmatched pages" : "Add route rules"} />
                     <SummaryCard label="Domains" value={cleanDomains.length > 0 ? `${cleanDomains.length} allowed` : "Local testing"} detail={cleanDomains[0] ?? "No live domains added"} />
                     <SummaryCard label="Launcher" value={launcherPosition === "bottom-right" ? "Bottom right" : "Bottom left"} detail={accent} />
                   </div>
@@ -943,6 +1014,7 @@ function makeAgentFromInitial(initial: BuilderInitial): BuilderAgentDraft {
     welcomePrompts: initial.welcomePrompts,
     allowedDomains: initial.allowedDomains,
     routePatterns: initial.routePatterns,
+    excludedRoutePatterns: initial.excludedRoutePatterns,
     leadCaptureFields: initial.leadCaptureFields,
     isDefault: true
   };

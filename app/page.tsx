@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import Script from "next/script";
 import { ArrowRight, Code2, Database, MessageSquare, ShieldCheck, Sparkles } from "lucide-react";
 import { HeroVideo } from "@/components/hero-video";
 import { OutcomesSection } from "@/components/landing/outcomes-section";
@@ -48,6 +49,11 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(homeJsonLd())
         }}
+      />
+      <Script
+        src="https://app.harlo.ai/widget.js"
+        data-harlo-organization="2a007ac5-01c5-4154-8a41-21f4dbcd2b43"
+        strategy="afterInteractive"
       />
       <style>{`
         @keyframes harloPriceSlot {

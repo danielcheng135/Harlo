@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, CheckCircle2, Clipboard, Globe2, RouteIcon, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, Clipboard, Globe2, RouteIcon, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ToastViewport, useToast } from "@/components/ui/toast";
@@ -13,6 +13,7 @@ type WidgetInstallPanelProps = {
     id: string;
     name: string;
     routePatterns: string[];
+    excludedRoutePatterns: string[];
     isDefault: boolean;
   }[];
 };
@@ -24,6 +25,7 @@ export function WidgetInstallPanel({ brandLogoUrl, organizationId, allowedDomain
   const productionSnippet = buildWorkspaceSnippet(productionOrigin, organizationId);
   const hasDomains = allowedDomains.length > 0;
   const routedAgents = agents.filter((agent) => agent.routePatterns.length > 0);
+  const excludedAgents = agents.filter((agent) => agent.excludedRoutePatterns.length > 0);
   const defaultAgent = agents.find((agent) => agent.isDefault) ?? agents[0];
   const defaultTestPath = defaultAgent?.routePatterns[0] ? getExamplePath(defaultAgent.routePatterns[0]) : "/";
 
@@ -95,59 +97,6 @@ export function WidgetInstallPanel({ brandLogoUrl, organizationId, allowedDomain
       </div>
 
       <Card className="min-w-0">
-        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-harlo-ink">Agent widgets</h2>
-            <p className="mt-1 text-sm text-harlo-muted">
-              Use the workspace snippet for automatic routing, or pin a specific agent with its own snippet.
-            </p>
-          </div>
-        </CardHeader>
-        <CardBody className="grid gap-4 lg:grid-cols-2">
-          {agents.map((agent) => {
-            const agentSnippet = buildAgentSnippet(productionOrigin, agent.id);
-
-            return (
-              <div key={agent.id} className="min-w-0 rounded-lg border border-harlo-line bg-white p-4">
-                <div className="flex items-start gap-3">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-harlo-mist text-harlo-teal">
-                    <Sparkles size={18} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-harlo-ink">{agent.name}</p>
-                      {agent.isDefault ? (
-                        <span className="rounded-full bg-harlo-mist px-2 py-0.5 text-xs font-semibold text-harlo-teal">Default</span>
-                      ) : null}
-                      <span className="rounded-full bg-harlo-canvas px-2 py-0.5 text-xs font-semibold text-harlo-muted">Pinned</span>
-                    </div>
-                    <p className="mt-1 text-sm text-harlo-muted">Install this snippet when one page should always open this agent, bypassing page routing.</p>
-                    <RouteChips patterns={agent.routePatterns} emptyLabel="No auto-route rules" />
-                  </div>
-                  <div className="flex shrink-0 flex-col gap-2">
-                    <Button type="button" variant="secondary" onClick={() => copySnippet(agentSnippet, `${agent.name} snippet`)}>
-                      <Clipboard size={15} />
-                      Copy
-                    </Button>
-                    <a
-                      href={`/widget-test?botId=${agent.id}`}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-harlo-line bg-white px-3 text-sm font-semibold text-harlo-ink transition hover:border-harlo-teal hover:text-harlo-teal"
-                    >
-                      Test pinned
-                      <ArrowUpRight size={14} />
-                    </a>
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <CodeBlock value={agentSnippet} />
-                </div>
-              </div>
-            );
-          })}
-        </CardBody>
-      </Card>
-
-      <Card className="min-w-0">
         <CardHeader>
           <h2 className="text-lg font-semibold text-harlo-ink">Routing map</h2>
           <p className="mt-1 text-sm text-harlo-muted">
@@ -167,7 +116,10 @@ export function WidgetInstallPanel({ brandLogoUrl, organizationId, allowedDomain
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-harlo-muted">Auto-routed</p>
                   </div>
                 </div>
-                <RouteChips patterns={agent.routePatterns} />
+                <div className="space-y-2">
+                  <RouteChips patterns={agent.routePatterns} />
+                  {agent.excludedRoutePatterns.length > 0 ? <RouteChips patterns={agent.excludedRoutePatterns} tone="exclude" emptyLabel="" /> : null}
+                </div>
                 <a
                   href={`/widget-test?path=${encodeURIComponent(getExamplePath(agent.routePatterns[0]))}`}
                   className="inline-flex h-9 w-fit items-center justify-center gap-2 rounded-lg border border-harlo-line bg-white px-3 text-sm font-semibold text-harlo-ink transition hover:border-harlo-teal hover:text-harlo-teal"
@@ -195,6 +147,20 @@ export function WidgetInstallPanel({ brandLogoUrl, organizationId, allowedDomain
                 <ShieldCheck size={15} />
                 Default
               </span>
+            </div>
+          ) : null}
+          {excludedAgents.length > 0 ? (
+            <div className="rounded-lg border border-rose-100 bg-rose-50/60 p-4">
+              <p className="font-semibold text-harlo-ink">Hidden pages</p>
+              <p className="mt-1 text-sm leading-6 text-harlo-muted">The widget will not appear on these paths, even when another route matches.</p>
+              <div className="mt-3 space-y-2">
+                {excludedAgents.map((agent) => (
+                  <div key={agent.id} className="flex flex-col gap-2 rounded-lg bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm font-semibold text-harlo-ink">{agent.name}</p>
+                    <RouteChips patterns={agent.excludedRoutePatterns} tone="exclude" />
+                  </div>
+                ))}
+              </div>
             </div>
           ) : null}
         </CardBody>
@@ -266,7 +232,7 @@ function ChecklistItem({ title, body }: { title: string; body: string }) {
   );
 }
 
-function RouteChips({ patterns, emptyLabel = "Default fallback" }: { patterns: string[]; emptyLabel?: string }) {
+function RouteChips({ patterns, emptyLabel = "Default fallback", tone = "include" }: { patterns: string[]; emptyLabel?: string; tone?: "include" | "exclude" }) {
   const visiblePatterns = patterns.slice(0, 4);
   const overflow = Math.max(0, patterns.length - visiblePatterns.length);
 
@@ -275,8 +241,8 @@ function RouteChips({ patterns, emptyLabel = "Default fallback" }: { patterns: s
       {visiblePatterns.length > 0 ? (
         <>
           {visiblePatterns.map((pattern) => (
-            <span key={pattern} className="rounded-full border border-harlo-line bg-white px-2.5 py-1 text-xs font-semibold text-harlo-muted shadow-sm">
-              {pattern}
+            <span key={pattern} className={tone === "exclude" ? "rounded-full border border-rose-100 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-600 shadow-sm" : "rounded-full border border-harlo-line bg-white px-2.5 py-1 text-xs font-semibold text-harlo-muted shadow-sm"}>
+              {tone === "exclude" ? "Hide " : ""}{pattern}
             </span>
           ))}
           {overflow > 0 ? (
@@ -350,10 +316,6 @@ function StatusCard({
 
 function buildWorkspaceSnippet(origin: string, organizationId: string) {
   return `<script src="${origin}/widget.js" data-harlo-organization="${organizationId}" async></script>`;
-}
-
-function buildAgentSnippet(origin: string, botId: string) {
-  return `<script src="${origin}/widget.js" data-harlo-bot="${botId}" async></script>`;
 }
 
 function getExamplePath(pattern: string | undefined) {

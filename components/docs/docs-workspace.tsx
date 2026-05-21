@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, BookOpen, CheckCircle2, ChevronRight, Route, Search, Sparkles } from "lucide-react";
 import { useMemo } from "react";
-import { docs, isDocId, pinnedAgentSnippet, workspaceSnippet, type DocId, type DocSection } from "@/lib/docs";
+import { docs, isDocId, workspaceSnippet, type DocId, type DocSection } from "@/lib/docs";
 
 const navGroups = [
   { title: "Setup", ids: ["widget", "builder", "knowledge"] as DocId[] },
@@ -197,18 +197,12 @@ function DocPanel({ doc }: { doc: DocSection }) {
 
 function WidgetSnippets() {
   return (
-    <div className="mt-8 grid gap-4 lg:grid-cols-2">
+    <div className="mt-8 grid gap-4">
       <SnippetCard
         icon={Route}
         title="Whole-site install code"
-        body="Best for most websites. Harlo chooses the right agent based on your page routing settings."
+        body="Use one snippet across your website. Harlo chooses the right agent or hides the widget based on your page routing settings."
         code={workspaceSnippet}
-      />
-      <SnippetCard
-        icon={Sparkles}
-        title="Specific-agent install code"
-        body="Best for pages that should always open one specific agent."
-        code={pinnedAgentSnippet}
       />
     </div>
   );

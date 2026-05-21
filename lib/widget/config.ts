@@ -2,6 +2,13 @@ import type { BotConfig } from "@/lib/types";
 import { isInternalWorkspaceMetadata } from "@/lib/internal-admin";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 
+export class WidgetRouteExcludedError extends Error {
+  constructor() {
+    super("Widget excluded on this page.");
+    this.name = "WidgetRouteExcludedError";
+  }
+}
+
 export async function getPublicBotConfig(botId: string): Promise<BotConfig> {
   return getPublicWidgetConfig({ botId });
 }
@@ -24,12 +31,24 @@ export async function getPublicWidgetConfig({
   }
 
   if (!requestedOrganizationId) {
-    const { data: bot, error } = await supabase
+    let { data: bot, error } = await supabase
       .from("bots")
-      .select("id, organization_id, name, greeting, fallback_message, allowed_domains, organizations(name, brand_logo_url), widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority)")
+      .select("id, organization_id, name, greeting, fallback_message, allowed_domains, organizations(name, brand_logo_url), widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority, behavior)")
       .eq("id", requestedBotId)
       .eq("status", "active")
       .single();
+
+    if (isMissingWidgetRouteBehaviorColumn(error)) {
+      const fallback = await supabase
+        .from("bots")
+        .select("id, organization_id, name, greeting, fallback_message, allowed_domains, organizations(name, brand_logo_url), widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority)")
+        .eq("id", requestedBotId)
+        .eq("status", "active")
+        .single();
+
+      bot = fallback.data as unknown as typeof bot;
+      error = fallback.error;
+    }
 
     if (error || !bot) {
       throw new Error("Chatbot not found.");
@@ -38,13 +57,26 @@ export async function getPublicWidgetConfig({
     return buildBotConfig(bot);
   }
 
-  const { data: bots, error } = await supabase
+  let { data: bots, error } = await supabase
     .from("bots")
-    .select("id, organization_id, name, greeting, fallback_message, allowed_domains, is_default, created_at, organizations(name, brand_logo_url), widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority)")
+    .select("id, organization_id, name, greeting, fallback_message, allowed_domains, is_default, created_at, organizations(name, brand_logo_url), widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority, behavior)")
     .eq("organization_id", requestedOrganizationId)
     .eq("status", "active")
     .order("is_default", { ascending: false })
     .order("created_at", { ascending: true });
+
+  if (isMissingWidgetRouteBehaviorColumn(error)) {
+    const fallback = await supabase
+      .from("bots")
+      .select("id, organization_id, name, greeting, fallback_message, allowed_domains, is_default, created_at, organizations(name, brand_logo_url), widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority)")
+      .eq("organization_id", requestedOrganizationId)
+      .eq("status", "active")
+      .order("is_default", { ascending: false })
+      .order("created_at", { ascending: true });
+
+    bots = fallback.data as unknown as typeof bots;
+    error = fallback.error;
+  }
 
   if (error || !bots || bots.length === 0) {
     throw new Error("Chatbot not found.");
@@ -133,27 +165,37 @@ function selectRoutedBot<T extends Record<string, unknown>>(bots: T[], requested
   }
 
   const path = getPagePath(pageUrl);
-  let bestBot: T | null = null;
-  let bestScore = 0;
+  const excludedRoute = findBestRoute(bots, path, "exclude");
+
+  if (excludedRoute) {
+    throw new WidgetRouteExcludedError();
+  }
+
+  const includedRoute = findBestRoute(bots, path, "include");
+
+  if (includedRoute) {
+    return includedRoute.bot;
+  }
+
+  return bots[0];
+}
+
+function findBestRoute<T extends Record<string, unknown>>(bots: T[], path: string, behavior: "include" | "exclude") {
+  let bestMatch: { bot: T; score: number } | null = null;
 
   for (const bot of bots) {
-    const routes = normalizeRouteRows(bot.widget_routes);
+    const routes = normalizeRouteRows(bot.widget_routes, behavior);
 
     for (const route of routes) {
       const score = getRouteScore(route.pattern, path, route.priority);
 
-      if (score > bestScore) {
-        bestScore = score;
-        bestBot = bot;
+      if (score > (bestMatch?.score ?? 0)) {
+        bestMatch = { bot, score };
       }
     }
   }
 
-  if (bestBot) {
-    return bestBot;
-  }
-
-  return bots[0];
+  return bestMatch;
 }
 
 function getPagePath(pageUrl: string | null | undefined) {
@@ -175,10 +217,11 @@ function normalizePath(path: string) {
   return withSlash.length > 1 ? withSlash.replace(/\/+$/g, "") : "/";
 }
 
-function normalizeRouteRows(rows: unknown) {
+function normalizeRouteRows(rows: unknown, behavior: "include" | "exclude" = "include") {
   return (Array.isArray(rows) ? rows : [])
     .map((row) => row && typeof row === "object" ? row as Record<string, unknown> : null)
     .filter((row): row is Record<string, unknown> => Boolean(row))
+    .filter((row) => (typeof row.behavior === "string" ? row.behavior : "include") === behavior)
     .map((row) => ({
       pattern: typeof row.pattern === "string" ? normalizeRoutePattern(row.pattern) : "",
       priority: Number(row.priority ?? 100)
@@ -219,7 +262,7 @@ function getRouteScore(pattern: string, path: string, priority: number) {
   return path === pattern ? 10000 + pattern.length + priorityScore : 0;
 }
 
-export function isAllowedWidgetOrigin(config: BotConfig, origin: string | null) {
+export function isAllowedWidgetOrigin(config: Pick<BotConfig, "allowedDomains">, origin: string | null) {
   if (!origin) {
     return true;
   }
@@ -230,4 +273,15 @@ export function isAllowedWidgetOrigin(config: BotConfig, origin: string | null) 
   } catch {
     return false;
   }
+}
+
+function isMissingWidgetRouteBehaviorColumn(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const record = error as { code?: unknown; message?: unknown };
+  const message = typeof record.message === "string" ? record.message : "";
+
+  return record.code === "PGRST204" || message.includes("'behavior' column of 'widget_routes'");
 }

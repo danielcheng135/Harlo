@@ -23,6 +23,7 @@ type BuilderRequest = {
   welcomePrompts?: string[];
   allowedDomains?: string[];
   routePatterns?: string[];
+  excludedRoutePatterns?: string[];
   leadCaptureFields?: LeadCaptureField[];
 };
 
@@ -46,6 +47,7 @@ type AgentResponse = {
   welcomePrompts: string[];
   allowedDomains: string[];
   routePatterns: string[];
+  excludedRoutePatterns: string[];
   leadCaptureFields: LeadCaptureField[];
   isDefault: boolean;
 };
@@ -171,7 +173,8 @@ async function saveAgent(
     serviceClient,
     membership.organization_id,
     activeBot.id,
-    parsed.settings.routePatterns
+    parsed.settings.routePatterns,
+    parsed.settings.excludedRoutePatterns
   );
 
   if (routeError) {
@@ -205,6 +208,7 @@ async function createAgent(
   const welcomePrompts = normalizePrompts(body.welcomePrompts);
   const allowedDomains = normalizeDomains(body.allowedDomains);
   const routePatterns = normalizeRoutePatterns(body.routePatterns);
+  const excludedRoutePatterns = normalizeRoutePatterns(body.excludedRoutePatterns);
   const leadCaptureFields = normalizeLeadFields(body.leadCaptureFields);
   const botName = await getNextAgentName(serviceClient, membership.organization_id, template.label);
 
@@ -244,7 +248,7 @@ async function createAgent(
     return NextResponse.json({ error: themeError.message }, { status: 500 });
   }
 
-  const routeError = await replaceWidgetRoutes(serviceClient, membership.organization_id, bot.id, routePatterns);
+  const routeError = await replaceWidgetRoutes(serviceClient, membership.organization_id, bot.id, routePatterns, excludedRoutePatterns);
 
   if (routeError) {
     return NextResponse.json({ error: routeError.message }, { status: 500 });
@@ -352,6 +356,7 @@ function parseAgentSettings(body: BuilderRequest): { settings: RequiredSettings 
   const welcomePrompts = normalizePrompts(body.welcomePrompts);
   const allowedDomains = normalizeDomains(body.allowedDomains);
   const routePatterns = normalizeRoutePatterns(body.routePatterns);
+  const excludedRoutePatterns = normalizeRoutePatterns(body.excludedRoutePatterns);
   const leadCaptureFields = normalizeLeadFields(body.leadCaptureFields);
 
   if (!botName || !description || !widgetTitle || !greeting || !fallbackMessage || !accent) {
@@ -381,6 +386,7 @@ function parseAgentSettings(body: BuilderRequest): { settings: RequiredSettings 
       welcomePrompts,
       allowedDomains,
       routePatterns,
+      excludedRoutePatterns,
       leadCaptureFields
     }
   };
@@ -400,6 +406,7 @@ type RequiredSettings = {
   welcomePrompts: string[];
   allowedDomains: string[];
   routePatterns: string[];
+  excludedRoutePatterns: string[];
   leadCaptureFields: LeadCaptureField[];
 };
 
@@ -554,12 +561,24 @@ async function getAgentResponse(
   organizationId: string,
   botId: string
 ): Promise<AgentResponse | null> {
-  const { data } = await serviceClient
+  let { data, error } = await serviceClient
     .from("bots")
-    .select("id, name, agent_type, description, system_instructions, handoff_instructions, is_default, greeting, fallback_message, allowed_domains, lead_capture_fields, widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority)")
+    .select("id, name, agent_type, description, system_instructions, handoff_instructions, is_default, greeting, fallback_message, allowed_domains, lead_capture_fields, widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority, behavior)")
     .eq("organization_id", organizationId)
     .eq("id", botId)
     .maybeSingle();
+
+  if (isMissingWidgetRouteBehaviorColumn(error)) {
+    const fallback = await serviceClient
+      .from("bots")
+      .select("id, name, agent_type, description, system_instructions, handoff_instructions, is_default, greeting, fallback_message, allowed_domains, lead_capture_fields, widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority)")
+      .eq("organization_id", organizationId)
+      .eq("id", botId)
+      .maybeSingle();
+
+    data = fallback.data as unknown as typeof data;
+    error = fallback.error;
+  }
 
   if (!data) {
     return null;
@@ -582,6 +601,7 @@ async function getAgentResponse(
     welcomePrompts: theme.welcomePrompts,
     allowedDomains: Array.isArray(data.allowed_domains) ? data.allowed_domains : [],
     routePatterns: normalizeRouteRows(data.widget_routes),
+    excludedRoutePatterns: normalizeRouteRows(data.widget_routes, "exclude"),
     leadCaptureFields: normalizeLeadFields(data.lead_capture_fields),
     isDefault: data.is_default === true
   };
@@ -591,7 +611,8 @@ async function replaceWidgetRoutes(
   serviceClient: ReturnType<typeof createSupabaseServiceClient>,
   organizationId: string,
   botId: string,
-  routePatterns: string[]
+  routePatterns: string[],
+  excludedRoutePatterns: string[] = []
 ) {
   const { error: deleteError } = await serviceClient
     .from("widget_routes")
@@ -603,33 +624,78 @@ async function replaceWidgetRoutes(
     return deleteError;
   }
 
-  if (routePatterns.length === 0) {
+  if (routePatterns.length === 0 && excludedRoutePatterns.length === 0) {
     return null;
   }
 
   const now = new Date().toISOString();
-  const { error } = await serviceClient
-    .from("widget_routes")
-    .insert(routePatterns.map((pattern, index) => ({
+  const rows = [
+    ...routePatterns.map((pattern, index) => ({
       organization_id: organizationId,
       bot_id: botId,
       pattern,
+      behavior: "include",
       priority: index + 1,
       updated_at: now
-    })));
+    })),
+    ...excludedRoutePatterns.map((pattern, index) => ({
+      organization_id: organizationId,
+      bot_id: botId,
+      pattern,
+      behavior: "exclude",
+      priority: index + 1,
+      updated_at: now
+    }))
+  ];
+  const { error } = await serviceClient
+    .from("widget_routes")
+    .insert(rows);
+
+  if (isMissingWidgetRouteBehaviorColumn(error)) {
+    if (excludedRoutePatterns.length > 0) {
+      return {
+        ...error,
+        message: "Excluded routes need the latest database migration. Apply supabase/migrations/0032_widget_route_exclusions.sql, then save again."
+      };
+    }
+
+    const fallback = await serviceClient
+      .from("widget_routes")
+      .insert(routePatterns.map((pattern, index) => ({
+        organization_id: organizationId,
+        bot_id: botId,
+        pattern,
+        priority: index + 1,
+        updated_at: now
+      })));
+
+    return fallback.error;
+  }
 
   return error;
 }
 
-function normalizeRouteRows(rows: unknown) {
+function normalizeRouteRows(rows: unknown, behavior = "include") {
   const routeRows = Array.isArray(rows) ? rows : [];
 
   return routeRows
     .map((row) => row && typeof row === "object" ? row as Record<string, unknown> : null)
     .filter((row): row is Record<string, unknown> => Boolean(row))
+    .filter((row) => (typeof row.behavior === "string" ? row.behavior : "include") === behavior)
     .sort((first, second) => Number(first.priority ?? 100) - Number(second.priority ?? 100))
     .map((row) => typeof row.pattern === "string" ? row.pattern : "")
     .filter(Boolean);
+}
+
+function isMissingWidgetRouteBehaviorColumn(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const record = error as { code?: unknown; message?: unknown };
+  const message = typeof record.message === "string" ? record.message : "";
+
+  return record.code === "PGRST204" || message.includes("'behavior' column of 'widget_routes'");
 }
 
 function normalizeTheme(theme: unknown): {

@@ -29,7 +29,7 @@ import {
 } from "@/lib/internal-admin";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 
-const WORKSPACE_BOT_SELECT_WITH_ROUTES = "id, name, agent_type, description, system_instructions, handoff_instructions, status, is_default, greeting, fallback_message, allowed_domains, lead_capture_fields, widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority)";
+const WORKSPACE_BOT_SELECT_WITH_ROUTES = "id, name, agent_type, description, system_instructions, handoff_instructions, status, is_default, greeting, fallback_message, allowed_domains, lead_capture_fields, widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority, behavior)";
 const WORKSPACE_BOT_SELECT = "id, name, agent_type, description, system_instructions, handoff_instructions, status, is_default, greeting, fallback_message, allowed_domains, lead_capture_fields, widget_themes(accent, launcher_position, title, welcome_prompts)";
 
 export type WorkspaceBot = {
@@ -45,6 +45,7 @@ export type WorkspaceBot = {
   fallback_message: string;
   allowed_domains: string[];
   route_patterns: string[];
+  excluded_route_patterns: string[];
   lead_capture_fields: LeadCaptureField[];
   widget_theme: {
     accent: string;
@@ -384,17 +385,19 @@ function normalizeWorkspaceBot(bot: {
     fallback_message: bot.fallback_message,
     allowed_domains: bot.allowed_domains ?? [],
     route_patterns: normalizeRoutePatternsFromRows(bot.widget_routes),
+    excluded_route_patterns: normalizeRoutePatternsFromRows(bot.widget_routes, "exclude"),
     lead_capture_fields: normalizeLeadFields(bot.lead_capture_fields),
     widget_theme: normalizeWidgetTheme(bot.widget_themes)
   };
 }
 
-function normalizeRoutePatternsFromRows(rows: unknown) {
+function normalizeRoutePatternsFromRows(rows: unknown, behavior = "include") {
   const routeRows = Array.isArray(rows) ? rows : [];
 
   return routeRows
     .map((row) => row && typeof row === "object" ? row as Record<string, unknown> : null)
     .filter((row): row is Record<string, unknown> => Boolean(row))
+    .filter((row) => (typeof row.behavior === "string" ? row.behavior : "include") === behavior)
     .sort((first, second) => Number(first.priority ?? 100) - Number(second.priority ?? 100))
     .map((row) => typeof row.pattern === "string" ? row.pattern : "")
     .filter(Boolean);
