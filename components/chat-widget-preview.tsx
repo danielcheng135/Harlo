@@ -21,7 +21,6 @@ export function ChatWidgetPreview({
   const accentText = getReadableTextColor(accent);
   const isLeft = launcherPosition === "bottom-left";
   const gradient = `linear-gradient(135deg, ${accent}, color-mix(in srgb, ${accent} 82%, #111827))`;
-  const accentShadow = `0 18px 38px color-mix(in srgb, ${accent} 28%, transparent), 0 6px 14px rgba(15,23,42,.12)`;
 
   return (
     <div className="relative min-h-[560px] overflow-hidden rounded-lg border border-harlo-line bg-[#f5f8fa] p-5">
@@ -93,7 +92,7 @@ export function ChatWidgetPreview({
         className={`absolute bottom-5 grid h-[58px] w-[58px] place-items-center rounded-full transition ${
           isLeft ? "left-5" : "right-5"
         }`}
-        style={{ background: gradient, color: accentText, boxShadow: accentShadow }}
+        style={{ background: gradient, color: accentText }}
         aria-label="Open widget preview"
       >
         <LauncherIcon />
