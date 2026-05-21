@@ -62,7 +62,7 @@ export function WidgetInstallPanel({ brandLogoUrl, organizationId, allowedDomain
             <div className="flex flex-wrap gap-2">
               <Button type="button" onClick={() => copySnippet(productionSnippet, "Install snippet")}>
                 <Clipboard size={16} />
-                Copy snippet
+                Copy
               </Button>
             </div>
           </CardHeader>
@@ -312,7 +312,20 @@ function normalizeWidgetOrigin(origin: string) {
     return "https://www.harloai.co";
   }
 
-  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+  try {
+    const url = new URL(withProtocol);
+    const isLocal = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1";
+
+    if (!isLocal) {
+      url.protocol = "https:";
+    }
+
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return `https://${trimmed.replace(/^https?:\/\//i, "")}`;
+  }
 }
 
 function copyWithFallback(value: string) {
