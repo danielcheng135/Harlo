@@ -6,6 +6,7 @@ import {
   ArrowRight,
   BarChart3,
   Bot,
+  CalendarCheck,
   CheckCircle2,
   Code2,
   Database,
@@ -24,6 +25,7 @@ import {
   Zap
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { CalendlyDemoButton } from "@/components/calendly-demo-button";
 import { CtaPhoneGraphic } from "@/components/cta-phone-graphic";
 import { CurvedLineBackdrop } from "@/components/curved-line-backdrop";
 import { MarketingFooter } from "@/components/marketing-footer";
@@ -349,14 +351,6 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
   const primaryCtaHref = page.primaryCta.toLowerCase().includes("trial") || page.primaryCta.toLowerCase().includes("start")
     ? getSignupHref("starter", interval)
     : "#pricing";
-  const secondaryCtaHref = page.secondaryCta.toLowerCase().includes("outcome")
-    ? "#use-cases"
-    : page.secondaryCta.toLowerCase().includes("compare")
-      ? "#compare"
-      : page.secondaryCta.toLowerCase().includes("feature")
-        ? "#features"
-        : "#how-it-works";
-
   return (
     <main className="min-h-screen bg-[#f7faf8] text-harlo-ink">
       <style>{`
@@ -403,12 +397,12 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
             >
               {page.primaryCta} <ArrowRight size={18} />
             </Link>
-            <Link
-              href={secondaryCtaHref}
-              className="inline-flex h-12 items-center justify-center rounded-full border border-harlo-line bg-white px-6 text-base font-semibold text-harlo-ink shadow-sm transition hover:border-harlo-teal hover:text-harlo-teal"
+            <CalendlyDemoButton
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-harlo-line bg-white px-6 text-base font-semibold text-harlo-ink shadow-sm transition hover:border-harlo-teal hover:text-harlo-teal"
             >
-              {page.secondaryCta}
-            </Link>
+              <CalendarCheck size={18} />
+              Book a Demo
+            </CalendlyDemoButton>
           </div>
         </div>
 
@@ -571,9 +565,13 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
               {content.finalCta}
             </h2>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Link href={getSignupHref("starter", interval)} className="inline-flex h-12 items-center justify-center rounded-full bg-white px-6 text-sm font-semibold text-harlo-ink transition hover:bg-harlo-mist">
-                Start free trial
+              <Link href={getSignupHref("starter", interval)} className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-6 text-sm font-semibold text-harlo-ink transition hover:bg-harlo-mist">
+                Start free trial <ArrowRight size={16} />
               </Link>
+              <CalendlyDemoButton className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/25 bg-white/10 px-6 text-sm font-semibold text-white transition hover:bg-white/15">
+                <CalendarCheck size={16} />
+                Book a Demo
+              </CalendlyDemoButton>
               <p className="flex items-center gap-2 text-sm font-medium text-white/75">
                 <Info size={16} />
                 {TRIAL_CONFIG.credits} trial credits included. Card required.

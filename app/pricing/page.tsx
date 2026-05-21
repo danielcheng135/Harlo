@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
+import { ArrowRight, CalendarCheck, CheckCircle2, Sparkles } from "lucide-react";
+import { CalendlyDemoButton } from "@/components/calendly-demo-button";
 import { PricingLandingSections } from "@/components/landing/pricing-landing-sections";
 import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingNav } from "@/components/marketing-nav";
@@ -39,16 +40,16 @@ export default function PricingPage() {
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
               href={getSignupHref()}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-harlo-ink px-6 text-base font-semibold text-white shadow-sm transition hover:bg-harlo-navy"
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-harlo-teal px-6 text-base font-semibold text-white shadow-[0_18px_36px_rgba(8,127,149,0.22)] transition hover:-translate-y-0.5 hover:bg-harlo-navy focus:outline-none focus:ring-2 focus:ring-harlo-teal focus:ring-offset-2 sm:w-auto"
             >
-              Start free trial <ArrowRight size={18} />
+              Start Free Trial <ArrowRight size={17} />
             </Link>
-            <Link
-              href="#compare"
-              className="inline-flex h-12 items-center justify-center rounded-full border border-harlo-line bg-white px-6 text-base font-semibold text-harlo-ink shadow-sm transition hover:border-harlo-teal hover:text-harlo-teal"
+            <CalendlyDemoButton
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-harlo-line bg-white px-6 text-base font-semibold text-harlo-ink shadow-sm transition hover:border-harlo-teal hover:text-harlo-teal"
             >
-              Compare plans
-            </Link>
+              <CalendarCheck size={18} />
+              Book a Demo
+            </CalendlyDemoButton>
           </div>
         </div>
         <PricingHeroVisual />

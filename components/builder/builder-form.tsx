@@ -585,7 +585,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                       </Field>
                       <Field icon={Sparkles} label="Launcher position">
                         <div className="grid grid-cols-2 rounded-lg border border-harlo-line bg-harlo-canvas p-1">
-                          {(["bottom-right", "bottom-left"] as const).map((position) => (
+                          {(["bottom-left", "bottom-right"] as const).map((position) => (
                             <button
                               key={position}
                               type="button"

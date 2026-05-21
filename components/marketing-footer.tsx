@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { Sparkles } from "lucide-react";
 import { getSignupHref } from "@/lib/onboarding/signup-url";
 import { siteConfig } from "@/lib/seo";
 
@@ -40,8 +39,8 @@ export function MarketingFooter() {
       <div className="mx-auto grid max-w-7xl gap-10 px-6 py-12 md:grid-cols-[1.3fr_0.9fr_1fr_0.9fr]">
         <div>
           <div className="flex items-center gap-2 text-white">
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-harlo-teal text-white">
-              <Sparkles size={18} />
+            <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-lg">
+              <img src="/icon.png" alt="Harlo logo" className="h-full w-full object-contain" />
             </span>
             <span className="text-xl font-semibold tracking-tight">Harlo</span>
           </div>

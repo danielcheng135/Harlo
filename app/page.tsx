@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Code2, Database, MessageSquare, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, CalendarCheck, Code2, Database, MessageSquare, ShieldCheck, Sparkles } from "lucide-react";
+import { CalendlyDemoButton } from "@/components/calendly-demo-button";
 import { HeroVideo } from "@/components/hero-video";
 import { OutcomesSection } from "@/components/landing/outcomes-section";
 import { PricingLandingSections } from "@/components/landing/pricing-landing-sections";
@@ -94,16 +95,16 @@ export default async function HomePage() {
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
               href={getSignupHref()}
-              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-harlo-ink px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-harlo-navy focus:outline-none focus:ring-2 focus:ring-harlo-teal focus:ring-offset-2 sm:w-auto"
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-harlo-teal px-6 text-base font-semibold text-white shadow-[0_18px_36px_rgba(8,127,149,0.22)] transition hover:-translate-y-0.5 hover:bg-harlo-navy focus:outline-none focus:ring-2 focus:ring-harlo-teal focus:ring-offset-2 sm:w-auto"
             >
-              Start free trial <ArrowRight size={17} />
+              Start Free Trial <ArrowRight size={17} />
             </Link>
-            <a
-              href="#workflow"
+            <CalendlyDemoButton
               className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full border border-harlo-line bg-white px-5 text-sm font-semibold text-harlo-ink transition hover:border-harlo-teal hover:text-harlo-teal focus:outline-none focus:ring-2 focus:ring-harlo-teal focus:ring-offset-2 sm:w-auto"
             >
-              See how it works
-            </a>
+              <CalendarCheck size={17} />
+              Book a Demo
+            </CalendlyDemoButton>
           </div>
         </div>
 

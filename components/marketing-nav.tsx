@@ -37,7 +37,7 @@ export function MarketingNav({
         </Link>
         <nav
           aria-label="Primary navigation"
-          className="order-2 col-span-1 mx-auto hidden min-w-0 max-w-full items-center gap-1 rounded-full border border-harlo-line/70 bg-white/70 p-1 text-sm font-semibold text-harlo-muted shadow-sm md:flex"
+          className="order-2 col-span-1 mx-auto hidden min-w-0 max-w-full items-center gap-1 text-sm font-semibold text-harlo-muted md:flex"
         >
           {links.map((link) => (
             <Link

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Bot, CheckCircle2, Info, Sparkles, UserPlus, Zap } from "lucide-react";
+import { ArrowRight, Bot, CalendarCheck, CheckCircle2, Info, Sparkles, UserPlus, Zap } from "lucide-react";
+import { CalendlyDemoButton } from "@/components/calendly-demo-button";
 import { CtaPhoneGraphic } from "@/components/cta-phone-graphic";
 import { CurvedLineBackdrop } from "@/components/curved-line-backdrop";
 import { Badge } from "@/components/ui/badge";
@@ -417,10 +418,14 @@ export function PricingLandingSections({
               <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Link
                   href={getSignupHref("starter", interval)}
-                  className="inline-flex h-12 items-center justify-center rounded-full bg-white px-6 text-sm font-semibold text-harlo-ink transition hover:bg-harlo-mist focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-harlo-ink"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-6 text-sm font-semibold text-harlo-ink transition hover:bg-harlo-mist focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-harlo-ink"
                 >
-                  Start free trial
+                  Start free trial <ArrowRight size={16} />
                 </Link>
+                <CalendlyDemoButton className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/25 bg-white/10 px-6 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-harlo-ink">
+                  <CalendarCheck size={16} />
+                  Book a Demo
+                </CalendlyDemoButton>
                 <p className="flex items-center gap-2 text-sm font-medium text-white/80">
                   <Info size={16} />
                   50 trial credits included

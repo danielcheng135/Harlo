@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, CheckCircle2, Clipboard, Globe2, RouteIcon, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Clipboard, Globe2, RouteIcon, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ToastViewport, useToast } from "@/components/ui/toast";
@@ -24,10 +24,8 @@ export function WidgetInstallPanel({ brandLogoUrl, organizationId, allowedDomain
   const { toast, showToast, dismissToast } = useToast();
   const productionSnippet = buildWorkspaceSnippet(productionOrigin, organizationId);
   const hasDomains = allowedDomains.length > 0;
-  const routedAgents = agents.filter((agent) => agent.routePatterns.length > 0);
-  const excludedAgents = agents.filter((agent) => agent.excludedRoutePatterns.length > 0);
+  const routedAgents = agents.filter((agent) => agent.routePatterns.length > 0 || agent.excludedRoutePatterns.length > 0);
   const defaultAgent = agents.find((agent) => agent.isDefault) ?? agents[0];
-  const defaultTestPath = defaultAgent?.routePatterns[0] ? getExamplePath(defaultAgent.routePatterns[0]) : "/";
 
   async function copySnippet(snippet: string, label: string) {
     try {
@@ -66,13 +64,6 @@ export function WidgetInstallPanel({ brandLogoUrl, organizationId, allowedDomain
                 <Clipboard size={16} />
                 Copy snippet
               </Button>
-              <a
-                href={`/widget-test?path=${encodeURIComponent(defaultTestPath)}`}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-harlo-line bg-white px-4 text-sm font-semibold text-harlo-ink transition hover:border-harlo-teal hover:text-harlo-teal"
-              >
-                Test routing
-                <ArrowUpRight size={14} />
-              </a>
             </div>
           </CardHeader>
           <CardBody>
@@ -90,7 +81,7 @@ export function WidgetInstallPanel({ brandLogoUrl, organizationId, allowedDomain
           <StatusCard
             icon={<RouteIcon size={18} />}
             title="Page routing"
-            body={`${agents.filter((agent) => agent.routePatterns.length > 0).length} agent${agents.filter((agent) => agent.routePatterns.length > 0).length === 1 ? "" : "s"} with route rules. The default agent handles unmatched pages.`}
+            body={`${routedAgents.length} agent${routedAgents.length === 1 ? "" : "s"} with route rules. Hidden route badges prevent the widget from loading on those pages.`}
             tone="ready"
           />
         </div>
@@ -106,7 +97,7 @@ export function WidgetInstallPanel({ brandLogoUrl, organizationId, allowedDomain
         <CardBody className="space-y-3">
           {routedAgents.length > 0 ? (
             routedAgents.map((agent) => (
-              <div key={agent.id} className="grid gap-3 rounded-lg border border-harlo-line bg-harlo-canvas p-4 md:grid-cols-[220px_minmax(0,1fr)_auto] md:items-center">
+              <div key={agent.id} className="grid gap-4 rounded-lg border border-harlo-line bg-harlo-canvas p-4 md:grid-cols-[220px_minmax(0,1fr)] md:items-start">
                 <div className="flex items-center gap-3">
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-sm font-semibold text-harlo-teal shadow-sm">
                     <RouteIcon size={16} />
@@ -116,17 +107,17 @@ export function WidgetInstallPanel({ brandLogoUrl, organizationId, allowedDomain
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-harlo-muted">Auto-routed</p>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <RouteChips patterns={agent.routePatterns} />
-                  {agent.excludedRoutePatterns.length > 0 ? <RouteChips patterns={agent.excludedRoutePatterns} tone="exclude" emptyLabel="" /> : null}
+                <div className="min-w-0 space-y-3">
+                  {agent.routePatterns.length > 0 ? (
+                    <RouteChips patterns={agent.routePatterns} tone="include" />
+                  ) : null}
+                  {agent.excludedRoutePatterns.length > 0 ? (
+                    <RouteChips patterns={agent.excludedRoutePatterns} tone="exclude" />
+                  ) : null}
+                  {agent.routePatterns.length === 0 && agent.excludedRoutePatterns.length === 0 ? (
+                    <RouteChips patterns={[]} />
+                  ) : null}
                 </div>
-                <a
-                  href={`/widget-test?path=${encodeURIComponent(getExamplePath(agent.routePatterns[0]))}`}
-                  className="inline-flex h-9 w-fit items-center justify-center gap-2 rounded-lg border border-harlo-line bg-white px-3 text-sm font-semibold text-harlo-ink transition hover:border-harlo-teal hover:text-harlo-teal"
-                >
-                  Test route
-                  <ArrowUpRight size={14} />
-                </a>
               </div>
             ))
           ) : (
@@ -147,20 +138,6 @@ export function WidgetInstallPanel({ brandLogoUrl, organizationId, allowedDomain
                 <ShieldCheck size={15} />
                 Default
               </span>
-            </div>
-          ) : null}
-          {excludedAgents.length > 0 ? (
-            <div className="rounded-lg border border-rose-100 bg-rose-50/60 p-4">
-              <p className="font-semibold text-harlo-ink">Hidden pages</p>
-              <p className="mt-1 text-sm leading-6 text-harlo-muted">The widget will not appear on these paths, even when another route matches.</p>
-              <div className="mt-3 space-y-2">
-                {excludedAgents.map((agent) => (
-                  <div key={agent.id} className="flex flex-col gap-2 rounded-lg bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-sm font-semibold text-harlo-ink">{agent.name}</p>
-                    <RouteChips patterns={agent.excludedRoutePatterns} tone="exclude" />
-                  </div>
-                ))}
-              </div>
             </div>
           ) : null}
         </CardBody>
@@ -235,14 +212,24 @@ function ChecklistItem({ title, body }: { title: string; body: string }) {
 function RouteChips({ patterns, emptyLabel = "Default fallback", tone = "include" }: { patterns: string[]; emptyLabel?: string; tone?: "include" | "exclude" }) {
   const visiblePatterns = patterns.slice(0, 4);
   const overflow = Math.max(0, patterns.length - visiblePatterns.length);
+  const label = tone === "exclude" ? "Hidden" : "Allowed";
+  const chipClass =
+    tone === "exclude"
+      ? "rounded-full border border-rose-100 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-600 shadow-sm"
+      : "rounded-full border border-harlo-mist bg-white px-2.5 py-1 text-xs font-semibold text-harlo-teal shadow-sm";
+  const labelClass =
+    tone === "exclude"
+      ? "rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-rose-600"
+      : "rounded-full bg-harlo-mist px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-harlo-teal";
 
   return (
-    <div className="mt-3 flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-2">
       {visiblePatterns.length > 0 ? (
         <>
           {visiblePatterns.map((pattern) => (
-            <span key={pattern} className={tone === "exclude" ? "rounded-full border border-rose-100 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-600 shadow-sm" : "rounded-full border border-harlo-line bg-white px-2.5 py-1 text-xs font-semibold text-harlo-muted shadow-sm"}>
-              {tone === "exclude" ? "Hide " : ""}{pattern}
+            <span key={`${tone}-${pattern}`} className={`${chipClass} inline-flex items-center gap-2`}>
+              <span className={labelClass}>{label}</span>
+              {pattern}
             </span>
           ))}
           {overflow > 0 ? (
@@ -326,32 +313,6 @@ function normalizeWidgetOrigin(origin: string) {
   }
 
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-}
-
-function getExamplePath(pattern: string | undefined) {
-  const normalized = normalizeRoutePattern(pattern);
-
-  if (normalized === "*") {
-    return "/";
-  }
-
-  if (normalized.endsWith("/*")) {
-    return `${normalized.slice(0, -2)}/example`;
-  }
-
-  return normalized;
-}
-
-function normalizeRoutePattern(pattern: string | undefined) {
-  const trimmed = pattern?.trim() || "/";
-
-  if (trimmed === "*") {
-    return "*";
-  }
-
-  const withSlash = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-
-  return withSlash.length > 1 ? withSlash.replace(/\/+$/g, "") : "/";
 }
 
 function copyWithFallback(value: string) {
