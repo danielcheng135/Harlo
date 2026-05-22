@@ -1,0 +1,128 @@
+<svg width="1680" height="490" viewBox="0 0 1680 490" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0f172a" flood-opacity="0.09"/>
+    </filter>
+    <linearGradient id="teal" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#0D8FAA"/>
+      <stop offset="1" stop-color="#087F95"/>
+    </linearGradient>
+    <linearGradient id="mist" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#EEF8FA"/>
+    </linearGradient>
+    <style>
+      .ink{fill:#111827}
+      .muted{fill:#5f6876}
+      .title{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:760}
+      .body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:560}
+      .small{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:700}
+    </style>
+  </defs>
+
+  <path d="M512 186C552 186 551 216 588 216" stroke="#087F95" stroke-width="3" fill="none"/>
+  <circle cx="588" cy="216" r="9" fill="white" stroke="#087F95" stroke-width="3"/>
+  <path d="M1088 186C1127 186 1126 216 1163 216" stroke="#087F95" stroke-width="3" fill="none"/>
+  <circle cx="1163" cy="216" r="9" fill="white" stroke="#087F95" stroke-width="3"/>
+
+  <g filter="url(#soft)">
+    <rect x="0" y="0" width="510" height="470" rx="18" fill="white" stroke="#DCE6EA" stroke-width="2"/>
+    <circle cx="56" cy="56" r="28" fill="url(#teal)"/>
+    <text x="38" y="64" class="title" font-size="24" fill="white">01</text>
+    <text x="28" y="132" class="title ink" font-size="26">Connect</text>
+    <text x="28" y="170" class="body muted" font-size="17">Add your content.</text>
+    <text x="28" y="196" class="body muted" font-size="17">Harlo learns from the sources</text>
+    <text x="28" y="222" class="body muted" font-size="17">you approve.</text>
+
+    <rect x="256" y="40" width="222" height="260" rx="13" fill="white" stroke="#DCE6EA" stroke-width="1.5"/>
+    <g transform="translate(272 58)">
+      <rect width="190" height="38" rx="8" fill="white" stroke="#E2E8EE"/>
+      <circle cx="17" cy="19" r="11" fill="#E6F3F6"/><text x="34" y="24" class="small ink" font-size="13">Website pages</text><text x="136" y="24" class="small muted" font-size="11">Synced</text><circle cx="177" cy="19" r="7" fill="#22C55E"/>
+      <rect y="50" width="190" height="38" rx="8" fill="white" stroke="#E2E8EE"/>
+      <circle cx="17" cy="69" r="11" fill="#ECFDF3"/><text x="34" y="74" class="small ink" font-size="13">Support policy</text><text x="136" y="74" class="small muted" font-size="11">Synced</text><circle cx="177" cy="69" r="7" fill="#22C55E"/>
+      <rect y="100" width="190" height="38" rx="8" fill="white" stroke="#E2E8EE"/>
+      <circle cx="17" cy="119" r="11" fill="#FFF1F2"/><text x="34" y="124" class="small ink" font-size="13">Pricing guide</text><text x="136" y="124" class="small muted" font-size="11">Synced</text><circle cx="177" cy="119" r="7" fill="#22C55E"/>
+      <rect y="150" width="190" height="38" rx="8" fill="white" stroke="#E2E8EE"/>
+      <circle cx="17" cy="169" r="11" fill="#F5F3FF"/><text x="34" y="174" class="small ink" font-size="13">Team notes</text><text x="136" y="174" class="small muted" font-size="11">Synced</text><circle cx="177" cy="169" r="7" fill="#22C55E"/>
+      <rect y="204" width="190" height="36" rx="8" fill="white" stroke="#E2E8EE"/>
+      <text x="60" y="227" class="small ink" font-size="15">+ Add source</text>
+    </g>
+    <rect x="20" y="370" width="470" height="80" rx="10" fill="url(#mist)" stroke="#DCE6EA"/>
+    <text x="82" y="408" class="small ink" font-size="17">Answers from</text>
+    <text x="82" y="432" class="small ink" font-size="17">approved sources</text>
+    <circle cx="52" cy="410" r="14" fill="none" stroke="#087F95" stroke-width="3"/>
+    <rect x="338" y="382" width="136" height="56" rx="10" fill="white" stroke="#DCE6EA"/>
+    <circle cx="364" cy="410" r="12" fill="none" stroke="#087F95" stroke-width="3"/>
+    <text x="386" y="406" class="small ink" font-size="15">1 snippet</text>
+    <text x="386" y="426" class="body muted" font-size="14">installed</text>
+  </g>
+
+  <g filter="url(#soft)">
+    <rect x="585" y="0" width="510" height="470" rx="18" fill="white" stroke="#DCE6EA" stroke-width="2"/>
+    <circle cx="641" cy="56" r="28" fill="url(#teal)"/>
+    <text x="623" y="64" class="title" font-size="24" fill="white">02</text>
+    <text x="613" y="132" class="title ink" font-size="26">Tune</text>
+    <text x="613" y="170" class="body muted" font-size="17">Customize the experience</text>
+    <text x="613" y="196" class="body muted" font-size="17">to match your brand and</text>
+    <text x="613" y="222" class="body muted" font-size="17">capture what matters.</text>
+
+    <rect x="832" y="28" width="220" height="240" rx="12" fill="white" stroke="#DCE6EA"/>
+    <rect x="832" y="28" width="220" height="42" rx="12" fill="#087F95"/>
+    <rect x="832" y="57" width="220" height="13" fill="#087F95"/>
+    <text x="870" y="55" class="small" font-size="15" fill="white">Harlo</text><text x="992" y="55" class="small" font-size="12" fill="white">Online</text>
+    <rect x="850" y="95" width="116" height="58" rx="9" fill="#F1F5F9"/>
+    <text x="864" y="121" class="small ink" font-size="14">How can I help</text><text x="864" y="141" class="small ink" font-size="14">you today?</text>
+    <rect x="882" y="169" width="150" height="56" rx="9" fill="#087F95"/>
+    <text x="906" y="193" class="small" font-size="14" fill="white">I need pricing and</text><text x="906" y="213" class="small" font-size="14" fill="white">a callback.</text>
+    <rect x="850" y="238" width="170" height="22" rx="7" fill="#F8FAFC"/>
+    <circle cx="1032" cy="249" r="13" fill="#087F95"/>
+
+    <text x="609" y="337" class="small muted" font-size="14">Brand color</text>
+    <rect x="713" y="326" width="24" height="24" rx="5" fill="#0EA5A6"/>
+    <rect x="747" y="320" width="82" height="36" rx="6" fill="white" stroke="#DCE6EA"/>
+    <text x="762" y="343" class="small muted" font-size="14">#0EA5A6</text>
+    <text x="609" y="388" class="small muted" font-size="14">Welcome</text><text x="609" y="406" class="small muted" font-size="14">message</text>
+    <rect x="725" y="371" width="202" height="36" rx="6" fill="white" stroke="#DCE6EA"/>
+    <text x="741" y="394" class="body muted" font-size="14">How can I help you?</text>
+    <text x="947" y="394" class="small muted" font-size="14">Collect email</text><rect x="1043" y="377" width="38" height="20" rx="10" fill="#087F95"/>
+
+    <rect x="605" y="370" width="470" height="80" rx="10" fill="url(#mist)" stroke="#DCE6EA"/>
+    <text x="684" y="408" class="small ink" font-size="17">Branded experience</text>
+    <text x="684" y="432" class="small ink" font-size="17">built for your site</text>
+    <path d="M646 428L664 410" stroke="#087F95" stroke-width="4" stroke-linecap="round"/>
+    <rect x="927" y="382" width="136" height="56" rx="10" fill="white" stroke="#DCE6EA"/>
+    <text x="973" y="406" class="small ink" font-size="15">50 trial</text><text x="973" y="426" class="body muted" font-size="14">credits</text>
+  </g>
+
+  <g filter="url(#soft)">
+    <rect x="1170" y="0" width="510" height="470" rx="18" fill="white" stroke="#DCE6EA" stroke-width="2"/>
+    <circle cx="1226" cy="56" r="28" fill="url(#teal)"/>
+    <text x="1208" y="64" class="title" font-size="24" fill="white">03</text>
+    <text x="1198" y="132" class="title ink" font-size="26">Capture</text>
+    <text x="1198" y="170" class="body muted" font-size="17">Capture intent, route</text>
+    <text x="1198" y="196" class="body muted" font-size="17">with context, and hand</text>
+    <text x="1198" y="222" class="body muted" font-size="17">off faster.</text>
+
+    <rect x="1402" y="22" width="258" height="230" rx="12" fill="white" stroke="#DCE6EA"/>
+    <text x="1420" y="54" class="small ink" font-size="16">Lead captured</text>
+    <rect x="1580" y="39" width="64" height="24" rx="12" fill="#DCFCE7"/><text x="1590" y="56" class="small" font-size="12" fill="#16A34A">New lead</text>
+    <text x="1420" y="88" class="body muted" font-size="13">Name</text><text x="1536" y="88" class="small ink" font-size="13">Alex Johnson</text>
+    <text x="1420" y="116" class="body muted" font-size="13">Email</text><text x="1536" y="116" class="small ink" font-size="13">alex@acme.com</text>
+    <text x="1420" y="144" class="body muted" font-size="13">Intent</text><text x="1536" y="144" class="small ink" font-size="13">Pricing</text>
+    <text x="1420" y="172" class="body muted" font-size="13">Timeline</text><text x="1536" y="172" class="small ink" font-size="13">Q2 2026</text>
+    <text x="1420" y="200" class="body muted" font-size="13">Source</text><text x="1536" y="200" class="small ink" font-size="13">/pricing</text>
+    <rect x="1420" y="218" width="224" height="28" rx="7" fill="#F8FAFC"/><text x="1474" y="237" class="small ink" font-size="13">View full conversation -></text>
+    <rect x="1402" y="264" width="258" height="84" rx="9" fill="#F8FAFC" stroke="#E2E8EE"/>
+    <text x="1420" y="292" class="small muted" font-size="13">Conversation preview</text>
+    <text x="1420" y="318" class="body ink" font-size="14">Visitor asked about pricing and wants</text>
+    <text x="1420" y="340" class="body ink" font-size="14">a callback for their team.</text>
+
+    <rect x="1190" y="370" width="470" height="80" rx="10" fill="url(#mist)" stroke="#DCE6EA"/>
+    <text x="1252" y="408" class="small ink" font-size="17">Routed with context</text>
+    <text x="1252" y="432" class="small ink" font-size="17">to the right team</text>
+    <circle cx="1222" cy="410" r="14" fill="none" stroke="#087F95" stroke-width="3"/>
+    <rect x="1530" y="382" width="112" height="56" rx="10" fill="white" stroke="#DCE6EA"/>
+    <circle cx="1554" cy="410" r="14" fill="#E6F3F6"/><circle cx="1554" cy="410" r="6" fill="#22C55E"/>
+    <text x="1578" y="406" class="small ink" font-size="15">Live</text><text x="1578" y="426" class="body muted" font-size="14">assistant</text>
+  </g>
+</svg>
