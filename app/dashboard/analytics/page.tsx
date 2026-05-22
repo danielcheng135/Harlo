@@ -2,11 +2,8 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
-  BookOpen,
   Bot,
   Calendar,
-  FileText,
-  Globe2,
   HelpCircle,
   Info,
   Library,
@@ -16,6 +13,7 @@ import {
   Zap
 } from "lucide-react";
 import { FilterSubmitButton } from "@/components/analytics/filter-submit-button";
+import { SourceLogo } from "@/components/analytics/source-logo";
 import { Card, CardBody } from "@/components/ui/card";
 import {
   getBillingOverview,
@@ -483,17 +481,10 @@ function Panel({
 }
 
 function SourceRow({ source }: { source: ReturnType<typeof getTopKnowledgeSources>[number] }) {
-  const Icon = getSourceIcon(source);
-  const logoUrl = source.sourceType === "url" ? getSourceLogoCandidates(source)[0] : null;
-
   return (
     <div className="grid grid-cols-[34px_minmax(0,1fr)_120px_42px] items-center gap-3">
       <span className="grid h-8 w-8 place-items-center rounded-lg bg-harlo-mist text-harlo-teal">
-        {logoUrl ? (
-          <img src={logoUrl} alt="" className="h-full w-full object-contain p-1.5" loading="lazy" referrerPolicy="no-referrer" />
-        ) : (
-          <Icon size={16} />
-        )}
+        <SourceLogo candidates={getSourceLogoCandidates(source)} sourceType={source.sourceType} />
       </span>
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold text-harlo-ink">{source.name}</p>
@@ -1083,10 +1074,6 @@ function toDateInputValue(value: Date) {
 
 function getChunkCount(source: KnowledgeSourceRow) {
   return typeof source.metadata.chunk_count === "number" ? source.metadata.chunk_count : source.chunks.length;
-}
-
-function getSourceIcon(source: ReturnType<typeof getTopKnowledgeSources>[number]) {
-  return source.sourceType === "file" ? FileText : source.sourceType === "url" ? Globe2 : BookOpen;
 }
 
 function getSourceLogoCandidates(source: ReturnType<typeof getTopKnowledgeSources>[number]) {
