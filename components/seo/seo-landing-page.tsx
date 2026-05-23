@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import type { Route } from "next";
 import {
   ArrowRight,
   BarChart3,
@@ -14,6 +15,7 @@ import {
   Gauge,
   Info,
   LifeBuoy,
+  Menu,
   MessageCircle,
   MousePointerClick,
   Plug,
@@ -22,15 +24,14 @@ import {
   Sparkles,
   UserCheck,
   UsersRound,
+  X,
   Zap
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { CalendlyDemoButton } from "@/components/calendly-demo-button";
 import { CtaPhoneGraphic } from "@/components/cta-phone-graphic";
-import { CurvedLineBackdrop } from "@/components/curved-line-backdrop";
+import { HeroVideo } from "@/components/hero-video";
 import { MarketingFooter } from "@/components/marketing-footer";
-import { MarketingNav } from "@/components/marketing-nav";
-import { AnimatedFaqList } from "@/components/seo/animated-faq-list";
 import {
   BILLING_PLANS,
   TRIAL_CONFIG,
@@ -312,11 +313,12 @@ const contentByPath: Record<string, Partial<LandingContent>> = {
 export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
   const content = mergeContent(page.path);
   const [interval, setInterval] = useState<BillingInterval>("monthly");
+  const [openFaq, setOpenFaq] = useState(0);
   const primaryCtaHref = page.primaryCta.toLowerCase().includes("trial") || page.primaryCta.toLowerCase().includes("start")
     ? getSignupHref("starter", interval)
     : "#pricing";
   return (
-    <main className="min-h-screen bg-[#f7faf8] text-harlo-ink">
+    <main className="min-h-screen bg-white text-harlo-ink">
       <style>{`
         @keyframes harloFloat {
           0%, 100% { transform: translateY(0); }
@@ -335,58 +337,55 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
         .harlo-pulse { animation: harloPulse 3.4s ease-in-out infinite; }
       `}</style>
 
-      <MarketingNav
-        links={[
-          { label: "Features", href: "#features" },
-          { label: "How it works", href: "#how-it-works" },
-          { label: "Pricing", href: "#pricing" },
-          { label: "FAQ", href: "#faq" }
-        ]}
-        ctaLabel="Start free trial"
-        ctaHref={getSignupHref("starter", interval)}
-        ctaVariant="dark"
-      />
+      <LandingNav signupHref={getSignupHref("starter", interval)} />
 
-      <section className="mx-auto grid max-w-7xl items-center gap-10 px-4 pb-16 pt-10 sm:px-6 sm:pt-16 lg:grid-cols-[0.92fr_1.08fr] lg:pt-20">
+      <section id="hero" className="relative overflow-hidden bg-[#07111a] px-4 pb-28 pt-28 text-white sm:px-6 lg:pb-32 lg:pt-36">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_26%,rgba(8,127,149,0.38),transparent_34%),linear-gradient(135deg,#07111a_0%,#08131d_48%,#063f4c_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.055)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.055)_1px,transparent_1px)] bg-[size:64px_64px] opacity-30" />
+
+        <div className="relative mx-auto grid max-w-7xl items-center gap-8 lg:grid-cols-[0.98fr_1.02fr]">
         <div>
-          <SectionBadge>{content.eyebrow}</SectionBadge>
-          <h1 className="mt-6 max-w-4xl text-4xl font-semibold leading-[1.02] tracking-tight text-harlo-ink sm:text-5xl md:text-7xl">
+          <SectionBadge variant="dark">{content.eyebrow}</SectionBadge>
+          <h1 className="mt-6 max-w-4xl text-5xl font-semibold leading-[0.98] tracking-tight text-white sm:text-6xl lg:text-7xl">
             {page.h1}
           </h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-harlo-muted sm:text-xl sm:leading-9">{page.intro}</p>
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-200">{page.intro}</p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
               href={primaryCtaHref}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-harlo-teal px-6 text-base font-semibold text-white shadow-[0_18px_36px_rgba(8,127,149,0.22)] transition hover:-translate-y-0.5 hover:bg-harlo-navy"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-harlo-blue px-6 text-sm font-semibold text-white shadow-[0_18px_42px_rgba(13,143,170,0.32)] transition hover:-translate-y-0.5 hover:bg-harlo-teal focus:outline-none focus:ring-2 focus:ring-white/60"
             >
               {page.primaryCta} <ArrowRight size={18} />
             </Link>
             <CalendlyDemoButton
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-harlo-line bg-white px-6 text-base font-semibold text-harlo-ink shadow-sm transition hover:border-harlo-teal hover:text-harlo-teal"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 px-6 text-sm font-semibold text-white transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/60"
             >
               <CalendarCheck size={18} />
-              Book a Demo
+              Book a demo
             </CalendlyDemoButton>
+          </div>
+          <div className="mt-7 flex flex-wrap gap-x-5 gap-y-3 text-sm font-semibold text-slate-200">
+            {content.proof.slice(0, 3).map((item) => (
+              <span key={item} className="inline-flex items-center gap-2">
+                <CheckCircle2 size={15} className="text-harlo-blue" />
+                {item}
+              </span>
+            ))}
           </div>
         </div>
 
-        <ProductMockup page={page} content={content} />
-      </section>
-
-      <section className="border-y border-harlo-line bg-white">
-        <div className="mx-auto grid max-w-7xl gap-4 px-6 py-6 text-sm font-semibold text-harlo-muted md:grid-cols-4">
-          {content.proof.map((item) => (
-            <div key={item} className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-harlo-blue" />
-              {item}
-            </div>
-          ))}
+        <div className="relative">
+          <HeroVideo className="mx-auto w-full max-w-[41rem]" />
+        </div>
         </div>
       </section>
 
-      <section id="features" className="mx-auto max-w-7xl px-6 py-20">
+      <ResultStrip page={page} content={content} />
+
+      <section id="features" className="bg-white px-4 py-20 sm:px-6">
+        <div className="mx-auto max-w-7xl">
         <div className="max-w-3xl">
-          <SectionBadge>Features</SectionBadge>
+          <SectionBadge>Outcomes</SectionBadge>
           <h2 className="mt-4 text-4xl font-semibold tracking-tight text-harlo-ink md:text-6xl">
             {content.sectionHeadline}
           </h2>
@@ -397,9 +396,10 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
             <FeatureCard key={feature.title} feature={feature} index={index} visualKind={content.visualKind} />
           ))}
         </div>
+        </div>
       </section>
 
-      <section id="how-it-works" className="border-y border-harlo-line bg-white">
+      <section id="how-it-works" className="bg-harlo-canvas">
         <div className="mx-auto grid max-w-7xl gap-10 px-6 py-20 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
           <div>
             <SectionBadge>Workflow</SectionBadge>
@@ -411,7 +411,7 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
           </div>
           <div className="grid gap-4">
             {content.steps.map((step, index) => (
-              <article key={step.title} className="group flex gap-4 rounded-lg border border-harlo-line bg-[#f7faf8] p-5 transition duration-300 hover:-translate-y-1 hover:border-harlo-teal/40 hover:bg-white hover:shadow-soft">
+              <article key={step.title} className="group flex gap-4 rounded-lg border border-harlo-line bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-harlo-teal/40 hover:shadow-soft">
                 <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-full text-base font-semibold ${index === 1 ? "bg-harlo-teal text-white" : "bg-harlo-mist text-harlo-teal"}`}>
                   0{index + 1}
                 </span>
@@ -450,7 +450,7 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
         </div>
       </section>
 
-      <section id="pricing" className="border-y border-harlo-line bg-white">
+      <section id="pricing" className="bg-harlo-canvas">
         <div className="mx-auto max-w-7xl px-6 py-20">
           <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
             <div className="max-w-3xl">
@@ -462,7 +462,7 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
                 Start with a {TRIAL_CONFIG.days}-day Starter trial and {TRIAL_CONFIG.credits} trial credits, then choose the plan that matches your website traffic.
               </p>
             </div>
-            <div className="shrink-0 self-start lg:self-end">
+            <div className="w-full shrink-0 self-start lg:w-auto lg:self-end">
               <BillingIntervalToggle interval={interval} onChange={setInterval} />
             </div>
           </div>
@@ -503,51 +503,204 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
         </div>
       </section>
 
-      <section id="faq" className="relative overflow-hidden border-y border-harlo-line bg-white">
-        <CurvedLineBackdrop />
-        <div className="relative mx-auto grid max-w-7xl gap-10 px-6 py-20 lg:grid-cols-[0.85fr_1.15fr]">
+      <section id="faq" className="relative overflow-hidden bg-[#07111a] px-4 py-20 text-white sm:px-6">
+        <FaqWave />
+        <div className="relative mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.82fr_1.18fr]">
           <div>
-            <SectionBadge>FAQ</SectionBadge>
-            <h2 className="mt-4 text-4xl font-semibold tracking-tight text-harlo-ink md:text-6xl">
-              Questions before launch.
-            </h2>
-            <p className="mt-5 text-lg leading-8 text-harlo-muted">
+            <SectionBadge variant="dark">FAQ</SectionBadge>
+            <h2 className="mt-4 text-4xl font-semibold tracking-tight md:text-5xl">Questions before launch.</h2>
+            <p className="mt-4 max-w-md text-base leading-7 text-slate-300">
               Straight answers about setup, pricing, lead capture, and how Harlo fits into your current website.
             </p>
           </div>
-          <AnimatedFaqList items={content.faqs} />
-        </div>
+          <div className="divide-y divide-white/10 rounded-lg border border-white/10 bg-white/[0.03] shadow-[0_24px_70px_rgba(2,6,23,0.25)] backdrop-blur">
+            {content.faqs.map((faq, index) => {
+              const isOpen = openFaq === index;
 
-        <div className="relative mx-auto max-w-7xl px-6 pb-20">
-          <div className="relative overflow-hidden rounded-2xl bg-harlo-navy px-6 py-12 text-white shadow-soft md:px-16 md:py-16 lg:pr-[28rem]">
-          <div className="absolute inset-0 bg-gradient-to-br from-harlo-navy via-harlo-ink to-harlo-teal" />
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:56px_56px] opacity-40" />
-          <CtaPhoneGraphic />
-          <div className="relative flex min-h-[340px] max-w-3xl flex-col justify-center">
-            <SectionBadge variant="dark">Launch</SectionBadge>
-            <h2 className="mt-5 max-w-3xl text-4xl font-semibold tracking-tight md:text-6xl">
-              {content.finalCta}
-            </h2>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Link href={getSignupHref("starter", interval)} className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-6 text-sm font-semibold text-harlo-ink transition hover:bg-harlo-mist">
-                Start free trial <ArrowRight size={16} />
-              </Link>
-              <CalendlyDemoButton className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/25 bg-white/10 px-6 text-sm font-semibold text-white transition hover:bg-white/15">
-                <CalendarCheck size={16} />
-                Book a Demo
-              </CalendlyDemoButton>
-              <p className="flex items-center gap-2 text-sm font-medium text-white/75">
-                <Info size={16} />
-                {TRIAL_CONFIG.credits} trial credits included. Card required.
-              </p>
-            </div>
+              return (
+                <div key={faq.question} className="p-5">
+                  <button
+                    type="button"
+                    aria-expanded={isOpen}
+                    onClick={() => setOpenFaq(isOpen ? -1 : index)}
+                    className="flex w-full items-center justify-between gap-4 text-left text-base font-semibold text-white"
+                  >
+                    {faq.question}
+                    <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/10 text-harlo-blue transition duration-300 ${isOpen ? "rotate-45" : ""}`}>
+                      +
+                    </span>
+                  </button>
+                  <div className={`grid transition-all duration-300 ease-out ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                    <div className="overflow-hidden">
+                      <p className="max-w-2xl pt-3 text-sm leading-6 text-slate-300">{faq.answer}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
+        </div>
+      </section>
+
+      <section id="cta" className="relative overflow-hidden bg-[#07111a] px-4 py-20 text-white sm:px-6">
+        <div className="relative mx-auto max-w-7xl">
+          <div className="relative min-h-[500px] overflow-hidden rounded-2xl bg-harlo-navy px-6 py-14 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08),0_30px_90px_rgba(2,6,23,0.32)] md:px-16 md:py-16 lg:pr-[28rem]">
+            <div className="absolute inset-0 bg-gradient-to-br from-harlo-navy via-harlo-ink to-harlo-teal" />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:56px_56px] opacity-40" />
+            <CtaPhoneGraphic />
+            <div className="relative flex min-h-[380px] max-w-3xl flex-col justify-center">
+              <SectionBadge variant="dark">Launch</SectionBadge>
+              <h2 className="mt-5 max-w-3xl text-4xl font-semibold tracking-tight md:text-6xl">{content.finalCta}</h2>
+              <p className="mt-5 max-w-xl text-base leading-7 text-slate-300">
+                Start your trial, add the widget, and let Harlo handle the first customer conversation.
+              </p>
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Link href={getSignupHref("starter", interval)} className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-harlo-blue px-6 text-sm font-semibold text-white shadow-[0_18px_42px_rgba(13,143,170,0.32)] transition hover:-translate-y-0.5 hover:bg-harlo-teal">
+                  Start free trial <ArrowRight size={16} />
+                </Link>
+                <CalendlyDemoButton className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 px-6 text-sm font-semibold text-white transition hover:bg-white/10">
+                  <CalendarCheck size={16} />
+                  Book a demo
+                </CalendlyDemoButton>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       <MarketingFooter />
     </main>
+  );
+}
+
+function LandingNav({ signupHref }: { signupHref: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const links = [
+    { label: "Features", href: "#features" },
+    { label: "Workflow", href: "#how-it-works" },
+    { label: "Pricing", href: "#pricing" },
+    { label: "FAQ", href: "#faq" }
+  ];
+
+  return (
+    <header className="absolute inset-x-0 top-0 z-[100] px-4 pt-4">
+      <div className="relative mx-auto max-w-7xl rounded-lg px-3 py-2 text-white">
+        <div className="flex items-center justify-between gap-4">
+          <Link href="/" className="flex min-w-0 items-center gap-2 px-2" aria-label="Harlo home">
+            <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-lg">
+              <img src="/icon.png" alt="Harlo logo" className="h-full w-full object-contain" />
+            </span>
+            <span className="text-xl font-semibold tracking-tight text-white">Harlo</span>
+          </Link>
+
+          <nav aria-label="Primary navigation" className="hidden items-center gap-1 text-sm font-semibold text-white/72 lg:flex">
+            {links.map((link) => (
+              <Link key={link.href} href={link.href as Route} className="inline-flex items-center rounded-full px-4 py-2 transition hover:bg-white/10 hover:text-white">
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+
+          <div className="hidden items-center gap-3 lg:flex">
+            <Link href="/auth/sign-in" className="rounded-full px-4 py-2 text-sm font-semibold text-white/76 transition hover:bg-white/10 hover:text-white">
+              Sign in
+            </Link>
+            <Link href={signupHref as Route} className="inline-flex h-10 items-center justify-center rounded-lg bg-harlo-blue px-5 text-sm font-semibold text-white shadow-[0_14px_32px_rgba(13,143,170,0.34)] transition hover:-translate-y-0.5 hover:bg-harlo-teal">
+              Start free trial
+            </Link>
+          </div>
+
+          <button
+            type="button"
+            aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={isOpen}
+            onClick={() => setIsOpen((current) => !current)}
+            className="grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-white/10 text-white lg:hidden"
+          >
+            {isOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+
+        <div
+          className={`absolute left-0 right-0 top-full z-[120] px-3 pt-3 transition-all duration-300 lg:hidden ${
+            isOpen ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-2 opacity-0"
+          }`}
+        >
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-[#07111a]/95 p-2 shadow-[0_24px_70px_rgba(2,6,23,0.45)] backdrop-blur-xl">
+            {links.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href as Route}
+                onClick={() => setIsOpen(false)}
+                className="flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white"
+              >
+                {link.label}
+              </Link>
+            ))}
+            <div className="mt-2 grid gap-2 border-t border-white/10 pt-2">
+              <Link href="/auth/sign-in" onClick={() => setIsOpen(false)} className="rounded-2xl px-4 py-3 text-sm font-semibold text-white/80">
+                Sign in
+              </Link>
+              <Link href={signupHref as Route} onClick={() => setIsOpen(false)} className="inline-flex h-11 items-center justify-center rounded-lg bg-harlo-blue px-5 text-sm font-semibold text-white">
+                Start free trial
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function ResultStrip({ page, content }: { page: SeoLandingPage; content: LandingContent }) {
+  const items = [
+    { value: content.heroMetric, label: content.heroMetricLabel, icon: BarChart3 },
+    { value: String(TRIAL_CONFIG.credits), label: "trial credits included", icon: Sparkles },
+    { value: "5-10m", label: "to launch the assistant", icon: Zap },
+    { value: "24/7", label: page.sections[0]?.title ?? "website coverage", icon: MessageCircle }
+  ];
+
+  return (
+    <section className="relative z-10 -mt-14 px-4 sm:px-6">
+      <div className="mx-auto max-w-7xl rounded-lg border border-harlo-line bg-white p-5 shadow-[0_18px_60px_rgba(15,23,42,0.12)] sm:p-7">
+        <p className="text-center text-xs font-bold uppercase tracking-[0.28em] text-harlo-muted">Real results from real conversations</p>
+        <div className="mt-6 grid gap-4 md:grid-cols-4">
+          {items.map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <div key={item.label} className="flex items-center gap-4 rounded-lg p-3">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-harlo-mist text-harlo-teal">
+                  <Icon size={22} />
+                </span>
+                <div>
+                  <p className="text-3xl font-semibold tracking-tight text-harlo-ink">{item.value}</p>
+                  <p className="mt-1 text-sm font-medium leading-5 text-harlo-muted">{item.label}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FaqWave() {
+  return (
+    <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-55" viewBox="0 0 1440 520" fill="none" aria-hidden="true" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="seoFaqWaveGradient" x1="0" y1="520" x2="1440" y2="0" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#0D8FAA" stopOpacity="0" />
+          <stop offset="0.3" stopColor="#0D8FAA" stopOpacity="0.28" />
+          <stop offset="0.62" stopColor="#5BD5E8" stopOpacity="0.16" />
+          <stop offset="1" stopColor="#0D8FAA" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d="M-150 520C112 392 300 470 514 330C748 177 916 213 1136 95C1276 20 1385 -4 1530 -72" stroke="url(#seoFaqWaveGradient)" strokeWidth="70" strokeLinecap="round" />
+      <path d="M-120 552C142 426 318 510 552 370C806 218 936 272 1170 148C1310 74 1408 48 1540 8" stroke="url(#seoFaqWaveGradient)" strokeWidth="32" strokeLinecap="round" />
+      <path d="M-190 474C54 356 272 414 476 278C708 124 874 172 1080 64C1240 -20 1380 -50 1510 -105" stroke="url(#seoFaqWaveGradient)" strokeWidth="24" strokeLinecap="round" />
+    </svg>
   );
 }
 
@@ -561,7 +714,7 @@ function ProductMockup({ page, content }: { page: SeoLandingPage; content: Landi
   }[content.visualKind];
 
   return (
-    <div className="relative min-w-0 overflow-hidden rounded-2xl border border-harlo-line bg-white p-3 shadow-soft sm:p-4">
+    <div className="relative min-w-0 overflow-hidden rounded-2xl border border-white/70 bg-white p-3 shadow-[0_32px_80px_rgba(2,6,23,0.24)] sm:p-4">
       <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(17,24,39,0.045)_1px,transparent_1px),linear-gradient(rgba(17,24,39,0.045)_1px,transparent_1px)] bg-[size:42px_42px]" />
       {mockup}
     </div>
@@ -581,7 +734,7 @@ function WebsiteHeroMockup({ page, content }: { page: SeoLandingPage; content: L
           </p>
           <div className="mt-4 grid gap-2">
             {["Website pages", "Support docs", "Policy notes"].map((source) => (
-              <div key={source} className="flex items-center justify-between rounded-lg border border-harlo-line bg-white p-3 text-sm font-semibold">
+              <div key={source} className="flex items-center justify-between rounded-lg border border-harlo-line bg-white p-3 text-sm font-semibold text-harlo-ink">
                 {source}
                 <CheckCircle2 size={16} className="text-harlo-teal" />
               </div>
@@ -940,17 +1093,22 @@ function BillingIntervalToggle({
   onChange: (interval: BillingInterval) => void;
 }) {
   return (
-    <div className="inline-grid min-w-max shrink-0 grid-cols-2 rounded-lg border border-harlo-line bg-white p-1 shadow-sm">
+    <div className="grid w-full shrink-0 grid-cols-2 rounded-full border border-harlo-line bg-white/95 p-1.5 shadow-[0_14px_34px_rgba(15,23,42,0.08)] sm:inline-grid sm:w-auto sm:min-w-max">
       {(["monthly", "annual"] as const).map((option) => (
         <button
           key={option}
           type="button"
           onClick={() => onChange(option)}
-          className={`whitespace-nowrap rounded-md px-4 py-2 text-sm font-semibold capitalize transition ${
-            interval === option ? "bg-harlo-ink text-white shadow-sm" : "text-harlo-muted hover:text-harlo-ink"
+          className={`inline-flex min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-full px-4 py-2.5 text-sm font-semibold capitalize transition sm:min-w-28 ${
+            interval === option ? "bg-harlo-ink text-white shadow-[0_10px_24px_rgba(17,24,39,0.18)]" : "text-harlo-muted hover:bg-harlo-mist hover:text-harlo-ink"
           }`}
         >
           {option}
+          {option === "annual" ? (
+            <span className="rounded-full bg-gradient-to-r from-rose-500 to-red-300 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm shadow-red-100">
+              20%
+            </span>
+          ) : null}
         </button>
       ))}
     </div>

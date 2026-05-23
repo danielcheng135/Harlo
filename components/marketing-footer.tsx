@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
+import { Mail } from "lucide-react";
 import { getSignupHref } from "@/lib/onboarding/signup-url";
 import { siteConfig } from "@/lib/seo";
 
@@ -34,27 +35,45 @@ const footerSections = [
 ];
 
 export function MarketingFooter() {
+  const currentYear = new Date().getFullYear();
+
   return (
-    <footer className="border-t border-harlo-line bg-harlo-ink text-white">
-      <div className="mx-auto grid max-w-7xl gap-10 px-6 py-12 md:grid-cols-[1.3fr_0.9fr_1fr_0.9fr]">
+    <footer className="bg-white px-4 py-12 sm:px-6">
+      <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.2fr_repeat(3,0.7fr)]">
         <div>
-          <div className="flex items-center gap-2 text-white">
+          <div className="flex items-center gap-2 text-harlo-ink">
             <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-lg">
               <img src="/icon.png" alt="Harlo logo" className="h-full w-full object-contain" />
             </span>
             <span className="text-xl font-semibold tracking-tight">Harlo</span>
           </div>
-          <p className="mt-5 max-w-md text-sm leading-6 text-slate-300">
+          <p className="mt-5 max-w-md text-sm leading-6 text-harlo-muted">
             Harlo helps growing teams answer website questions, automate customer support, capture qualified leads, and keep conversations grounded in approved business knowledge.
           </p>
+          <div className="mt-5 flex items-center gap-3">
+            <Link
+              href="mailto:support@harloai.co"
+              aria-label="Email Harlo support"
+              className="grid h-9 w-9 place-items-center rounded-full border border-harlo-line text-harlo-muted transition hover:border-harlo-teal hover:text-harlo-teal"
+            >
+              <Mail size={16} />
+            </Link>
+            <div>
+              <p className="text-sm font-semibold text-harlo-ink">Customer Support</p>
+              <Link href="mailto:support@harloai.co" className="text-sm font-medium text-harlo-muted transition hover:text-harlo-teal">
+                support@harloai.co
+              </Link>
+            </div>
+          </div>
+          <p className="mt-6 text-xs font-medium text-harlo-muted">© {currentYear} Harlo. All rights reserved.</p>
         </div>
 
         {footerSections.map((section) => (
           <div key={section.title}>
-            <h2 className="text-sm font-semibold text-white">{section.title}</h2>
-            <div className="mt-4 grid gap-3 text-sm text-slate-300">
+            <h2 className="text-sm font-semibold text-harlo-ink">{section.title}</h2>
+            <div className="mt-4 grid gap-3 text-sm text-harlo-muted">
               {section.links.map((link) => (
-                <Link key={link.href} href={link.href as Route} className="transition hover:text-white">
+                <Link key={link.href} href={link.href as Route} className="transition hover:text-harlo-teal">
                   {link.label}
                 </Link>
               ))}
@@ -62,12 +81,7 @@ export function MarketingFooter() {
           </div>
         ))}
       </div>
-      <div className="border-t border-white/10">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-5 text-sm text-slate-400 sm:flex-row sm:items-center sm:justify-between">
-          <p>© 2026 Harlo. All rights reserved.</p>
-          <p>{siteConfig.description}</p>
-        </div>
-      </div>
+      <p className="sr-only">{siteConfig.description}</p>
     </footer>
   );
 }
