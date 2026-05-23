@@ -21,7 +21,6 @@ export const siteConfig = {
 
 export const publicRoutes = [
   { path: "/", priority: 1, changeFrequency: "weekly" },
-  { path: "/pricing", priority: 0.9, changeFrequency: "weekly" },
   { path: "/docs", priority: 0.75, changeFrequency: "weekly" },
   { path: "/docs/widget-install", priority: 0.8, changeFrequency: "weekly" },
   { path: "/docs/builder", priority: 0.75, changeFrequency: "weekly" },
@@ -38,8 +37,7 @@ export type SeoLandingKey =
   | "aiWebsiteChatbot"
   | "aiLeadCaptureChatbot"
   | "customerSupportAiAgent"
-  | "smallBusinessWebsiteChatbot"
-  | "aiChatbotPricing";
+  | "smallBusinessWebsiteChatbot";
 
 export type SeoLandingPage = {
   path: string;
@@ -139,27 +137,6 @@ export const seoLandingPages: Record<SeoLandingKey, SeoLandingPage> = {
       { label: "Lead capture", harlo: "Built-in qualification and handoff", alternative: "Separate forms and manual follow-up" }
     ],
     related: []
-  },
-  aiChatbotPricing: {
-    path: "/pricing",
-    badge: "Pricing",
-    title: "AI Chatbot Pricing for Website Support and Lead Capture | Harlo",
-    description: "Compare Harlo AI chatbot pricing for website support, lead capture, message credits, seats, and add-ons.",
-    h1: "AI chatbot pricing that scales with website conversations.",
-    intro: "Harlo pricing is designed around real website usage: message credits, included seats, lead capture, analytics, and add-ons as your workspace grows.",
-    primaryCta: "See plans",
-    secondaryCta: "Compare features",
-    sections: [
-      { title: "Start with the plan that matches traffic", body: "Starter covers small teams, Growth supports steady website volume, and Pro adds higher message capacity and priority support." },
-      { title: "Understand what you are paying for", body: "Plans include message credits, lead capture, dashboard access, analytics, and an AI assistant trained on your approved knowledge." },
-      { title: "Add capacity only when needed", body: "Use add-ons for auto-recharge credits, extra assistants, more seats, or removing Harlo branding." }
-    ],
-    comparison: [
-      { label: "Starter", harlo: "$39/month for 500 message credits", alternative: "Best for one chatbot and small teams" },
-      { label: "Growth", harlo: "$129/month for 4,000 message credits", alternative: "Best for steady traffic and automation" },
-      { label: "Pro", harlo: "$399/month for 15,000 message credits", alternative: "Best for higher volume and priority support" }
-    ],
-    related: []
   }
 };
 
@@ -214,7 +191,7 @@ export function homeJsonLd() {
     price: plan.monthlyPrice,
     priceCurrency: "USD",
     category: "subscription",
-    url: `${siteConfig.url}/pricing`,
+    url: `${siteConfig.url}/#pricing`,
     description: `${formatPrice(plan.monthlyPrice)} per month for ${plan.features.join(", ")}.`
   }));
 

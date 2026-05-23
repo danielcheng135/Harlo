@@ -12,9 +12,7 @@ import {
   Clock3,
   Code2,
   Database,
-  Github,
   Info,
-  Linkedin,
   Mail,
   Menu,
   MessageCircle,
@@ -193,7 +191,7 @@ const footerColumns = [
   {
     title: "Company",
     links: [
-      { label: "Contact", href: "mailto:hello@harlo.ai" },
+      { label: "Contact", href: "mailto:support@harloai.co" },
       { label: "Privacy", href: "/privacy" },
       { label: "Terms", href: "/terms" }
     ]
@@ -235,8 +233,8 @@ function StickyNav() {
   ];
 
   return (
-    <header className="absolute inset-x-0 top-0 z-50 px-4 pt-4">
-      <div className="mx-auto max-w-7xl rounded-full border border-white/10 bg-[#07111a]/76 px-3 py-2 text-white shadow-[0_18px_60px_rgba(2,6,23,0.32)] backdrop-blur-2xl">
+    <header className="absolute inset-x-0 top-0 z-[100] px-4 pt-4">
+      <div className="relative mx-auto max-w-7xl rounded-lg px-3 py-2 text-white">
         <div className="flex items-center justify-between gap-4">
           <Link href="/" className="flex min-w-0 items-center gap-2 px-2" aria-label="Harlo home">
             <LogoMark tone="dark" />
@@ -277,8 +275,11 @@ function StickyNav() {
           </button>
         </div>
 
-        <div className={`grid overflow-hidden transition-all duration-300 lg:hidden ${isOpen ? "grid-rows-[1fr] pt-3 opacity-100" : "grid-rows-[0fr] pt-0 opacity-0"}`}>
-          <div className="min-h-0 overflow-hidden rounded-3xl border border-white/10 bg-[#07111a]/92 p-2">
+        <div
+          className={`absolute left-0 right-0 top-full z-[120] px-3 pt-3 transition-all duration-300 lg:hidden ${isOpen ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-2 opacity-0"
+            }`}
+        >
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-[#07111a]/95 p-2 shadow-[0_24px_70px_rgba(2,6,23,0.45)] backdrop-blur-xl">
             {navItems.map((item) => (
               <Link
                 key={item.label}
@@ -310,15 +311,15 @@ function HeroSection() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_26%,rgba(8,127,149,0.38),transparent_34%),linear-gradient(135deg,#07111a_0%,#08131d_48%,#063f4c_100%)]" />
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.055)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.055)_1px,transparent_1px)] bg-[size:64px_64px] opacity-30" />
 
-      <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[1.08fr_0.92fr]">
+      <div className="relative mx-auto grid max-w-7xl items-center gap-6 lg:grid-cols-[0.98fr_1.02fr]">
         <div>
           <SectionBadge variant="dark">
-            <Sparkles size={14} />
+            <Sparkles size={14} className="text-white" />
             AI agent for websites
           </SectionBadge>
           <h1 className="mt-6 max-w-3xl text-5xl font-semibold leading-[0.98] tracking-tight sm:text-6xl lg:text-5xl xl:text-6xl">
             <span className="block">Stop losing</span>
-            <span className="block">high-intent visitors</span>
+            <span className="block whitespace-nowrap">high-intent visitors</span>
             <span className="block"><span className="text-harlo-blue">to unanswered</span></span>
             <span className="block text-harlo-blue">questions.</span>
           </h1>
@@ -351,21 +352,8 @@ function HeroSection() {
           </div>
         </div>
 
-        <div className="relative">
+        <div className="relative lg:justify-self-end lg:max-w-[520px] xl:max-w-[600px]">
           <HeroVideo className="rounded-lg border-white/12 shadow-[0_38px_120px_rgba(0,0,0,0.42)]" />
-          <div className="mt-4 flex items-start justify-center gap-2 text-sm font-medium text-slate-300">
-            <span className="pt-4">See Harlo in action</span>
-            <svg className="h-12 w-16 scale-x-[-1] scale-y-[-1] text-harlo-blue" viewBox="0 0 68 52" fill="none" aria-hidden="true">
-              <path
-                d="M9 43C9 25 24 10 43 10"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeDasharray="4 5"
-              />
-              <path d="M35 4L44 10L37 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
         </div>
       </div>
     </section>
@@ -445,7 +433,7 @@ function BeforeAfterSection() {
 
 function LeverageSection() {
   return (
-    <section id="leverage" className="border-y border-harlo-line bg-harlo-canvas px-4 py-20 sm:px-6">
+    <section id="leverage" className="bg-harlo-canvas px-4 py-20 sm:px-6">
       <div className="mx-auto max-w-7xl">
         <SectionHeader
           eyebrow="Where Harlo creates leverage"
@@ -490,7 +478,7 @@ function LaunchSessionSection() {
   ];
 
   return (
-    <section className="border-y border-harlo-line bg-white px-4 py-20 sm:px-6">
+    <section className="bg-white px-4 py-20 sm:px-6">
       <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
         <div>
           <SectionBadge>Launch in one working session</SectionBadge>
@@ -550,7 +538,7 @@ function LaunchSessionSection() {
 function WorkflowSection() {
   return (
     <section id="workflow" className="bg-harlo-canvas px-4 py-20 sm:px-6">
-      <div className="mx-auto max-w-7xl overflow-hidden rounded-[1.75rem] border border-harlo-line bg-white p-6 shadow-[0_28px_90px_rgba(15,23,42,0.1)] sm:p-8 lg:p-10">
+      <div className="mx-auto max-w-[92rem] overflow-hidden rounded-[1.75rem] border border-harlo-line bg-white p-6 shadow-[0_28px_90px_rgba(15,23,42,0.1)] sm:p-8 lg:p-10">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
           <div className="max-w-4xl">
             <span className="inline-flex items-center gap-2 rounded-full bg-harlo-mist px-3.5 py-2 text-sm font-bold text-harlo-teal">
@@ -567,17 +555,56 @@ function WorkflowSection() {
           <span className="text-base font-semibold text-harlo-muted lg:pt-5">setup.harlo/workflow</span>
         </div>
 
-        <img
-          src="/landing/launch-path-cards.svg"
-          alt="Connect, Tune, and Capture launch path cards."
-          className="mt-9 h-auto w-full"
-        />
+        <div className="mt-10 xl:hidden">
+          <WorkflowTimeline />
+          <WorkflowLivePreview />
+        </div>
+
+        <div className="relative mt-10 hidden gap-x-6 gap-y-6 xl:grid xl:grid-cols-[1.04fr_0.96fr]">
+          <div className="pointer-events-none absolute bottom-10 left-6 top-24 w-0.5 bg-harlo-teal" aria-hidden="true" />
+          <div />
+          <WorkflowPreviewHeader />
+          <WorkflowTimelineStep
+            number="01"
+            icon={Database}
+            title="Connect"
+            body="Add your content. Harlo learns from the sources you approve."
+            status="Sources syncing"
+            visual={<SourceListMini />}
+          />
+          <WorkflowPreviewPanel>
+            <TrainingPreviewPanel />
+          </WorkflowPreviewPanel>
+          <WorkflowTimelineStep
+            number="02"
+            icon={RouteIcon}
+            title="Tune"
+            body="Customize the experience to match your brand and capture what matters."
+            status="Widget published"
+            visual={<WidgetSettingsMini />}
+          />
+          <div className="grid gap-5 rounded-lg border border-harlo-line bg-white p-4 md:grid-cols-[1.1fr_0.9fr] md:items-center">
+            <TuneChatVisual />
+            <TuneSettings />
+          </div>
+          <WorkflowTimelineStep
+            number="03"
+            icon={MousePointerClick}
+            title="Capture"
+            body="Capture intent, route with context, and hand off faster."
+            status="Leads captured"
+            visual={<LeadCapturedMini />}
+          />
+          <WorkflowPreviewPanel>
+            <LeadPreviewPanel />
+          </WorkflowPreviewPanel>
+        </div>
 
         <div className="mt-9 grid gap-5 border-t border-harlo-line pt-7 lg:grid-cols-3">
           {[
-            { icon: Clock3, title: "Ready in one session", body: "5-10 minutes to launch" },
-            { icon: TrendingUp, title: "Improve continuously", body: "Insights from every conversation" },
-            { icon: ShieldCheck, title: "Secure by design", body: "Your data stays protected" }
+            { icon: Clock3, title: "Ready in one session", body: "Go live in 5-10 minutes." },
+            { icon: TrendingUp, title: "Improve continuously", body: "Insights from every conversation." },
+            { icon: ShieldCheck, title: "Secure by design", body: "Your data stays protected." }
           ].map((item, index) => {
             const Icon = item.icon;
 
@@ -599,9 +626,312 @@ function WorkflowSection() {
   );
 }
 
+const workflowSources = [
+  { label: "Website pages", tone: "bg-harlo-mist text-harlo-teal" },
+  { label: "Support policy", tone: "bg-emerald-50 text-emerald-600" },
+  { label: "Pricing guide", tone: "bg-rose-50 text-rose-500" },
+  { label: "Team notes", tone: "bg-violet-50 text-violet-500" }
+];
+
+function WorkflowTimeline() {
+  return (
+    <div className="relative">
+      <div className="absolute left-[1.35rem] top-10 hidden h-[calc(100%-5rem)] w-0.5 bg-harlo-teal lg:block" aria-hidden="true" />
+      <div className="lg:pl-0">
+        <WorkflowTimelineStep
+          number="01"
+          icon={Database}
+          title="Connect"
+          body="Add your content. Harlo learns from the sources you approve."
+          status="Sources syncing"
+          visual={<SourceListMini />}
+        />
+        <WorkflowTimelineStep
+          number="02"
+          icon={RouteIcon}
+          title="Tune"
+          body="Customize the experience to match your brand and capture what matters."
+          status="Widget published"
+          visual={<WidgetSettingsMini />}
+        />
+        <WorkflowTimelineStep
+          number="03"
+          icon={MousePointerClick}
+          title="Capture"
+          body="Capture intent, route with context, and hand off faster."
+          status="Leads captured"
+          visual={<LeadCapturedMini />}
+        />
+      </div>
+    </div>
+  );
+}
+
+function WorkflowTimelineStep({
+  number,
+  icon: Icon,
+  title,
+  body,
+  status,
+  visual
+}: {
+  number: string;
+  icon: LucideIcon;
+  title: string;
+  body: string;
+  status: string;
+  visual: React.ReactNode;
+}) {
+  return (
+    <div className="relative grid gap-5 py-6 first:pt-0 last:pb-0 before:absolute before:left-0 before:right-0 before:top-0 before:h-px before:bg-harlo-line first:before:hidden md:grid-cols-[3.5rem_1fr_15rem] md:items-center lg:grid-cols-[4.5rem_1fr_16rem] xl:before:left-[4.5rem] xl:first:pt-6 xl:first:before:block xl:last:pb-6">
+      <div className="relative z-10 flex md:justify-start">
+        <span className="grid h-12 w-12 place-items-center rounded-full bg-[linear-gradient(135deg,#0d8faa,#087f95)] text-lg font-bold text-white shadow-[0_14px_26px_rgba(8,127,149,0.18)]">
+          {number}
+        </span>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-[3.75rem_1fr] sm:items-start">
+        <span className="grid h-12 w-12 place-items-center rounded-lg bg-harlo-mist text-harlo-teal">
+          <Icon size={24} />
+        </span>
+        <div>
+          <h3 className="text-2xl font-semibold tracking-tight text-harlo-ink">{title}</h3>
+          <p className="mt-3 max-w-xs text-base leading-7 text-harlo-muted">{body}</p>
+          <p className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-harlo-teal">
+            <CheckCircle2 size={16} />
+            {status}
+          </p>
+        </div>
+      </div>
+      <div>{visual}</div>
+    </div>
+  );
+}
+
+function SourceListMini({ progress = false }: { progress?: boolean }) {
+  return (
+    <div className="w-full rounded-lg border border-harlo-line bg-white p-3 shadow-sm">
+      <div className="space-y-2">
+        {workflowSources.map((source) => (
+          <div key={source.label} className="flex items-center gap-2 rounded-lg border border-harlo-line bg-white px-2.5 py-2">
+            <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-md ${source.tone}`}>
+              <Database size={12} />
+            </span>
+            <span className="min-w-0 flex-1 truncate text-xs font-bold text-harlo-ink">{source.label}</span>
+            {progress ? (
+              <>
+                <span className="hidden h-1.5 min-w-24 rounded-full bg-harlo-teal sm:block" />
+                <span className="text-xs font-semibold text-harlo-muted">100%</span>
+              </>
+            ) : (
+              <span className="text-[11px] font-bold text-harlo-muted">Synced</span>
+            )}
+            <CheckCircle2 size={14} className="shrink-0 fill-emerald-500 text-white" />
+          </div>
+        ))}
+      </div>
+      {!progress ? (
+        <button type="button" className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-harlo-line bg-white text-sm font-bold text-harlo-ink">
+          <Plus size={15} />
+          Add source
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function TuneChatVisual() {
+  return (
+    <div className="w-full overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm">
+      <div className="flex items-center justify-between bg-harlo-teal px-4 py-3 text-white">
+        <div className="flex items-center gap-2">
+          <span className="grid h-6 w-6 place-items-center rounded-md bg-white/15">
+            <Sparkles size={14} />
+          </span>
+          <span className="text-sm font-bold">Harlo</span>
+        </div>
+        <span className="text-xs font-bold">Online</span>
+      </div>
+      <div className="p-4">
+        <div className="max-w-[120px] rounded-lg bg-slate-100 px-3 py-2 text-sm font-bold leading-5 text-harlo-ink">How can I help you?</div>
+        <div className="ml-auto mt-3 max-w-[160px] rounded-lg bg-harlo-teal px-4 py-3 text-sm font-bold leading-5 text-white">I need pricing and a callback.</div>
+        <div className="mt-3 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+          <span className="text-xs font-semibold text-harlo-muted">Ask a question...</span>
+          <span className="grid h-7 w-7 place-items-center rounded-full bg-harlo-teal text-white">
+            <ArrowRight size={14} />
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TuneSettings() {
+  return (
+    <div className="grid gap-3 text-xs md:grid-cols-[5.75rem_1fr_auto] md:items-center">
+      <span className="font-bold text-harlo-muted">Brand color</span>
+      <div className="flex items-center gap-2">
+        <span className="h-6 w-6 rounded-md bg-[#077F95]" />
+        <span className="rounded-md border border-harlo-line bg-white px-2.5 py-2 font-bold text-harlo-muted">#077F95</span>
+      </div>
+      <span />
+      <span className="font-bold text-harlo-muted">Welcome message</span>
+      <span className="rounded-md border border-harlo-line bg-white px-3 py-2 font-semibold text-harlo-muted">How can I help you?</span>
+
+    </div>
+  );
+}
+
+function WidgetSettingsMini() {
+  return (
+    <div className="rounded-lg border border-harlo-line bg-white p-4 shadow-sm">
+      <p className="mb-3 text-sm font-bold text-harlo-ink">Widget</p>
+      <TuneSettings />
+    </div>
+  );
+}
+
+function LeadCapturedMini() {
+  return (
+    <div className="rounded-lg border border-harlo-line bg-white p-4 shadow-sm">
+      <LeadDetails compact />
+      <button type="button" className="mt-3 flex h-8 w-full items-center justify-center gap-1 rounded-lg bg-slate-100 text-xs font-bold text-harlo-ink">
+        View full conversation <ArrowRight size={13} />
+      </button>
+    </div>
+  );
+}
+
+function LeadDetails({ compact = false }: { compact?: boolean }) {
+  return (
+    <>
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-bold text-harlo-ink">Lead captured</p>
+        {!compact ? <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-600">New lead</span> : null}
+      </div>
+      <div className={`${compact ? "mt-3 space-y-2 text-[11px]" : "mt-4 space-y-3 text-xs"}`}>
+        {[
+          ["Name", "Alex Johnson"],
+          ["Email", "alex@acme.com"],
+          ["Intent", "Pricing"],
+          ["Source", "/pricing"]
+        ].map(([label, value]) => (
+          <div key={label} className="flex items-center justify-between gap-4">
+            <span className="font-medium text-harlo-muted">{label}</span>
+            <span className="font-bold text-harlo-ink">{value}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function WorkflowPreviewHeader() {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-t-xl xl:px-4 xl:pb-4">
+      <h3 className="text-lg font-semibold text-harlo-ink">Live preview</h3>
+      <div className="flex items-center gap-2 text-xs font-bold">
+        <span className="grid h-6 w-6 place-items-center rounded-full bg-harlo-teal text-white">1</span>
+        <span className="grid h-6 w-6 place-items-center rounded-full border border-harlo-line text-harlo-muted">2</span>
+        <span className="grid h-6 w-6 place-items-center rounded-full border border-harlo-line text-harlo-muted">3</span>
+      </div>
+    </div>
+  );
+}
+
+function WorkflowPreviewPanel({ children }: { children: React.ReactNode }) {
+  return <div className="rounded-lg border border-harlo-line bg-white p-4">{children}</div>;
+}
+
+function TrainingPreviewPanel() {
+  return (
+    <>
+      <p className="text-sm font-bold text-harlo-ink">Training your assistant</p>
+      <p className="mt-1 text-xs font-medium text-harlo-muted">Harlo is reading and indexing your approved sources.</p>
+      <div className="mt-4">
+        <SourceListMini progress />
+      </div>
+      <p className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-harlo-teal">
+        <CheckCircle2 size={16} />
+        All sources synced
+      </p>
+    </>
+  );
+}
+
+function LeadPreviewPanel() {
+  return (
+    <>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <p className="inline-flex items-center gap-2 text-sm font-bold text-harlo-ink">
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          New lead captured
+        </p>
+        <span className="text-xs font-medium text-harlo-muted">Just now</span>
+      </div>
+      <div className="grid gap-4 md:grid-cols-[1fr_0.18fr_1fr] md:items-center">
+        <div className="rounded-lg border border-harlo-line bg-white p-4">
+          <LeadDetails />
+          <button type="button" className="mt-4 flex h-9 w-full items-center justify-center gap-1 rounded-lg bg-slate-100 text-sm font-bold text-harlo-ink">
+            View full conversation <ArrowRight size={14} />
+          </button>
+        </div>
+        <div className="hidden justify-center text-harlo-teal md:flex">
+          <svg width="62" height="64" viewBox="0 0 62 64" fill="none" aria-hidden="true">
+            <path d="M4 52C28 52 18 13 51 13" stroke="currentColor" strokeWidth="2" strokeDasharray="5 5" />
+            <path d="M45 7L53 13L46 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+        <div className="rounded-lg border border-harlo-line bg-white p-4">
+          <div className="flex items-center gap-3 border-b border-harlo-line pb-3">
+            <RouteIcon size={22} className="text-harlo-teal" />
+            <div>
+              <p className="text-sm font-bold text-harlo-ink">Routed to</p>
+              <p className="text-sm font-bold text-harlo-ink">Sales Team</p>
+            </div>
+          </div>
+          <p className="mt-3 text-xs font-bold text-harlo-muted">Context included</p>
+          <div className="mt-2 space-y-2 text-xs font-medium text-harlo-muted">
+            {["Visitor asked about pricing", "Viewed /pricing"].map((item) => (
+              <p key={item} className="flex items-center gap-2">
+                <CheckCircle2 size={14} className="text-emerald-500" />
+                {item}
+              </p>
+            ))}
+          </div>
+          <p className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-harlo-teal">
+            Open in inbox <ArrowRight size={14} />
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function WorkflowLivePreview() {
+  return (
+    <div className="rounded-xl border border-harlo-line bg-white p-4 shadow-sm">
+      <WorkflowPreviewHeader />
+      <div className="mt-4 space-y-4">
+        <WorkflowPreviewPanel>
+          <TrainingPreviewPanel />
+        </WorkflowPreviewPanel>
+
+        <div className="grid gap-5 rounded-lg border border-harlo-line bg-white p-4 md:grid-cols-[1.1fr_0.9fr] md:items-center">
+          <TuneChatVisual />
+          <TuneSettings />
+        </div>
+
+        <WorkflowPreviewPanel>
+          <LeadPreviewPanel />
+        </WorkflowPreviewPanel>
+      </div>
+    </div>
+  );
+}
+
 function FormsComparisonSection() {
   return (
-    <section className="border-y border-harlo-line bg-white px-4 py-20 sm:px-6">
+    <section className="bg-white px-4 py-20 sm:px-6">
       <div className="mx-auto max-w-7xl">
         <SectionHeader
           eyebrow="Why teams switch from static forms"
@@ -651,7 +981,7 @@ function PricingSection({
             title="Simple plans that scale with your conversations."
             body="Start with trial credits, then choose the monthly or annual plan that matches your website traffic."
           />
-          <div className="flex flex-col items-start gap-3 lg:items-end">
+          <div className="flex w-full flex-col items-start gap-3 lg:w-auto lg:items-end">
             <BillingIntervalToggle interval={interval} onChange={onIntervalChange} />
           </div>
         </div>
@@ -669,7 +999,7 @@ function PricingSection({
 
 function AddOnsSection() {
   return (
-    <section id="add-ons" className="border-y border-harlo-line bg-white px-4 py-20 sm:px-6">
+    <section id="add-ons" className="bg-white px-4 py-20 sm:px-6">
       <div className="mx-auto max-w-7xl">
         <SectionHeader
           eyebrow="Add-ons"
@@ -748,9 +1078,8 @@ function ComparePlansSection({
                     {BILLING_PLANS.map((plan) => (
                       <div
                         key={plan.key}
-                        className={`flex items-center rounded-md px-3 text-base font-semibold transition ${
-                          plan.key === "growth" ? "bg-harlo-mist text-harlo-teal" : "bg-white text-harlo-muted"
-                        }`}
+                        className={`flex items-center rounded-md px-3 text-base font-semibold transition ${plan.key === "growth" ? "bg-harlo-mist text-harlo-teal" : "bg-white text-harlo-muted"
+                          }`}
                       >
                         {row.values[plan.key]}
                       </div>
@@ -774,8 +1103,21 @@ function FaqSection({
   onOpenFaq: (index: number) => void;
 }) {
   return (
-    <section id="faq" className="bg-[#07111a] px-4 py-20 text-white sm:px-6">
-      <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.82fr_1.18fr]">
+    <section id="faq" className="relative overflow-hidden bg-[#07111a] px-4 py-20 text-white sm:px-6">
+      <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-55" viewBox="0 0 1440 520" fill="none" aria-hidden="true" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="faqWaveGradient" x1="0" y1="520" x2="1440" y2="0" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#0D8FAA" stopOpacity="0" />
+            <stop offset="0.3" stopColor="#0D8FAA" stopOpacity="0.28" />
+            <stop offset="0.62" stopColor="#5BD5E8" stopOpacity="0.16" />
+            <stop offset="1" stopColor="#0D8FAA" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d="M-150 520C112 392 300 470 514 330C748 177 916 213 1136 95C1276 20 1385 -4 1530 -72" stroke="url(#faqWaveGradient)" strokeWidth="70" strokeLinecap="round" />
+        <path d="M-120 552C142 426 318 510 552 370C806 218 936 272 1170 148C1310 74 1408 48 1540 8" stroke="url(#faqWaveGradient)" strokeWidth="32" strokeLinecap="round" />
+        <path d="M-190 474C54 356 272 414 476 278C708 124 874 172 1080 64C1240 -20 1380 -50 1510 -105" stroke="url(#faqWaveGradient)" strokeWidth="24" strokeLinecap="round" />
+      </svg>
+      <div className="relative mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.82fr_1.18fr]">
         <div>
           <SectionBadge variant="dark">FAQ</SectionBadge>
           <h2 className="mt-4 text-4xl font-semibold tracking-tight md:text-5xl">Questions teams ask before launching.</h2>
@@ -817,14 +1159,14 @@ function FaqSection({
 function CtaSection({ interval }: { interval: BillingInterval }) {
   return (
     <section id="cta" className="relative overflow-hidden bg-[#07111a] px-4 py-20 text-white sm:px-6">
-      <div className="absolute inset-0 bg-[linear-gradient(105deg,#07111a_0%,#063f4c_48%,#087f95_100%)]" />
       <div className="relative mx-auto max-w-7xl">
-        <div className="relative min-h-[420px] overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.04] px-6 py-12 shadow-[0_30px_90px_rgba(2,6,23,0.32)] md:px-12 lg:rounded-[2.25rem] lg:pr-[31rem]">
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:58px_58px] opacity-30" />
+        <div className="relative min-h-[500px] overflow-hidden rounded-2xl bg-harlo-navy px-6 py-14 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08),0_30px_90px_rgba(2,6,23,0.32)] md:px-16 md:py-16 lg:pr-[28rem]">
+          <div className="absolute inset-0 bg-gradient-to-br from-harlo-navy via-harlo-ink to-harlo-teal" />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:56px_56px] opacity-40" />
           <CtaPhoneGraphic />
-          <div className="relative flex min-h-[320px] max-w-2xl flex-col justify-center">
+          <div className="relative flex min-h-[380px] max-w-3xl flex-col justify-center">
             <SectionBadge variant="dark">Launch</SectionBadge>
-            <h2 className="mt-5 text-4xl font-semibold tracking-tight md:text-6xl">Turn website visitors into qualified leads today.</h2>
+            <h2 className="mt-5 max-w-3xl text-4xl font-semibold tracking-tight md:text-6xl">Turn website visitors into qualified leads today.</h2>
             <p className="mt-5 max-w-xl text-base leading-7 text-slate-300">
               Start your trial, add the widget, and let Harlo handle the first customer conversation.
             </p>
@@ -848,27 +1190,32 @@ function CtaSection({ interval }: { interval: BillingInterval }) {
 }
 
 function HomeFooter() {
+  const currentYear = new Date().getFullYear();
+
   return (
-    <footer className="border-t border-harlo-line bg-white px-4 py-12 sm:px-6">
+    <footer className="bg-white px-4 py-12 sm:px-6">
       <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.2fr_repeat(4,0.7fr)]">
         <div>
           <LogoMark tone="light" />
           <p className="mt-5 max-w-xs text-sm leading-6 text-harlo-muted">
             AI agent for websites. Answer questions, capture leads, and hand off with full context.
           </p>
-          <div className="mt-5 flex items-center gap-2">
-            {[Linkedin, Github, Mail].map((Icon, index) => (
-              <Link
-                key={index}
-                href={index === 2 ? "mailto:hello@harlo.ai" : "#"}
-                aria-label={index === 0 ? "Harlo on LinkedIn" : index === 1 ? "Harlo on GitHub" : "Email Harlo"}
-                className="grid h-9 w-9 place-items-center rounded-full border border-harlo-line text-harlo-muted transition hover:border-harlo-teal hover:text-harlo-teal"
-              >
-                <Icon size={16} />
+          <div className="mt-5 flex items-center gap-3">
+            <Link
+              href="mailto:support@harloai.co"
+              aria-label="Email Harlo support"
+              className="grid h-9 w-9 place-items-center rounded-full border border-harlo-line text-harlo-muted transition hover:border-harlo-teal hover:text-harlo-teal"
+            >
+              <Mail size={16} />
+            </Link>
+            <div>
+              <p className="text-sm font-semibold text-harlo-ink">Customer Support</p>
+              <Link href="mailto:support@harloai.co" className="text-sm font-medium text-harlo-muted transition hover:text-harlo-teal">
+                support@harloai.co
               </Link>
-            ))}
+            </div>
           </div>
-          <p className="mt-6 text-xs font-medium text-harlo-muted">© 2026 Harlo. All rights reserved.</p>
+          <p className="mt-6 text-xs font-medium text-harlo-muted">© {currentYear} Harlo. All rights reserved.</p>
         </div>
         {footerColumns.map((column) => (
           <div key={column.title}>
@@ -892,23 +1239,24 @@ function PlanCard({ plan, interval }: { plan: BillingPlan; interval: BillingInte
 
   return (
     <div
-      className={`rounded-lg border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-harlo-teal/50 hover:shadow-md ${
-        isGrowth ? "border-harlo-teal shadow-[0_18px_45px_rgba(8,127,149,0.12)]" : "border-harlo-line"
-      }`}
+      className={`rounded-lg border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-harlo-teal/50 hover:shadow-md ${isGrowth ? "border-harlo-teal shadow-[0_18px_45px_rgba(8,127,149,0.12)]" : "border-harlo-line"
+        }`}
     >
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-2xl font-semibold tracking-tight text-harlo-ink">{plan.name}</h3>
-          <p className="mt-2 text-sm leading-6 text-harlo-muted">{planDescriptions[plan.key]}</p>
+        <div className="flex items-start gap-4">
+          <PlanMark planKey={plan.key} />
+          <div>
+            <h3 className="text-2xl font-semibold tracking-tight text-harlo-ink">{plan.name}</h3>
+            <p className="mt-2 text-sm leading-6 text-harlo-muted">{planDescriptions[plan.key]}</p>
+          </div>
         </div>
         {isGrowth ? <Badge>Popular</Badge> : null}
       </div>
       <PlanPrice plan={plan} interval={interval} idPrefix="pricing" />
       <Link
         href={getSignupHref(plan.key, interval)}
-        className={`group/trial mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-harlo-teal focus:ring-offset-2 ${
-          isGrowth ? "bg-harlo-ink text-white hover:bg-harlo-navy" : "border border-harlo-line bg-white text-harlo-ink hover:border-harlo-teal hover:text-harlo-teal"
-        }`}
+        className={`group/trial mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-harlo-teal focus:ring-offset-2 ${isGrowth ? "bg-harlo-ink text-white hover:bg-harlo-navy" : "border border-harlo-line bg-white text-harlo-ink hover:border-harlo-teal hover:text-harlo-teal"
+          }`}
       >
         {plan.key === "starter" ? "Start free trial" : "Subscribe"}
         {plan.key === "starter" ? (
@@ -941,7 +1289,10 @@ function PlanSnapshot({ plan, interval }: { plan: BillingPlan; interval: Billing
   return (
     <div className={`rounded-lg border bg-white p-4 ${isGrowth ? "border-harlo-teal shadow-sm" : "border-harlo-line"}`}>
       <div className="flex items-center justify-between gap-3">
-        <p className="text-lg font-semibold text-harlo-ink">{plan.name}</p>
+        <div className="flex items-center gap-3">
+          <PlanMark planKey={plan.key} compact />
+          <p className="text-lg font-semibold text-harlo-ink">{plan.name}</p>
+        </div>
         {isGrowth ? <Badge>Popular</Badge> : null}
       </div>
       <PlanPrice plan={plan} interval={interval} idPrefix="compare" compact />
@@ -966,15 +1317,13 @@ function PlanPrice({
   return (
     <>
       <div className={`mt-5 flex min-h-11 flex-wrap items-center gap-2 ${compact ? "mt-4" : ""}`}>
-        <div className="flex w-[106px] shrink-0 items-end leading-none">
-          <span className={`${compact ? "text-3xl" : "text-4xl"} font-semibold text-harlo-ink`}>$</span>
-          <span className="relative inline-block h-10 min-w-20 overflow-hidden tabular-nums">
-            <span
-              key={`${idPrefix}-${plan.key}-${interval}-price`}
-              className={`absolute inset-x-0 top-0 ${compact ? "text-3xl" : "text-4xl"} font-semibold text-harlo-ink [animation:harloPriceSlot_420ms_cubic-bezier(0.2,0.8,0.2,1)_forwards]`}
-            >
-              {price}
-            </span>
+        <div className={`inline-flex shrink-0 items-baseline whitespace-nowrap tabular-nums ${compact ? "min-w-24" : "min-w-28"}`}>
+          <span className={`${compact ? "text-3xl" : "text-4xl"} font-semibold leading-none text-harlo-ink`}>$</span>
+          <span
+            key={`${idPrefix}-${plan.key}-${interval}-price`}
+            className={`inline-block ${compact ? "text-3xl" : "text-4xl"} font-semibold leading-none text-harlo-ink [animation:harloPriceSwap_260ms_ease-out_forwards]`}
+          >
+            {price}
           </span>
         </div>
         {interval === "annual" ? (
@@ -997,6 +1346,32 @@ function PlanPrice({
   );
 }
 
+function PlanMark({ planKey, compact = false }: { planKey: BillingPlanKey; compact?: boolean }) {
+  const size = compact ? "h-10 w-10" : "h-14 w-14";
+
+  if (planKey === "starter") {
+    return (
+      <span className={`grid shrink-0 place-items-center rounded-lg bg-sky-50 ${size}`} aria-hidden="true">
+        <span className={`${compact ? "h-4 w-4" : "h-6 w-6"} rounded bg-sky-400`} />
+      </span>
+    );
+  }
+
+  if (planKey === "growth") {
+    return (
+      <span className={`grid shrink-0 place-items-center rounded-full bg-emerald-50 ${size}`} aria-hidden="true">
+        <span className={`${compact ? "h-4 w-4" : "h-6 w-6"} rounded-full bg-emerald-400`} />
+      </span>
+    );
+  }
+
+  return (
+    <span className={`grid shrink-0 place-items-center rounded-lg bg-rose-50 ${size} rotate-45`} aria-hidden="true">
+      <span className={`${compact ? "h-4 w-4" : "h-6 w-6"} rounded bg-rose-400`} />
+    </span>
+  );
+}
+
 function BillingIntervalToggle({
   interval,
   onChange
@@ -1005,16 +1380,15 @@ function BillingIntervalToggle({
   onChange: (interval: BillingInterval) => void;
 }) {
   return (
-    <div className="inline-grid min-w-max shrink-0 grid-cols-2 rounded-full border border-harlo-line bg-white/95 p-1.5 shadow-[0_14px_34px_rgba(15,23,42,0.08)]">
+    <div className="grid w-full shrink-0 grid-cols-2 rounded-full border border-harlo-line bg-white/95 p-1.5 shadow-[0_14px_34px_rgba(15,23,42,0.08)] sm:inline-grid sm:w-auto sm:min-w-max">
       {(["monthly", "annual"] as const).map((option) => (
         <button
           key={option}
           type="button"
           aria-pressed={interval === option}
           onClick={() => onChange(option)}
-          className={`inline-flex min-w-28 items-center justify-center gap-2 whitespace-nowrap rounded-full px-4 py-2.5 text-sm font-semibold capitalize transition ${
-            interval === option ? "bg-harlo-ink text-white shadow-[0_10px_24px_rgba(17,24,39,0.18)]" : "text-harlo-muted hover:bg-harlo-mist hover:text-harlo-ink"
-          }`}
+          className={`inline-flex min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-full px-4 py-2.5 text-sm font-semibold capitalize transition sm:min-w-28 ${interval === option ? "bg-harlo-ink text-white shadow-[0_10px_24px_rgba(17,24,39,0.18)]" : "text-harlo-muted hover:bg-harlo-mist hover:text-harlo-ink"
+            }`}
         >
           {option}
           {option === "annual" ? (
@@ -1352,9 +1726,8 @@ function SectionHeader({
 function SectionBadge({ children, variant = "light" }: { children: React.ReactNode; variant?: "light" | "dark" }) {
   return (
     <span
-      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] ${
-        variant === "dark" ? "border-white/15 bg-white/8 text-harlo-blue" : "border-harlo-line bg-white text-harlo-teal shadow-sm"
-      }`}
+      className={`inline-flex w-fit self-start items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] ${variant === "dark" ? "border-white/15 bg-white/8 text-harlo-blue" : "border-harlo-line bg-white text-harlo-teal shadow-sm"
+        }`}
     >
       {children}
     </span>

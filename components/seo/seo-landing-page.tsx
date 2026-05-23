@@ -306,42 +306,6 @@ const contentByPath: Record<string, Partial<LandingContent>> = {
       { question: "Will it feel generic?", answer: "You can tune the voice, greeting, colors, and lead fields so the assistant feels aligned with your business." }
     ],
     finalCta: "Make your small business website answer more visitors without adding more busywork."
-  },
-  "/pricing": {
-    eyebrow: "AI chatbot pricing",
-    visualKind: "pricing",
-    heroMetric: "$39",
-    heroMetricLabel: "Starter plan",
-    heroAside: "Compare message credits, seats, support level, and add-ons before choosing the plan that fits your website traffic.",
-    sectionHeadline: "Pricing built around real website usage.",
-    sectionIntro:
-      "Harlo plans are organized by message volume and team needs, so you can start small and add capacity only when traffic makes it useful.",
-    proof: ["Plans by conversation volume", "Annual savings available", "Add seats and agents", "50 trial credits included"],
-    features: [
-      { title: "Message credits", body: "Plans scale by assistant replies, so pricing tracks website conversation volume.", icon: MessageCircle, tone: "bg-cyan-50 text-harlo-teal", graphic: "chart" },
-      { title: "Starter trial", body: `Begin with ${TRIAL_CONFIG.credits} trial credits before your Starter subscription continues.`, icon: Sparkles, tone: "bg-emerald-50 text-emerald-600", graphic: "lead" },
-      { title: "Seats included", body: "Give teammates access to manage sources, review conversations, and tune the assistant.", icon: UsersRound, tone: "bg-indigo-50 text-indigo-500", graphic: "sources" },
-      { title: "Extra agents", body: "Add more assistants for separate brands, sites, workflows, or service lines.", icon: Bot, tone: "bg-amber-50 text-amber-600", graphic: "routes" },
-      { title: "Annual savings", body: "Use annual billing when you know Harlo will be part of the website workflow.", icon: BarChart3, tone: "bg-sky-50 text-sky-600", graphic: "chart" },
-      { title: "Upgrade path", body: "Move from Starter to Growth or Pro as leads, support volume, and traffic increase.", icon: RefreshCw, tone: "bg-rose-50 text-rose-500", graphic: "code" }
-    ],
-    steps: [
-      { title: "Estimate traffic", body: "Use monthly visitor questions and expected assistant replies to choose a starting tier.", stat: "Volume" },
-      { title: "Pick a plan", body: "Starter, Growth, and Pro include different message credits, seats, and support levels.", stat: "Plan" },
-      { title: "Add capacity later", body: "Use add-ons for extra credits, assistants, seats, or branding controls only when needed.", stat: "Add-ons" }
-    ],
-    useCases: [
-      { title: "Starter", body: "For small teams launching one chatbot and validating website AI support.", metric: "$39/mo" },
-      { title: "Growth", body: "For steady website traffic, more monthly credits, and automated knowledge updates.", metric: "$129/mo" },
-      { title: "Pro", body: "For higher-volume support and lead capture with priority support.", metric: "$399/mo" }
-    ],
-    faqs: [
-      { question: "Which plan should I start with?", answer: "Starter is best for one chatbot and smaller traffic. Growth fits steady traffic, and Pro adds higher message capacity with priority support." },
-      { question: "What counts as a message credit?", answer: "Message credits are used when Harlo generates assistant replies during website conversations." },
-      { question: "Can I change plans later?", answer: "Yes. You can move between plans as website traffic, team size, or automation needs change." },
-      { question: "Are add-ons available?", answer: "Yes. You can add auto-recharge credits, extra agents, more seats, or remove Harlo branding as your workspace grows." }
-    ],
-    finalCta: "Pick the Harlo plan that matches your website conversation volume."
   }
 };
 

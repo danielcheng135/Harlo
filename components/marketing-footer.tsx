@@ -9,11 +9,11 @@ const footerSections = [
     links: [
       { label: "Features", href: "/#features" },
       { label: "How it works", href: "/#workflow" },
-      { label: "Pricing", href: "/pricing" },
+      { label: "Pricing", href: "/#pricing" },
       { label: "Docs", href: "/docs" },
-      { label: "Add-ons", href: "/pricing#add-ons" },
-      { label: "Compare", href: "/pricing#compare" },
-      { label: "FAQ", href: "/pricing#faq" }
+      { label: "Add-ons", href: "/#add-ons" },
+      { label: "Compare", href: "/#compare" },
+      { label: "FAQ", href: "/#faq" }
     ]
   },
   {

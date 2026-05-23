@@ -37,7 +37,7 @@ export default function DocsPage() {
       <MarketingNav
         links={[
           { label: "Docs", href: "/docs" },
-          { label: "Pricing", href: "/pricing" },
+          { label: "Pricing", href: "/#pricing" },
           { label: "Dashboard", href: "/dashboard" },
           { label: "Sign in", href: "/auth/sign-in" }
         ]}
