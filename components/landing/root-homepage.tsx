@@ -307,19 +307,19 @@ function StickyNav() {
 
 function HeroSection() {
   return (
-    <section id="hero" className="relative overflow-hidden bg-[#07111a] px-4 pb-28 pt-28 text-white sm:px-6 lg:pb-32 lg:pt-36">
+    <section id="hero" className="relative overflow-hidden bg-[#07111a] px-4 pb-24 pt-28 text-white sm:px-6 sm:pb-28 lg:pb-32 lg:pt-36">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_26%,rgba(8,127,149,0.38),transparent_34%),linear-gradient(135deg,#07111a_0%,#08131d_48%,#063f4c_100%)]" />
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.055)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.055)_1px,transparent_1px)] bg-[size:64px_64px] opacity-30" />
 
-      <div className="relative mx-auto grid max-w-7xl items-center gap-6 lg:grid-cols-[0.98fr_1.02fr]">
-        <div>
+      <div className="relative mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[0.98fr_1.02fr] lg:gap-6">
+        <div className="min-w-0">
           <SectionBadge variant="dark">
             <Sparkles size={14} className="text-white" />
             AI agent for websites
           </SectionBadge>
-          <h1 className="mt-6 max-w-3xl text-5xl font-semibold leading-[0.98] tracking-tight sm:text-6xl lg:text-5xl xl:text-6xl">
+          <h1 className="mt-6 max-w-3xl text-[2.65rem] font-semibold leading-[1.02] tracking-tight sm:text-6xl sm:leading-[0.98] lg:text-5xl xl:text-6xl">
             <span className="block">Stop losing</span>
-            <span className="block whitespace-nowrap">high-intent visitors</span>
+            <span className="block md:whitespace-nowrap">high-intent visitors</span>
             <span className="block"><span className="text-harlo-blue">to unanswered</span></span>
             <span className="block text-harlo-blue">questions.</span>
           </h1>
@@ -329,11 +329,11 @@ function HeroSection() {
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
               href={getSignupHref()}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-harlo-blue px-6 text-sm font-semibold text-white shadow-[0_18px_42px_rgba(13,143,170,0.34)] transition hover:-translate-y-0.5 hover:bg-harlo-teal focus:outline-none focus:ring-2 focus:ring-white/60"
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-harlo-blue px-6 text-sm font-semibold text-white shadow-[0_18px_42px_rgba(13,143,170,0.34)] transition hover:-translate-y-0.5 hover:bg-harlo-teal focus:outline-none focus:ring-2 focus:ring-white/60 sm:w-auto"
             >
               Start free trial <ArrowRight size={16} />
             </Link>
-            <CalendlyDemoButton className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 px-6 text-sm font-semibold text-white transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/60">
+            <CalendlyDemoButton className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 px-6 text-sm font-semibold text-white transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/60 sm:w-auto">
               <CalendarCheck size={16} />
               Book a demo
             </CalendlyDemoButton>
@@ -352,7 +352,7 @@ function HeroSection() {
           </div>
         </div>
 
-        <div className="relative lg:justify-self-end lg:max-w-[520px] xl:max-w-[600px]">
+        <div className="relative mx-auto w-full max-w-[28rem] sm:max-w-[34rem] lg:mx-0 lg:max-w-[520px] lg:justify-self-end xl:max-w-[600px]">
           <HeroVideo className="rounded-lg border-white/12 shadow-[0_38px_120px_rgba(0,0,0,0.42)]" />
         </div>
       </div>
