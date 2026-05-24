@@ -14,14 +14,16 @@ type ProfileMenuProps = {
   hasHigherTier: boolean;
   initials: string;
   role: string;
+  variant?: "sidebar" | "mobile";
 };
 
-export function ProfileMenu({ brandLogoUrl, businessName, canManageBilling, email, hasHigherTier, initials, role }: ProfileMenuProps) {
+export function ProfileMenu({ brandLogoUrl, businessName, canManageBilling, email, hasHigherTier, initials, role, variant = "sidebar" }: ProfileMenuProps) {
   const router = useRouter();
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const isMobile = variant === "mobile";
 
   useEffect(() => {
     return () => {
@@ -52,6 +54,15 @@ export function ProfileMenu({ brandLogoUrl, businessName, canManageBilling, emai
     }, 180);
   }
 
+  function toggleMenu() {
+    if (isOpen) {
+      closeMenu();
+      return;
+    }
+
+    openMenu();
+  }
+
   async function signOut() {
     setIsSigningOut(true);
     const supabase = createSupabaseBrowserClient();
@@ -61,38 +72,56 @@ export function ProfileMenu({ brandLogoUrl, businessName, canManageBilling, emai
   }
 
   return (
-    <div className="relative" onMouseEnter={openMenu} onMouseLeave={closeMenu} onFocus={openMenu} onBlur={closeMenu}>
-      <div
-        className="group w-full rounded-lg border border-harlo-line bg-white p-3 text-left text-sm font-semibold text-harlo-ink shadow-sm transition hover:-translate-y-0.5 hover:border-harlo-teal/60 hover:shadow-md focus-within:ring-2 focus-within:ring-harlo-teal focus-within:ring-offset-2"
-        aria-expanded={isOpen}
-      >
-        <div className="flex items-center gap-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-harlo-ink text-xs text-white">{initials}</span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate">{email ?? "Account"}</span>
-            <span className="block text-xs font-medium capitalize text-harlo-muted">{role}</span>
-          </span>
-          <ChevronsUpDown size={16} className={`shrink-0 text-harlo-muted transition group-hover:text-harlo-teal ${isOpen ? "text-harlo-teal" : ""}`} />
-        </div>
-        {canManageBilling && hasHigherTier ? (
-          <Link
-            href="/dashboard/billing#plans"
-            className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-gradient-to-r from-harlo-mist to-cyan-50 px-2.5 py-2 text-xs text-harlo-teal transition hover:from-harlo-teal hover:to-cyan-500 hover:text-white"
-          >
-            <span className="inline-flex min-w-0 items-center gap-1.5 font-semibold">
-              <Sparkles size={13} />
-              Upgrade available
+    <div
+      className="relative"
+      onMouseEnter={isMobile ? undefined : openMenu}
+      onMouseLeave={isMobile ? undefined : closeMenu}
+      onFocus={isMobile ? undefined : openMenu}
+      onBlur={isMobile ? undefined : closeMenu}
+    >
+      {isMobile ? (
+        <button
+          type="button"
+          onClick={toggleMenu}
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-harlo-line bg-white text-xs font-semibold text-harlo-ink shadow-sm transition hover:border-harlo-teal/60"
+          aria-expanded={isOpen}
+          aria-label="Open account menu"
+        >
+          {initials}
+        </button>
+      ) : (
+        <div
+          className="group w-full rounded-lg border border-harlo-line bg-white p-3 text-left text-sm font-semibold text-harlo-ink shadow-sm transition hover:-translate-y-0.5 hover:border-harlo-teal/60 hover:shadow-md focus-within:ring-2 focus-within:ring-harlo-teal focus-within:ring-offset-2"
+          aria-expanded={isOpen}
+        >
+          <div className="flex items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-harlo-ink text-xs text-white">{initials}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate">{email ?? "Account"}</span>
+              <span className="block text-xs font-medium capitalize text-harlo-muted">{role}</span>
             </span>
-            <ArrowUpRight size={13} />
-          </Link>
-        ) : null}
-      </div>
+            <ChevronsUpDown size={16} className={`shrink-0 text-harlo-muted transition group-hover:text-harlo-teal ${isOpen ? "text-harlo-teal" : ""}`} />
+          </div>
+          {canManageBilling && hasHigherTier ? (
+            <Link
+              href="/dashboard/billing#plans"
+              className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-gradient-to-r from-harlo-mist to-cyan-50 px-2.5 py-2 text-xs text-harlo-teal transition hover:from-harlo-teal hover:to-cyan-500 hover:text-white"
+            >
+              <span className="inline-flex min-w-0 items-center gap-1.5 font-semibold">
+                <Sparkles size={13} />
+                Upgrade available
+              </span>
+              <ArrowUpRight size={13} />
+            </Link>
+          ) : null}
+        </div>
+      )}
 
       {isMounted ? (
-        <div className="absolute bottom-0 left-full z-50 w-72 pl-3">
+        <div className={isMobile ? "absolute right-0 top-full z-50 mt-2 w-[min(18rem,calc(100vw-2rem))]" : "absolute bottom-0 left-full z-50 w-72 pl-3"}>
           <div
-            className={`origin-bottom-left rounded-xl border border-harlo-line bg-white p-2 shadow-2xl shadow-slate-900/18 ring-1 ring-white transition-transform duration-200 ease-out ${
-              isOpen ? "translate-x-0 scale-100" : "-translate-x-2 scale-95 pointer-events-none"
+            className={`rounded-xl border border-harlo-line bg-white p-2 shadow-2xl shadow-slate-900/18 ring-1 ring-white transition-transform duration-200 ease-out ${
+              isOpen ? "translate-x-0 scale-100" : `${isMobile ? "translate-y-1" : "-translate-x-2"} scale-95 pointer-events-none`
             }`}
             style={{ backgroundColor: "#ffffff", opacity: 1 }}
           >
@@ -129,6 +158,16 @@ export function ProfileMenu({ brandLogoUrl, businessName, canManageBilling, emai
                   >
                     <CreditCard size={15} />
                     Billing
+                  </Link>
+                ) : null}
+                {canManageBilling && hasHigherTier ? (
+                  <Link
+                    href="/dashboard/billing#plans"
+                    onClick={closeMenu}
+                    className="flex h-10 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-harlo-muted transition hover:bg-harlo-mist hover:text-harlo-ink"
+                  >
+                    <Sparkles size={15} />
+                    Upgrade available
                   </Link>
                 ) : null}
                 <button

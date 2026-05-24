@@ -47,7 +47,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <header className="sticky top-0 z-20 border-b border-harlo-line bg-harlo-canvas/95 px-4 py-3 backdrop-blur lg:hidden">
           <div className="flex items-center justify-between gap-3">
             <BrandLogo />
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-harlo-line bg-white text-xs font-semibold text-harlo-ink shadow-sm">{initials}</span>
+            <ProfileMenu
+              brandLogoUrl={workspace.organization.brand_logo_url ?? null}
+              businessName={workspace.organization.name}
+              canManageBilling={canManageBilling}
+              email={workspace.user.email}
+              hasHigherTier={billingOverview.hasHigherTier}
+              initials={initials}
+              role={workspace.role}
+              variant="mobile"
+            />
           </div>
           <div className="mt-3">
             <SidebarNav role={workspace.role} variant="mobile" />

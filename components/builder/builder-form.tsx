@@ -877,7 +877,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
           </div>
         </section>
 
-        <div className="sticky bottom-4 z-10 flex justify-stretch sm:justify-end">
+        <div className="flex justify-stretch sm:justify-end">
           <div className="rounded-lg border border-harlo-line bg-white/95 p-2 shadow-soft backdrop-blur">
             <Button type="submit" disabled={isSaving} className="w-full shadow-soft sm:w-auto">
               {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
