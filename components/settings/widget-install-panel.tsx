@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Clipboard, Globe2, RouteIcon, ShieldCheck } from "lucide-react";
+import { Clipboard, Globe2, RouteIcon, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ToastViewport, useToast } from "@/components/ui/toast";
@@ -143,44 +143,30 @@ export function WidgetInstallPanel({ brandLogoUrl, organizationId, allowedDomain
         </CardBody>
       </Card>
 
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <Card className="min-w-0">
-          <CardHeader>
-            <h2 className="text-lg font-semibold text-harlo-ink">Launch checklist</h2>
-          </CardHeader>
-          <CardBody className="grid gap-3 md:grid-cols-2">
-            <ChecklistItem title="Add allowed domains" body="Include the exact website domains that should be allowed to load this widget." />
-            <ChecklistItem title="Train knowledge" body="Make sure the services, pricing, hours, policies, and quote requirements are covered." />
-            <ChecklistItem title="Test the widget" body="Ask common customer questions from the test page before installing live." />
-            <ChecklistItem title="Route agents" body="Use Builder page routing when specific pages should open a specific agent." />
-          </CardBody>
-        </Card>
-
-        <Card className="min-w-0">
-          <CardHeader>
-            <h2 className="text-lg font-semibold text-harlo-ink">Allowed websites</h2>
-          </CardHeader>
-          <CardBody>
-            {hasDomains ? (
-              <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
-                {allowedDomains.map((domain) => (
-                  <div key={domain} className="flex items-center gap-3 rounded-lg border border-harlo-line p-3">
-                    <WebsiteLogoIcon brandLogoUrl={brandLogoUrl} size="sm" fallback={<Globe2 size={16} />} />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-harlo-ink">{domain}</p>
-                      <p className="text-xs text-harlo-muted">Widget allowed</p>
-                    </div>
+      <Card className="min-w-0">
+        <CardHeader>
+          <h2 className="text-lg font-semibold text-harlo-ink">Allowed websites</h2>
+        </CardHeader>
+        <CardBody>
+          {hasDomains ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {allowedDomains.map((domain) => (
+                <div key={domain} className="flex items-center gap-3 rounded-lg border border-harlo-line p-3">
+                  <WebsiteLogoIcon brandLogoUrl={brandLogoUrl} size="sm" fallback={<Globe2 size={16} />} />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-harlo-ink">{domain}</p>
+                    <p className="text-xs text-harlo-muted">Widget allowed</p>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm leading-6 text-harlo-muted">
-                No production domains have been added yet. Localhost is still allowed for the test page.
-              </p>
-            )}
-          </CardBody>
-        </Card>
-      </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm leading-6 text-harlo-muted">
+              No production domains have been added yet. Localhost is still allowed for the test page.
+            </p>
+          )}
+        </CardBody>
+      </Card>
     </div>
   );
 }
@@ -190,22 +176,6 @@ function CodeBlock({ value }: { value: string }) {
     <pre className="max-w-full overflow-x-auto whitespace-pre-wrap break-all rounded-lg bg-harlo-ink p-4 text-sm leading-6 text-white">
       <code>{value}</code>
     </pre>
-  );
-}
-
-function ChecklistItem({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="rounded-lg border border-harlo-line bg-white p-4">
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 text-harlo-teal">
-          <CheckCircle2 size={17} />
-        </span>
-        <div>
-          <p className="text-sm font-semibold text-harlo-ink">{title}</p>
-          <p className="mt-1 text-sm leading-6 text-harlo-muted">{body}</p>
-        </div>
-      </div>
-    </div>
   );
 }
 
