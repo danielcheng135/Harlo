@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Send, Sparkles } from "lucide-react";
+import { Mail, Send, Sparkles } from "lucide-react";
+import type { LeadCaptureField } from "@/lib/lead-fields";
 
 type ChatWidgetPreviewProps = {
   title?: string;
@@ -8,6 +9,7 @@ type ChatWidgetPreviewProps = {
   launcherPosition?: "bottom-right" | "bottom-left";
   welcomePrompts?: string[];
   brandLogoUrl?: string | null;
+  leadCaptureFields?: LeadCaptureField[];
 };
 
 export function ChatWidgetPreview({
@@ -16,16 +18,18 @@ export function ChatWidgetPreview({
   accent = "#087f95",
   launcherPosition = "bottom-right",
   welcomePrompts = ["What services do you offer?", "How much does it cost?"],
-  brandLogoUrl = null
+  brandLogoUrl = null,
+  leadCaptureFields = []
 }: ChatWidgetPreviewProps) {
   const accentText = getReadableTextColor(accent);
   const isLeft = launcherPosition === "bottom-left";
   const gradient = `linear-gradient(135deg, ${accent}, color-mix(in srgb, ${accent} 82%, #111827))`;
+  const enabledLeadFields = leadCaptureFields.filter((field) => field.enabled);
 
   return (
     <div className="relative min-h-[500px] overflow-hidden rounded-lg border border-harlo-line bg-[#f5f8fa] p-4 sm:min-h-[560px] sm:p-5">
       <div className="absolute inset-x-3 bottom-[86px] top-4 flex items-end justify-center sm:inset-x-5 sm:bottom-[92px] sm:top-5">
-        <div className="flex h-full w-full max-w-[410px] flex-col overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_28px_80px_rgba(15,23,42,.18),0_1px_0_rgba(255,255,255,.9)_inset]">
+        <div className="flex h-full w-full max-w-[410px] flex-col overflow-hidden rounded-[22px] bg-white shadow-[0_28px_80px_rgba(15,23,42,.18)]">
           <div className="flex min-h-[68px] items-center justify-between gap-3 px-4 py-4 sm:min-h-[76px] sm:px-[18px] sm:py-[18px]" style={{ background: accent, color: accentText }}>
             <div className="flex min-w-0 items-center gap-3">
               <BrandMark brandLogoUrl={brandLogoUrl} accent={accent} accentText={accentText} />
@@ -63,9 +67,18 @@ export function ChatWidgetPreview({
                 <p className="mt-1 mr-0.5 text-[11px] text-[#7c8986]">Visitor · 10:24 AM</p>
               </div>
 
-              <AssistantMessage brandLogoUrl={brandLogoUrl} accent={accent}>
-                Here is how the live widget will look with this brand color.
-              </AssistantMessage>
+              {enabledLeadFields.length > 0 ? (
+                <div className="flex items-start gap-2">
+                  <span className="mt-1 grid h-[30px] w-[30px] shrink-0 place-items-center rounded-[10px]" style={{ background: accent, color: accentText }}>
+                    <Sparkles size={15} />
+                  </span>
+                  <LeadCapturePreview fields={enabledLeadFields} accent={accent} accentText={accentText} />
+                </div>
+              ) : (
+                <AssistantMessage brandLogoUrl={brandLogoUrl} accent={accent}>
+                  Here is how the live widget will look with this brand color.
+                </AssistantMessage>
+              )}
             </div>
           </div>
 
@@ -97,6 +110,50 @@ export function ChatWidgetPreview({
       >
         <LauncherIcon />
       </button>
+    </div>
+  );
+}
+
+function LeadCapturePreview({
+  fields,
+  accent,
+  accentText
+}: {
+  fields: LeadCaptureField[];
+  accent: string;
+  accentText: string;
+}) {
+  return (
+    <div className="w-full overflow-hidden rounded-[18px] border bg-white shadow-[0_18px_42px_rgba(15,23,42,.09)]" style={{ borderColor: `color-mix(in srgb, ${accent} 22%, #e2e8ee)` }}>
+      <div className="h-1" style={{ background: `linear-gradient(90deg, ${accent}, color-mix(in srgb, ${accent} 58%, #fff))` }} />
+      <div className="flex gap-3 px-4 py-3">
+        <span className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-xl" style={{ background: `color-mix(in srgb, ${accent} 10%, #fff)`, color: accent }}>
+          <Mail size={17} />
+        </span>
+        <div>
+          <p className="text-sm font-extrabold text-[#111827]">Share your details</p>
+          <p className="mt-0.5 text-[12.5px] leading-snug text-[#5f6876]">Send these once and the team can follow up.</p>
+        </div>
+      </div>
+      <div className="grid gap-2 px-4 pb-3">
+        {fields.slice(0, 4).map((field) => (
+          <div key={field.key} className="grid gap-1">
+            <div className="flex items-center justify-between gap-2 text-[11px] font-extrabold text-[#263445]">
+              <span>{field.label}</span>
+              {field.required ? <span style={{ color: accent }}>Required</span> : null}
+            </div>
+            <div className="h-9 rounded-xl border border-[#dbe5ea] bg-[#fbfdff] px-3 text-[12px] leading-9 text-[#8a95a3]">
+              {field.prompt}
+            </div>
+          </div>
+        ))}
+        {fields.length > 4 ? <p className="text-[11px] font-bold text-[#7c8986]">+ {fields.length - 4} more detail{fields.length - 4 === 1 ? "" : "s"}</p> : null}
+      </div>
+      <div className="px-4 pb-4">
+        <div className="grid h-11 place-items-center rounded-[14px] text-sm font-extrabold shadow-[0_14px_28px_rgba(15,23,42,.10)]" style={{ background: `linear-gradient(135deg, ${accent}, color-mix(in srgb, ${accent} 82%, #111827))`, color: accentText }}>
+          Send details
+        </div>
+      </div>
     </div>
   );
 }

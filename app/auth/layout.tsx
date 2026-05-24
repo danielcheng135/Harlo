@@ -25,7 +25,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
       <header className="relative z-20 mx-auto flex max-w-7xl items-center justify-center px-5 pt-8 sm:px-8 lg:absolute lg:inset-x-0 lg:justify-start lg:pt-7">
         <Link href="/" className="inline-flex items-center gap-3 text-white">
-          <img src="/icon.png" alt="Harlo logo" className="h-10 w-10 rounded-xl object-contain sm:h-11 sm:w-11 lg:h-9 lg:w-9" />
+          <img src="/icon.png" alt="Harlo logo" className="h-10 w-10 rounded-lg object-contain sm:h-11 sm:w-11 lg:h-9 lg:w-9" />
           <span className="text-3xl font-semibold tracking-tight sm:text-4xl lg:text-3xl">Harlo</span>
         </Link>
       </header>

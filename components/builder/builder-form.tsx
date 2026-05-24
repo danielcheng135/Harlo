@@ -165,7 +165,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
         allowedDomains: cleanDomains,
         routePatterns: cleanRoutePatterns,
         excludedRoutePatterns: cleanExcludedRoutePatterns,
-        leadCaptureFields: leadCaptureFields.filter((field) => field.enabled || isLockedLeadField(field.key))
+        leadCaptureFields: getLeadFieldsForSave(leadCaptureFields)
       })
     });
     const result = (await response.json().catch(() => null)) as SaveResult | null;
@@ -201,7 +201,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
       allowedDomains: cleanDomains,
       routePatterns: cleanRoutePatterns,
       excludedRoutePatterns: cleanExcludedRoutePatterns,
-      leadCaptureFields: leadCaptureFields.filter((field) => field.enabled || isLockedLeadField(field.key))
+      leadCaptureFields: getLeadFieldsForSave(leadCaptureFields)
     };
   }
 
@@ -254,7 +254,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
         allowedDomains: cleanDomains,
         routePatterns: [],
         excludedRoutePatterns: [],
-        leadCaptureFields: leadCaptureFields.filter((field) => field.enabled || isLockedLeadField(field.key))
+        leadCaptureFields: getLeadFieldsForSave(leadCaptureFields)
       })
     });
     const result = (await response.json().catch(() => null)) as SaveResult | null;
@@ -647,13 +647,13 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                           type="checkbox"
                           checked={field.enabled}
                           disabled={isLockedLeadField(field.key)}
-                          onChange={(event) => updateLeadField(index, { enabled: event.target.checked, required: event.target.checked ? field.required : false })}
+                          onChange={(event) => updateLeadField(index, { enabled: event.target.checked, required: event.target.checked })}
                           className="h-4 w-4 accent-harlo-teal"
                           aria-label={`Enable ${field.label}`}
                         />
                         <div>
                           <p className="text-sm font-semibold text-harlo-ink">{field.label}</p>
-                          <p className="text-xs text-harlo-muted">{isLockedLeadField(field.key) ? "Required" : "Optional"}</p>
+                          <p className="text-xs text-harlo-muted">{field.enabled || isLockedLeadField(field.key) ? "Required" : "Inactive"}</p>
                         </div>
                       </div>
                       <select
@@ -862,6 +862,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                     launcherPosition={launcherPosition}
                     welcomePrompts={cleanPrompts}
                     brandLogoUrl={initial.brandLogoUrl}
+                    leadCaptureFields={leadCaptureFields}
                   />
                   <div className="grid content-start gap-3 md:grid-cols-2">
                     <SummaryCard label="Agent" value={botName || "Unnamed agent"} detail={`${getAgentTemplate(agentType).badge}${selectedAgent.isDefault ? " · Default" : ""}`} />
@@ -1077,8 +1078,19 @@ function padLeadFields(fields: LeadCaptureField[]) {
 
   return DEFAULT_LEAD_FIELDS.map((field) => ({
     ...field,
-    ...byKey.get(field.key)
+    ...byKey.get(field.key),
+    required: (byKey.get(field.key)?.enabled ?? field.enabled) ? true : false
   }));
+}
+
+function getLeadFieldsForSave(fields: LeadCaptureField[]) {
+  return fields
+    .filter((field) => field.enabled || isLockedLeadField(field.key))
+    .map((field) => ({
+      ...field,
+      enabled: field.enabled || isLockedLeadField(field.key),
+      required: true
+    }));
 }
 
 function isLockedLeadField(key: string) {

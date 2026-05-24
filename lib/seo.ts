@@ -30,6 +30,7 @@ export const publicRoutes = [
   { path: "/docs/analytics", priority: 0.75, changeFrequency: "weekly" },
   { path: "/docs/team", priority: 0.7, changeFrequency: "weekly" },
   { path: "/privacy", priority: 0.35, changeFrequency: "yearly" },
+  { path: "/cookie-policy", priority: 0.35, changeFrequency: "yearly" },
   { path: "/terms", priority: 0.35, changeFrequency: "yearly" }
 ] as const;
 

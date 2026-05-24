@@ -1,5 +1,6 @@
 import type { BotConfig } from "@/lib/types";
 import { isInternalWorkspaceMetadata } from "@/lib/internal-admin";
+import { normalizeLeadFields } from "@/lib/lead-fields";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 
 export class WidgetRouteExcludedError extends Error {
@@ -33,7 +34,7 @@ export async function getPublicWidgetConfig({
   if (!requestedOrganizationId) {
     let { data: bot, error } = await supabase
       .from("bots")
-      .select("id, organization_id, name, greeting, fallback_message, allowed_domains, organizations(name, brand_logo_url), widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority, behavior)")
+      .select("id, organization_id, name, greeting, fallback_message, allowed_domains, lead_capture_fields, organizations(name, brand_logo_url), widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority, behavior)")
       .eq("id", requestedBotId)
       .eq("status", "active")
       .single();
@@ -41,7 +42,7 @@ export async function getPublicWidgetConfig({
     if (isMissingWidgetRouteBehaviorColumn(error)) {
       const fallback = await supabase
         .from("bots")
-        .select("id, organization_id, name, greeting, fallback_message, allowed_domains, organizations(name, brand_logo_url), widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority)")
+        .select("id, organization_id, name, greeting, fallback_message, allowed_domains, lead_capture_fields, organizations(name, brand_logo_url), widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority)")
         .eq("id", requestedBotId)
         .eq("status", "active")
         .single();
@@ -59,7 +60,7 @@ export async function getPublicWidgetConfig({
 
   let { data: bots, error } = await supabase
     .from("bots")
-    .select("id, organization_id, name, greeting, fallback_message, allowed_domains, is_default, created_at, organizations(name, brand_logo_url), widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority, behavior)")
+    .select("id, organization_id, name, greeting, fallback_message, allowed_domains, lead_capture_fields, is_default, created_at, organizations(name, brand_logo_url), widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority, behavior)")
     .eq("organization_id", requestedOrganizationId)
     .eq("status", "active")
     .order("is_default", { ascending: false })
@@ -68,7 +69,7 @@ export async function getPublicWidgetConfig({
   if (isMissingWidgetRouteBehaviorColumn(error)) {
     const fallback = await supabase
       .from("bots")
-      .select("id, organization_id, name, greeting, fallback_message, allowed_domains, is_default, created_at, organizations(name, brand_logo_url), widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority)")
+      .select("id, organization_id, name, greeting, fallback_message, allowed_domains, lead_capture_fields, is_default, created_at, organizations(name, brand_logo_url), widget_themes(accent, launcher_position, title, welcome_prompts), widget_routes(pattern, priority)")
       .eq("organization_id", requestedOrganizationId)
       .eq("status", "active")
       .order("is_default", { ascending: false })
@@ -114,6 +115,9 @@ async function buildBotConfig(bot: Record<string, unknown>): Promise<BotConfig> 
   const themeRecord = theme && typeof theme === "object" ? theme as Record<string, unknown> : {};
   const organizationRecord = organization && typeof organization === "object" ? organization as Record<string, unknown> : {};
   const businessName = typeof organizationRecord.name === "string" ? organizationRecord.name : String(bot.name);
+  const leadCaptureFields = normalizeLeadFields(bot.lead_capture_fields)
+    .filter((field) => field.enabled)
+    .map(({ key, label, type, prompt }) => ({ key, label, type, required: true, prompt }));
 
   return {
     id: String(bot.id),
@@ -126,6 +130,7 @@ async function buildBotConfig(bot: Record<string, unknown>): Promise<BotConfig> 
     tone: "calm",
     allowedDomains: Array.isArray(bot.allowed_domains) ? bot.allowed_domains.filter((domain): domain is string => typeof domain === "string") : [],
     removeBranding: isInternalWorkspace || (billing?.status === "active" && removeBrandingAddOn?.enabled === true),
+    leadCaptureFields,
     theme: {
       accent: typeof themeRecord.accent === "string" ? themeRecord.accent : "#087f95",
       launcherPosition: themeRecord.launcher_position === "bottom-left" ? "bottom-left" : "bottom-right",

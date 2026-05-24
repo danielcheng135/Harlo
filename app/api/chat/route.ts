@@ -325,6 +325,7 @@ export async function POST(request: NextRequest) {
         answer: invalidEmailReply,
         fallback: false,
         leadCaptured: false,
+        leadCaptureForm: getLeadCaptureFormPayload(leadFields),
         retrieval: []
       });
     }
@@ -374,7 +375,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const saveError = await saveAssistantReply(answer, {
+    const leadFormIntro = "I can collect those details and pass them to the team for follow-up.";
+    const saveError = await saveAssistantReply(leadFormIntro, {
       lead_partial: true,
       intent
     });
@@ -385,9 +387,10 @@ export async function POST(request: NextRequest) {
 
     return widgetJson(request, {
       conversationId: activeConversationId,
-      answer,
+      answer: leadFormIntro,
       fallback: false,
       leadCaptured: false,
+      leadCaptureForm: getLeadCaptureFormPayload(leadFields),
       retrieval: []
     });
   }
@@ -405,11 +408,10 @@ export async function POST(request: NextRequest) {
     intent: intent.intent,
     agent
   });
-  answer = appendLeadQuestionForContactAnswer({
+  const shouldShowLeadCaptureForm = shouldAppendLeadQuestion({
     answer,
     intent: intent.intent,
     message: body.message,
-    conversationMessages,
     leadFields
   });
 
@@ -431,11 +433,32 @@ export async function POST(request: NextRequest) {
     conversationId: activeConversationId,
     answer,
     fallback: chunks.length === 0,
+    leadCaptureForm: shouldShowLeadCaptureForm ? getLeadCaptureFormPayload(leadFields) : undefined,
     retrieval: chunks.map((chunk) => ({
       sourceTitle: chunk.sourceTitle,
       similarity: chunk.similarity
     }))
   });
+}
+
+function getLeadCaptureFormPayload(fields: LeadCaptureField[]) {
+  const enabledFields = fields.filter((field) => field.enabled);
+
+  if (enabledFields.length === 0) {
+    return null;
+  }
+
+  return {
+    title: "Share your details",
+    description: "Send these once and the team will have everything they need to follow up.",
+    fields: enabledFields.map(({ key, label, type, prompt }) => ({
+      key,
+      label,
+      type,
+      required: true,
+      prompt
+    }))
+  };
 }
 
 async function getExistingConversationId({

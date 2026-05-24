@@ -193,6 +193,7 @@ const footerColumns = [
     links: [
       { label: "Contact", href: "mailto:support@harloai.co" },
       { label: "Privacy", href: "/privacy" },
+      { label: "Cookies", href: "/cookie-policy" },
       { label: "Terms", href: "/terms" }
     ]
   }
@@ -1215,7 +1216,7 @@ function HomeFooter() {
               </Link>
             </div>
           </div>
-          <p className="mt-6 text-xs font-medium text-harlo-muted">© {currentYear} Harlo. All rights reserved.</p>
+          <p className="mt-6 text-xs font-medium text-harlo-muted">© {currentYear} Harlo AI LLC. All rights reserved.</p>
         </div>
         {footerColumns.map((column) => (
           <div key={column.title}>

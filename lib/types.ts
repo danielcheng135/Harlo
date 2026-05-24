@@ -9,6 +9,13 @@ export type BotConfig = {
   tone: "calm" | "friendly" | "concise";
   allowedDomains: string[];
   removeBranding: boolean;
+  leadCaptureFields: Array<{
+    key: string;
+    label: string;
+    type: "text" | "email" | "phone" | "date";
+    required: boolean;
+    prompt: string;
+  }>;
   theme: {
     accent: string;
     launcherPosition: "bottom-right" | "bottom-left";

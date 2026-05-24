@@ -29,6 +29,7 @@ const footerSections = [
     title: "Legal",
     links: [
       { label: "Privacy Policy", href: "/privacy" },
+      { label: "Cookie Policy", href: "/cookie-policy" },
       { label: "Terms of Service", href: "/terms" }
     ]
   }
@@ -65,7 +66,7 @@ export function MarketingFooter() {
               </Link>
             </div>
           </div>
-          <p className="mt-6 text-xs font-medium text-harlo-muted">© {currentYear} Harlo. All rights reserved.</p>
+          <p className="mt-6 text-xs font-medium text-harlo-muted">© {currentYear} Harlo AI LLC. All rights reserved.</p>
         </div>
 
         {footerSections.map((section) => (

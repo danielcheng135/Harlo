@@ -37,13 +37,14 @@ export function GET(request: NextRequest) {
   style.textContent = [
     "#harlo-widget-root,#harlo-widget-root *{box-sizing:border-box}",
     ".harlo-launcher{position:fixed;right:24px;bottom:24px;width:58px;height:58px;border-radius:999px;border:0;background:linear-gradient(135deg,var(--harlo-accent,#087f95),color-mix(in srgb,var(--harlo-accent,#087f95) 82%,#111827));color:var(--harlo-accent-text,#fff);box-shadow:none;z-index:2147483000;cursor:pointer;display:grid;place-items:center;transition:transform .18s ease,filter .18s ease}.harlo-launcher .harlo-icon{width:31px;height:31px;stroke-width:2.1}.harlo-launcher:hover{transform:translateY(-2px);filter:saturate(1.05) brightness(.98)}.harlo-launcher:active{transform:translateY(0) scale(.98)}",
-    ".harlo-nudge{position:fixed;right:24px;bottom:104px;width:min(340px,calc(100vw - 32px));z-index:2147482999;display:none;border:1px solid #d7dde5;border-radius:16px;background:#fff;color:#111827;padding:16px;box-shadow:0 16px 38px rgba(15,23,42,.12);font-family:Inter,system-ui,-apple-system,sans-serif;overflow:visible;animation:harloNudgeIn .28s ease-out}.harlo-nudge[data-visible=true]{display:block}.harlo-nudge:after{content:'';position:absolute;bottom:-9px;width:16px;height:16px;background:#fff;border-right:1px solid #d7dde5;border-bottom:1px solid #d7dde5;transform:rotate(45deg);border-bottom-right-radius:4px}.harlo-nudge[data-side=right]:after{right:37px;left:auto}.harlo-nudge[data-side=left]:after{left:37px;right:auto}@keyframes harloNudgeIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}",
+    ".harlo-nudge{position:fixed;right:24px;bottom:104px;width:min(340px,calc(100vw - 32px));z-index:2147482999;display:none;border:0;border-radius:16px;background:#fff;color:#111827;padding:16px;box-shadow:0 16px 38px rgba(15,23,42,.12);font-family:Inter,system-ui,-apple-system,sans-serif;overflow:visible;animation:harloNudgeIn .28s ease-out}.harlo-nudge[data-visible=true]{display:block}.harlo-nudge:after{content:'';position:absolute;bottom:-9px;width:16px;height:16px;background:#fff;transform:rotate(45deg);border-bottom-right-radius:4px}.harlo-nudge[data-side=right]:after{right:37px;left:auto}.harlo-nudge[data-side=left]:after{left:37px;right:auto}@keyframes harloNudgeIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}",
     ".harlo-nudge-text{border:0;background:transparent;color:#111827;padding:0;text-align:left;font:inherit;font-size:15px;font-weight:400;line-height:1.38;cursor:pointer;letter-spacing:0}.harlo-nudge-text:hover{color:#111827}.harlo-nudge-close{position:absolute;right:-7px;top:-7px;width:24px;height:24px;border:1px solid #d7dde5;border-radius:999px;background:#eef2f5;color:#5f6876;cursor:pointer;font-size:16px;line-height:1;display:grid;place-items:center;box-shadow:0 6px 14px rgba(15,23,42,.1);transition:background .16s ease,color .16s ease,transform .16s ease}.harlo-nudge-close:hover{background:#e2e8ee;color:#111827;transform:scale(1.03)}",
-    ".harlo-icon{display:block;width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}.harlo-panel{position:fixed;right:24px;bottom:100px;width:min(410px,calc(100vw - 32px));height:min(650px,calc(100vh - 132px));border:1px solid rgba(226,232,238,.94);border-radius:22px;background:#fff;box-shadow:0 28px 80px rgba(15,23,42,.22),0 1px 0 rgba(255,255,255,.9) inset;z-index:2147483001;display:none;overflow:hidden;font-family:Inter,system-ui,-apple-system,sans-serif}.harlo-panel[data-open=true]{display:flex;flex-direction:column;animation:harloPanelIn .2s ease-out}@keyframes harloPanelIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}",
+    ".harlo-icon{display:block;width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}.harlo-panel{position:fixed;right:24px;bottom:100px;width:min(410px,calc(100vw - 32px));height:min(650px,calc(100vh - 132px));border:0;border-radius:22px;background:#fff;box-shadow:0 28px 80px rgba(15,23,42,.22);z-index:2147483001;display:none;overflow:hidden;font-family:Inter,system-ui,-apple-system,sans-serif}.harlo-panel[data-open=true]{display:flex;flex-direction:column;animation:harloPanelIn .2s ease-out}@keyframes harloPanelIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}",
     ".harlo-head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:76px;padding:18px 18px;border-bottom:1px solid color-mix(in srgb,var(--harlo-accent-text,#fff) 16%,transparent);background:var(--harlo-accent,#087f95);color:var(--harlo-accent-text,#fff)}.harlo-head-inner{display:flex;align-items:center;gap:10px;min-width:0}.harlo-mark{width:42px;height:42px;display:grid;place-items:center;border-radius:14px;background:color-mix(in srgb,var(--harlo-accent-text,#fff) 16%,transparent);color:var(--harlo-accent-text,#fff);border:1px solid color-mix(in srgb,var(--harlo-accent-text,#fff) 35%,transparent);box-shadow:inset 0 1px 0 color-mix(in srgb,var(--harlo-accent-text,#fff) 22%,transparent),0 10px 24px rgba(15,23,42,.14);font-weight:800}.harlo-mark .harlo-icon{width:20px;height:20px}.harlo-title{font-weight:850;color:var(--harlo-accent-text,#fff);font-size:15px;letter-spacing:0}.harlo-subtitle{font-size:12px;color:color-mix(in srgb,var(--harlo-accent-text,#fff) 82%,transparent);margin-top:2px}.harlo-close{width:34px;height:34px;border:0;border-radius:999px;background:color-mix(in srgb,var(--harlo-accent-text,#fff) 14%,transparent);color:var(--harlo-accent-text,#fff);cursor:pointer;padding:0;display:grid;place-items:center;transition:background .16s ease,transform .16s ease}.harlo-close:hover{background:color-mix(in srgb,var(--harlo-accent-text,#fff) 22%,transparent);transform:scale(1.03)}.harlo-close::before{content:'';width:18px;height:2px;border-radius:999px;background:currentColor;opacity:.95}",
     ".harlo-body{flex:1;overflow:auto;padding:18px;background:linear-gradient(180deg,#fbfdff,#fff);color:#111827;font-size:14px;scrollbar-width:thin;scrollbar-color:#c8d5dc transparent}.harlo-body::-webkit-scrollbar{width:8px}.harlo-body::-webkit-scrollbar-thumb{background:#c8d5dc;border-radius:999px}.harlo-entry{margin:0 0 13px}.harlo-entry[data-role=user]{display:flex;flex-direction:column;align-items:flex-end}.harlo-entry[data-role=assistant]{display:block}.harlo-assistant-row{display:flex;align-items:flex-start;gap:10px;max-width:94%}.harlo-avatar{width:30px;height:30px;flex:0 0 30px;border-radius:10px;background:var(--harlo-accent,#087f95);color:var(--harlo-accent-text,#fff);display:grid;place-items:center;margin-top:2px;box-shadow:0 6px 14px rgba(15,23,42,.08)}.harlo-avatar .harlo-icon{width:15px;height:15px}.harlo-mark[data-has-logo=true],.harlo-avatar[data-has-logo=true]{background:#f4f4f4;color:var(--harlo-accent,#087f95);border:0;box-shadow:none}.harlo-logo-img{display:block;width:100%;height:100%;object-fit:contain;padding:5px}.harlo-avatar .harlo-logo-img{padding:4px}",
     ".harlo-message{display:table;width:fit-content;max-width:86%;padding:12px 13px;border-radius:16px;line-height:1.48;white-space:normal;box-shadow:0 1px 0 rgba(15,23,42,.04)}.harlo-message[data-role=assistant]{background:#f4f4f4;color:#111827;border:1px solid #e8edf1;border-top-left-radius:7px}.harlo-message[data-role=user]{margin-left:auto;background:linear-gradient(135deg,var(--harlo-accent,#087f95),color-mix(in srgb,var(--harlo-accent,#087f95) 82%,#111827));color:var(--harlo-accent-text,#fff);border-top-right-radius:7px;box-shadow:0 12px 26px color-mix(in srgb,var(--harlo-accent,#087f95) 18%,transparent)}.harlo-message[data-kind=billing-limit],.harlo-message[data-kind=billing-limit-sent]{display:block;width:auto;max-width:100%;padding:0;background:transparent;color:#111827;border:0;box-shadow:none}",
     ".harlo-limit-card{position:relative;overflow:hidden;border:1px solid color-mix(in srgb,var(--harlo-accent,#087f95) 24%,#e2e8ee);background:#fff;border-radius:16px;padding:14px;box-shadow:0 14px 34px rgba(15,23,42,.07)}.harlo-limit-card:before{content:'';position:absolute;left:0;right:0;top:0;height:4px;background:var(--harlo-accent,#087f95)}.harlo-limit-head{display:flex;align-items:center;gap:10px;margin:2px 0 10px}.harlo-limit-icon{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:var(--harlo-accent,#087f95);color:var(--harlo-accent-text,#fff)}.harlo-limit-icon .harlo-icon{width:15px;height:15px;stroke-width:2.2}.harlo-limit-title{font-weight:800;color:#111827;font-size:14px;letter-spacing:0}.harlo-limit-copy{color:#4b5b68;font-size:13px;line-height:1.5;margin:0}.harlo-limit-note{display:inline-flex;align-items:center;gap:6px;margin-top:12px;border:0;border-radius:999px;background:color-mix(in srgb,var(--harlo-accent,#087f95) 10%,#fff);padding:6px 9px;color:var(--harlo-accent,#087f95);font-size:12px;font-weight:800}.harlo-limit-note:before{content:'';width:6px;height:6px;border-radius:999px;background:var(--harlo-accent,#087f95)}.harlo-message .harlo-limit-copy{margin:0}",
+    ".harlo-message[data-kind=lead-form]{display:block;width:100%;max-width:100%;padding:0;background:transparent;border:0;box-shadow:none}.harlo-lead-card{position:relative;overflow:hidden;border:1px solid color-mix(in srgb,var(--harlo-accent,#087f95) 22%,#e2e8ee);border-radius:18px;background:#fff;box-shadow:0 18px 42px rgba(15,23,42,.09)}.harlo-lead-card:before{content:'';position:absolute;inset:0 0 auto;height:4px;background:linear-gradient(90deg,var(--harlo-accent,#087f95),color-mix(in srgb,var(--harlo-accent,#087f95) 58%,#fff));}.harlo-lead-card[data-submitted=true]{opacity:.78}.harlo-lead-head{display:flex;gap:11px;padding:16px 16px 12px}.harlo-lead-icon{width:34px;height:34px;flex:0 0 34px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--harlo-accent,#087f95) 10%,#fff);color:var(--harlo-accent,#087f95)}.harlo-lead-icon .harlo-icon{width:17px;height:17px;stroke-width:2.2}.harlo-lead-title{font-size:14px;font-weight:850;color:#111827;letter-spacing:0}.harlo-lead-copy{margin:3px 0 0;color:#5f6876;font-size:12.5px;line-height:1.45}.harlo-lead-fields{display:grid;gap:10px;padding:0 16px 14px}.harlo-lead-field{display:grid;gap:5px}.harlo-lead-label{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#263445;font-size:12px;font-weight:800}.harlo-lead-required{color:var(--harlo-accent,#087f95);font-size:11px;font-weight:800}.harlo-lead-input{width:100%;min-height:42px;border:1px solid #dbe5ea;border-radius:12px;background:#fbfdff;color:#111827;font:inherit;font-size:14px;padding:10px 11px;outline:none;transition:border-color .16s ease,box-shadow .16s ease,background .16s ease}.harlo-lead-input:focus{border-color:var(--harlo-accent,#087f95);background:#fff;box-shadow:0 0 0 4px color-mix(in srgb,var(--harlo-accent,#087f95) 12%,transparent)}.harlo-lead-input[aria-invalid=true]{border-color:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.1)}.harlo-lead-error{display:none;color:#dc2626;font-size:11px;font-weight:700}.harlo-lead-field[data-error=true] .harlo-lead-error{display:block}.harlo-lead-actions{padding:0 16px 16px}.harlo-lead-submit{width:100%;min-height:44px;border:0;border-radius:14px;background:linear-gradient(135deg,var(--harlo-accent,#087f95),color-mix(in srgb,var(--harlo-accent,#087f95) 82%,#111827));color:var(--harlo-accent-text,#fff);font-size:14px;font-weight:850;cursor:pointer;box-shadow:0 14px 28px color-mix(in srgb,var(--harlo-accent,#087f95) 18%,transparent);transition:transform .16s ease,box-shadow .16s ease}.harlo-lead-submit:hover{transform:translateY(-1px);box-shadow:0 18px 32px color-mix(in srgb,var(--harlo-accent,#087f95) 22%,transparent)}.harlo-lead-submit:disabled{cursor:default;opacity:.7;transform:none;box-shadow:none}.harlo-lead-note{margin:8px 0 0;text-align:center;color:#7c8986;font-size:11px;line-height:1.35}",
     ".harlo-message-time{font-size:11px;color:#7c8986;margin-top:5px}.harlo-entry[data-role=assistant] .harlo-message-time{margin-left:40px}.harlo-entry[data-role=user] .harlo-message-time{text-align:right;margin-right:2px}.harlo-typing{display:flex;align-items:center;gap:4px;min-width:34px;height:20px}.harlo-typing span{width:6px;height:6px;border-radius:999px;background:var(--harlo-accent,#087f95);opacity:.35;animation:harloTyping 1s infinite ease-in-out}.harlo-typing span:nth-child(2){animation-delay:.14s}.harlo-typing span:nth-child(3){animation-delay:.28s}@keyframes harloTyping{0%,80%,100%{transform:translateY(0);opacity:.35}40%{transform:translateY(-3px);opacity:1}}.harlo-message p{margin:0 0 8px}.harlo-message p:last-child{margin-bottom:0}.harlo-message ul{display:block;list-style-type:disc!important;list-style-position:outside!important;margin:7px 0 0 0!important;padding-left:22px!important}.harlo-message li{display:list-item!important;list-style-type:disc!important;margin:3px 0;padding-left:2px}",
     ".harlo-suggestions{display:none;background:#fff;padding:0 13px 2px}.harlo-suggestions[data-visible=true]{display:block}.harlo-suggestion-shell{display:grid;grid-template-columns:30px minmax(0,1fr) 30px;align-items:center;gap:7px}.harlo-suggestion-nav{width:30px;height:30px;border-radius:999px;border:1px solid #e2e8ee;background:#fff;color:#5f6876;display:grid;place-items:center;cursor:pointer;font-size:18px;line-height:1;box-shadow:0 2px 7px rgba(15,23,42,.05);transition:border-color .16s ease,color .16s ease,transform .16s ease}.harlo-suggestion-nav:hover{border-color:var(--harlo-accent,#087f95);color:var(--harlo-accent,#087f95);transform:translateY(-1px)}.harlo-prompts{display:flex;flex-wrap:nowrap;gap:8px;margin:0;padding:8px 0 6px;overflow-x:auto;scroll-behavior:smooth;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}.harlo-prompts::-webkit-scrollbar{display:none}.harlo-prompt{flex:0 0 auto;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;scroll-snap-align:start;border:1px solid #e2e8ee;background:#fff;border-radius:999px;padding:8px 11px;font-size:12px;font-weight:650;color:#111827;cursor:pointer;transition:border-color .16s ease,color .16s ease,box-shadow .16s ease}.harlo-prompt:hover{border-color:color-mix(in srgb,var(--harlo-accent,#087f95) 38%,#e2e8ee);color:var(--harlo-accent,#087f95);box-shadow:0 8px 18px rgba(15,23,42,.06)}.harlo-meta{font-size:11px;color:#5f6876;margin-top:8px}",
     ".harlo-input{display:flex;gap:9px;padding:12px 13px 9px;border-top:1px solid #edf2f5;background:#fff}.harlo-input input{flex:1;min-width:0;border:1px solid #dbe5ea;border-radius:14px;padding:12px 13px;font-size:14px;outline:none;background:#fbfdff;transition:border-color .16s ease,box-shadow .16s ease,background .16s ease}.harlo-input input:focus{border-color:var(--harlo-accent,#087f95);background:#fff;box-shadow:0 0 0 4px color-mix(in srgb,var(--harlo-accent,#087f95) 14%,transparent)}.harlo-input button{width:46px;height:44px;display:grid;place-items:center;border:0;border-radius:14px;background:linear-gradient(135deg,var(--harlo-accent,#087f95),color-mix(in srgb,var(--harlo-accent,#087f95) 82%,#111827));color:white;padding:0;cursor:pointer;box-shadow:0 12px 22px color-mix(in srgb,var(--harlo-accent,#087f95) 18%,transparent);transition:transform .16s ease,box-shadow .16s ease}.harlo-input button:hover{transform:translateY(-1px);box-shadow:0 16px 26px color-mix(in srgb,var(--harlo-accent,#087f95) 22%,transparent)}.harlo-input button .harlo-icon{width:18px;height:18px}.harlo-input button:disabled{opacity:.6;cursor:wait;transform:none}.harlo-powered{padding:0 13px 13px;background:#fff;text-align:center;font-size:11px;color:#7c8986}.harlo-powered strong{font-weight:850;color:#5f6876}",
@@ -56,6 +57,7 @@ export function GET(request: NextRequest) {
   var chevronDownIcon = '<svg class="harlo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>';
   var sendIcon = '<svg class="harlo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path></svg>';
   var alertIcon = '<svg class="harlo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>';
+  var mailIcon = '<svg class="harlo-icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a2 2 0 0 1-2.06 0L2 7"></path></svg>';
   root.innerHTML = '<section class="harlo-panel" aria-label="Harlo chat"><div class="harlo-head"><div class="harlo-head-inner"><div class="harlo-mark">' + brandIcon + '</div><div><div class="harlo-title">Ask Harlo</div><div class="harlo-subtitle">Usually replies instantly</div></div></div><button class="harlo-close" aria-label="Minimize chat"></button></div><div class="harlo-body"></div><div class="harlo-suggestions"></div><form class="harlo-input"><input aria-label="Message" placeholder="Ask a question..." autocomplete="off" /><button aria-label="Send message">' + sendIcon + '</button></form><div class="harlo-powered">Powered by <strong>Harlo</strong></div></section><div class="harlo-nudge" data-visible="false" data-side="right"><button class="harlo-nudge-text" type="button"></button><button class="harlo-nudge-close" type="button" aria-label="Dismiss greeting">&times;</button></div><button class="harlo-launcher" aria-label="Open Harlo chat">' + messageIcon + '</button>';
 
   var panel = root.querySelector(".harlo-panel");
@@ -245,7 +247,7 @@ export function GET(request: NextRequest) {
       bubble.className = "harlo-message";
       bubble.setAttribute("data-role", message.role);
       bubble.setAttribute("data-kind", message.kind || "message");
-      bubble.appendChild(message.loading ? createTypingIndicator() : formatMessage(message.content, message.kind));
+      bubble.appendChild(message.loading ? createTypingIndicator() : formatMessage(message.content, message.kind, message.payload));
 
       if (message.role === "assistant") {
         var row = document.createElement("div");
@@ -337,8 +339,8 @@ export function GET(request: NextRequest) {
     suggestions.appendChild(shell);
   }
 
-  function addMessage(role, content, kind) {
-    messages.push({ role: role, content: content, kind: kind || "message", createdAt: Date.now(), loading: false });
+  function addMessage(role, content, kind, payload) {
+    messages.push({ role: role, content: content, kind: kind || "message", payload: payload || null, createdAt: Date.now(), loading: false });
     render();
     return messages.length - 1;
   }
@@ -445,8 +447,9 @@ export function GET(request: NextRequest) {
     step();
   }
 
-  function formatMessage(content, kind) {
+  function formatMessage(content, kind, payload) {
     if (kind === "billing-limit" || kind === "billing-limit-sent") return formatBillingLimitMessage(content, kind);
+    if (kind === "lead-form") return formatLeadCaptureForm(payload);
     var wrapper = document.createElement("div");
     var lines = String(content || "").split("\\n").map(function (line) { return line.trim(); }).filter(Boolean);
     var list = null;
@@ -490,6 +493,163 @@ export function GET(request: NextRequest) {
     return wrapper;
   }
 
+  function addLeadCaptureForm(formPayload) {
+    if (!formPayload || !Array.isArray(formPayload.fields) || formPayload.fields.length === 0) return;
+    addMessage("assistant", "", "lead-form", formPayload);
+  }
+
+  function formatLeadCaptureForm(payload) {
+    payload.values = payload.values && typeof payload.values === "object" ? payload.values : {};
+    var card = document.createElement("form");
+    card.className = "harlo-lead-card";
+    card.noValidate = true;
+
+    var head = document.createElement("div");
+    head.className = "harlo-lead-head";
+    var icon = document.createElement("div");
+    icon.className = "harlo-lead-icon";
+    icon.innerHTML = mailIcon;
+    var copyWrap = document.createElement("div");
+    var heading = document.createElement("div");
+    heading.className = "harlo-lead-title";
+    heading.textContent = payload.title || "Share your details";
+    var copy = document.createElement("p");
+    copy.className = "harlo-lead-copy";
+    copy.textContent = payload.description || "Send these once and the team will have everything they need to follow up.";
+    copyWrap.appendChild(heading);
+    copyWrap.appendChild(copy);
+    head.appendChild(icon);
+    head.appendChild(copyWrap);
+    card.appendChild(head);
+
+    var fieldsWrap = document.createElement("div");
+    fieldsWrap.className = "harlo-lead-fields";
+    payload.fields.forEach(function (field) {
+      var fieldWrap = document.createElement("label");
+      fieldWrap.className = "harlo-lead-field";
+      fieldWrap.setAttribute("data-key", field.key);
+
+      var label = document.createElement("span");
+      label.className = "harlo-lead-label";
+      var labelText = document.createElement("span");
+      labelText.textContent = field.label || field.prompt || "Detail";
+      label.appendChild(labelText);
+      if (field.required) {
+        var required = document.createElement("span");
+        required.className = "harlo-lead-required";
+        required.textContent = "Required";
+        label.appendChild(required);
+      }
+
+      var input = document.createElement("input");
+      input.className = "harlo-lead-input";
+      input.name = field.key;
+      input.type = field.type === "email" ? "email" : field.type === "phone" ? "tel" : field.type === "date" ? "date" : "text";
+      input.placeholder = field.prompt || field.label || "";
+      input.required = true;
+      input.autocomplete = getLeadAutocomplete(field);
+      input.value = payload.values[field.key] || "";
+
+      var error = document.createElement("span");
+      error.className = "harlo-lead-error";
+      error.textContent = field.type === "email" ? "Enter a valid email." : "This field is required.";
+
+      input.addEventListener("input", function () {
+        payload.values[field.key] = input.value;
+        fieldWrap.removeAttribute("data-error");
+        input.removeAttribute("aria-invalid");
+      });
+
+      fieldWrap.appendChild(label);
+      fieldWrap.appendChild(input);
+      fieldWrap.appendChild(error);
+      fieldsWrap.appendChild(fieldWrap);
+    });
+    card.appendChild(fieldsWrap);
+
+    var actions = document.createElement("div");
+    actions.className = "harlo-lead-actions";
+    var submitButton = document.createElement("button");
+    submitButton.className = "harlo-lead-submit";
+    submitButton.type = "submit";
+    submitButton.textContent = "Send details";
+    var note = document.createElement("p");
+    note.className = "harlo-lead-note";
+    note.textContent = "Your details will be shared with " + getBusinessLabel() + ".";
+    actions.appendChild(submitButton);
+    actions.appendChild(note);
+    card.appendChild(actions);
+
+    if (payload.submitted) {
+      card.setAttribute("data-submitted", "true");
+      submitButton.textContent = "Sent";
+      Array.prototype.forEach.call(card.querySelectorAll("input,button"), function (element) {
+        element.disabled = true;
+      });
+    }
+
+    card.addEventListener("submit", function (event) {
+      event.preventDefault();
+      if (card.getAttribute("data-submitted") === "true") return;
+      var details = [];
+      var isValid = true;
+
+      payload.fields.forEach(function (field) {
+        var fieldWrap = card.querySelector('[data-key="' + cssEscape(field.key) + '"]');
+        var input = fieldWrap && fieldWrap.querySelector("input");
+        var value = input ? input.value.trim() : "";
+        payload.values[field.key] = value;
+        var invalidEmail = field.type === "email" && value && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value);
+        var missingRequired = !value;
+
+        if (missingRequired || invalidEmail) {
+          isValid = false;
+          if (fieldWrap) fieldWrap.setAttribute("data-error", "true");
+          if (input) input.setAttribute("aria-invalid", "true");
+          return;
+        }
+
+        if (value) {
+          details.push((field.label || field.key) + ": " + formatLeadFormValue(field, value));
+        }
+      });
+
+      if (!isValid || details.length === 0) return;
+
+      payload.submitted = true;
+      card.setAttribute("data-submitted", "true");
+      Array.prototype.forEach.call(card.querySelectorAll("input,button"), function (element) {
+        element.disabled = true;
+      });
+      submitButton.textContent = "Sending...";
+      sendMessage("Lead capture details:\\n" + details.join("\\n"), { displayText: "I shared my details." });
+    });
+
+    return card;
+  }
+
+  function cssEscape(value) {
+    if (window.CSS && typeof window.CSS.escape === "function") return window.CSS.escape(value);
+    return String(value || "").replace(/[^a-zA-Z0-9_-]/g, "");
+  }
+
+  function getLeadAutocomplete(field) {
+    if (field.key === "name") return "name";
+    if (field.type === "email" || field.key === "email") return "email";
+    if (field.type === "phone" || field.key === "phone") return "tel";
+    if (field.key === "company") return "organization";
+    return "off";
+  }
+
+  function formatLeadFormValue(field, value) {
+    if (field.type === "date") {
+      var date = String(value || "").match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+      if (date) return Number(date[2]) + "/" + Number(date[3]) + "/" + date[1];
+    }
+
+    return value;
+  }
+
 
   function formatBillingLimitMessage(content, kind) {
     var businessName = config && (config.businessName || config.name) ? (config.businessName || config.name) : "the business";
@@ -517,7 +677,8 @@ export function GET(request: NextRequest) {
     return card;
   }
 
-  function sendMessage(text) {
+  function sendMessage(text, options) {
+    options = options || {};
     var closeoutOnly = isCloseoutMessage(text);
     var shouldAttachToCompletedConversation = !conversationId && completedConversationId && closeoutOnly;
     var outgoingConversationId = conversationId || (shouldAttachToCompletedConversation ? completedConversationId : "");
@@ -529,7 +690,7 @@ export function GET(request: NextRequest) {
     input.value = "";
     input.disabled = true;
     submit.disabled = true;
-    addMessage("user", text);
+    addMessage("user", options.displayText || text);
     addLoadingMessage();
 
     function finish() {
@@ -574,6 +735,13 @@ export function GET(request: NextRequest) {
         }
         if (result.json.billingLimitReached) {
           revealAssistantMessage(result.json.answer, pauseAfterMessage, result.json.billingAlertSent ? "billing-limit-sent" : "billing-limit");
+          return;
+        }
+        if (result.json.leadCaptureForm && !result.json.leadCaptured) {
+          revealAssistantMessage(result.json.answer, function () {
+            addLeadCaptureForm(result.json.leadCaptureForm);
+            finish();
+          });
           return;
         }
         revealAssistantMessage(result.json.answer, finish);
