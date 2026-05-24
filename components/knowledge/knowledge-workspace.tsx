@@ -348,7 +348,7 @@ export function KnowledgeWorkspace({
     <div className="space-y-5">
       <ToastViewport toast={toast} onDismiss={dismissToast} />
       {showDeleteDialog && selectedSource ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-harlo-ink/20 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby={`delete-source-${selectedSource.id}`}>
+        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-harlo-ink/20 px-4 py-6 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby={`delete-source-${selectedSource.id}`}>
           <div className="w-full max-w-md overflow-hidden rounded-lg border border-harlo-line bg-white shadow-2xl">
             <div className="flex items-start gap-3 border-b border-harlo-line p-5">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-red-50 text-red-600">
@@ -374,7 +374,7 @@ export function KnowledgeWorkspace({
         </div>
       ) : null}
       {addModalMode ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-harlo-ink/20 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="add-knowledge-source">
+        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-harlo-ink/20 px-4 py-6 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="add-knowledge-source">
           <div className="w-full max-w-lg overflow-hidden rounded-lg border border-harlo-line bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-harlo-line p-5">
               <div>
@@ -423,7 +423,7 @@ export function KnowledgeWorkspace({
       <header>
         <div>
           <Badge>Knowledge</Badge>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-harlo-ink">Knowledge Source Center</h1>
+          <h1 className="mt-3 text-2xl font-semibold tracking-tight text-harlo-ink sm:text-3xl">Knowledge Source Center</h1>
           <p className="mt-2 max-w-3xl text-sm text-harlo-muted">
             Manage and optimize the knowledge sources your agents use to answer questions.
           </p>
@@ -431,7 +431,7 @@ export function KnowledgeWorkspace({
       </header>
 
       <section className="grid gap-5 xl:grid-cols-[320px_minmax(420px,1fr)_300px] 2xl:grid-cols-[380px_minmax(460px,1fr)_360px]">
-        <aside className="flex min-h-[780px] flex-col overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm">
+        <aside className="flex min-h-[420px] flex-col overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm xl:min-h-[780px]">
           <div className="border-b border-harlo-line p-4">
             <h2 className="text-base font-semibold text-harlo-ink">Sources</h2>
             <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_120px] xl:grid-cols-1">
@@ -493,7 +493,7 @@ export function KnowledgeWorkspace({
           </div>
         </aside>
 
-        <main className="rounded-lg border border-harlo-line bg-white shadow-sm">
+        <main className="min-w-0 rounded-lg border border-harlo-line bg-white shadow-sm">
           {selectedSource ? (
             <>
               <div className="border-b border-harlo-line p-5">
@@ -540,7 +540,7 @@ export function KnowledgeWorkspace({
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {isEditingSource ? (
                       <>
                         <Button type="button" variant="ghost" onClick={() => setIsEditingSource(false)} disabled={isSavingSource}>
@@ -573,7 +573,7 @@ export function KnowledgeWorkspace({
                     )}
                   </div>
                 </div>
-                <div className="mt-5 flex border-b border-harlo-line">
+                <div className="mt-5 flex overflow-x-auto border-b border-harlo-line [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   <DetailTabButton active={detailTab === "overview"} label="Overview" onClick={() => setDetailTab("overview")} />
                   <DetailTabButton active={detailTab === "content"} label="Content" onClick={() => setDetailTab("content")} count={getChunkCount(selectedSource)} />
                 </div>

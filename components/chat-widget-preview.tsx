@@ -23,10 +23,10 @@ export function ChatWidgetPreview({
   const gradient = `linear-gradient(135deg, ${accent}, color-mix(in srgb, ${accent} 82%, #111827))`;
 
   return (
-    <div className="relative min-h-[560px] overflow-hidden rounded-lg border border-harlo-line bg-[#f5f8fa] p-5">
-      <div className="absolute inset-x-5 top-5 bottom-[92px] flex items-end justify-center">
+    <div className="relative min-h-[500px] overflow-hidden rounded-lg border border-harlo-line bg-[#f5f8fa] p-4 sm:min-h-[560px] sm:p-5">
+      <div className="absolute inset-x-3 bottom-[86px] top-4 flex items-end justify-center sm:inset-x-5 sm:bottom-[92px] sm:top-5">
         <div className="flex h-full w-full max-w-[410px] flex-col overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_28px_80px_rgba(15,23,42,.18),0_1px_0_rgba(255,255,255,.9)_inset]">
-          <div className="flex min-h-[76px] items-center justify-between gap-3 px-[18px] py-[18px]" style={{ background: accent, color: accentText }}>
+          <div className="flex min-h-[68px] items-center justify-between gap-3 px-4 py-4 sm:min-h-[76px] sm:px-[18px] sm:py-[18px]" style={{ background: accent, color: accentText }}>
             <div className="flex min-w-0 items-center gap-3">
               <BrandMark brandLogoUrl={brandLogoUrl} accent={accent} accentText={accentText} />
               <div className="min-w-0">
@@ -89,8 +89,8 @@ export function ChatWidgetPreview({
 
       <button
         type="button"
-        className={`absolute bottom-5 grid h-[58px] w-[58px] place-items-center rounded-full transition ${
-          isLeft ? "left-5" : "right-5"
+        className={`absolute bottom-4 grid h-14 w-14 place-items-center rounded-full transition sm:bottom-5 sm:h-[58px] sm:w-[58px] ${
+          isLeft ? "left-4 sm:left-5" : "right-4 sm:right-5"
         }`}
         style={{ background: gradient, color: accentText }}
         aria-label="Open widget preview"

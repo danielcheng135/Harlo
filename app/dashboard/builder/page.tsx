@@ -11,7 +11,7 @@ export default async function BuilderPage() {
     <div className="space-y-6">
       <div>
         <Badge>Agent builder</Badge>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-harlo-ink">Customize {workspace.bot.name}</h1>
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-harlo-ink sm:text-3xl">Customize {workspace.bot.name}</h1>
         <p className="mt-2 text-harlo-muted">Tune the agent role, instructions, widget branding, page routing, prompts, and allowed websites.</p>
       </div>
 

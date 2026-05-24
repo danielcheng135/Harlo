@@ -91,7 +91,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
     <div className="space-y-5">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-harlo-ink">Analytics</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-harlo-ink sm:text-3xl">Analytics</h1>
           <p className="mt-2 text-sm text-harlo-muted">Track performance, engagement, and outcomes across all your agents.</p>
         </div>
         <AnalyticsFilters
@@ -172,8 +172,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
         </Panel>
 
         <Panel title="Top Questions" footer="View all questions" href="/dashboard/conversations">
-          <div className="overflow-hidden">
-            <div className="grid grid-cols-[minmax(0,1fr)_110px_90px] border-b border-harlo-line pb-3 text-xs font-semibold text-harlo-muted">
+          <div className="overflow-x-auto">
+            <div className="grid min-w-[420px] grid-cols-[minmax(0,1fr)_110px_90px] border-b border-harlo-line pb-3 text-xs font-semibold text-harlo-muted">
               <span>Question</span>
               <span className="text-right">Conversations</span>
               <span className="text-right">% of Total</span>
@@ -181,7 +181,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
             {topQuestions.length === 0 ? (
               <EmptyBlock icon={<HelpCircle size={18} />} title="No questions yet" body="Visitor questions will appear here once conversations start." />
             ) : topQuestions.map((question) => (
-              <div key={question.question} className="grid grid-cols-[minmax(0,1fr)_110px_90px] border-b border-harlo-line py-3 text-sm last:border-b-0">
+              <div key={question.question} className="grid min-w-[420px] grid-cols-[minmax(0,1fr)_110px_90px] border-b border-harlo-line py-3 text-sm last:border-b-0">
                 <span className="truncate font-medium text-harlo-teal">{question.question}</span>
                 <span className="text-right text-harlo-muted">{formatNumber(question.count)}</span>
                 <span className="text-right text-harlo-muted">{question.percent}%</span>
@@ -276,7 +276,7 @@ function AnalyticsFilters({
   const toValue = toDateInputValue(addDays(range.end, -1));
 
   return (
-    <div className="grid gap-3 lg:min-w-[548px] sm:grid-cols-2">
+    <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[548px]">
       <div className="group relative" tabIndex={0}>
         <div className="flex h-16 cursor-default items-center justify-between gap-3 rounded-lg border border-harlo-line bg-white px-4 shadow-sm transition group-hover:border-harlo-teal group-focus-within:border-harlo-teal group-focus:outline-none group-focus:ring-2 group-focus:ring-harlo-mist">
           <span className="min-w-0">

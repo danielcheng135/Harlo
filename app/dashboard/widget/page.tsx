@@ -10,7 +10,7 @@ export default async function WidgetPage() {
     <div className="mx-auto max-w-6xl space-y-6">
       <div>
         <Badge>Widget</Badge>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-harlo-ink">Widget install</h1>
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-harlo-ink sm:text-3xl">Widget install</h1>
         <p className="mt-2 text-harlo-muted">Control allowed domains and copy the website embed snippet.</p>
       </div>
       <WidgetInstallPanel

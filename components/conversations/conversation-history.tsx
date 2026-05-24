@@ -115,15 +115,15 @@ export function ConversationHistory({ businessLogoUrl, conversations, initialCon
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-harlo-line">
+      <div className="flex shrink-0 gap-2 overflow-x-auto border-b border-harlo-line [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <ConversationTab active={filter === "inbox"} label="Inbox" count={conversations.length} onClick={() => setFilter("inbox")} />
         <ConversationTab active={filter === "needs-review"} label="Needs review" count={needsReviewCount} onClick={() => setFilter("needs-review")} />
         <ConversationTab active={filter === "lead-captured"} label="Leads captured" count={leadCapturedCount} onClick={() => setFilter("lead-captured")} />
         <ConversationTab active={filter === "answered"} label="Resolved" count={answeredCount} onClick={() => setFilter("answered")} />
       </div>
 
-      <div className="grid min-h-0 flex-1 overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm xl:grid-cols-[340px_minmax(0,1fr)_330px] 2xl:grid-cols-[380px_minmax(0,1fr)_360px]">
-        <aside className="flex min-h-0 flex-col border-b border-harlo-line bg-white xl:border-b-0 xl:border-r">
+      <div className="grid min-h-0 flex-1 gap-4 xl:gap-0 xl:overflow-hidden xl:rounded-lg xl:border xl:border-harlo-line xl:bg-white xl:shadow-sm xl:grid-cols-[340px_minmax(0,1fr)_330px] 2xl:grid-cols-[380px_minmax(0,1fr)_360px]">
+        <aside className="flex min-h-0 max-h-[460px] flex-col overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm xl:max-h-none xl:rounded-none xl:border-0 xl:border-r xl:shadow-none">
           <div className="shrink-0 border-b border-harlo-line p-4">
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_170px] xl:grid-cols-1">
               <label className="flex h-10 min-w-0 items-center gap-2 rounded-lg border border-harlo-line bg-white px-3 text-sm text-harlo-muted focus-within:border-harlo-teal">
@@ -314,7 +314,7 @@ function ConversationTranscript({
   const accent = HARLO_ACCENT;
 
   return (
-    <section className="flex min-h-0 min-w-0 flex-col border-b border-harlo-line bg-white xl:border-b-0 xl:border-r">
+    <section className="flex min-h-[560px] min-w-0 flex-col overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm xl:min-h-0 xl:rounded-none xl:border-0 xl:border-r xl:shadow-none">
       <header className="shrink-0 border-b border-harlo-line px-5 py-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex min-w-0 items-start gap-3">
@@ -346,7 +346,7 @@ function ConversationTranscript({
           <AgentBadge name={botName} type={conversation.agent_type} accent={accent} />
         </div>
 
-        <div className="mt-4 flex items-center gap-5">
+        <div className="mt-4 flex items-center gap-5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <TranscriptTab active={detailTab === "chat"} label="Chat" onClick={() => onDetailTabChange("chat")} />
           <TranscriptTab active={detailTab === "details"} label="Details" onClick={() => onDetailTabChange("details")} />
           <TranscriptTab active={detailTab === "activity"} label="Activity" onClick={() => onDetailTabChange("activity")} />
@@ -462,7 +462,7 @@ function ConversationInsightPanel({ conversation }: { conversation: InboxConvers
   const lead = conversation.lead;
 
   return (
-    <aside className="flex min-h-0 flex-col overflow-hidden bg-white">
+    <aside className="flex min-h-[420px] flex-col overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm xl:min-h-0 xl:rounded-none xl:border-0 xl:shadow-none">
       <div className="shrink-0 border-b border-harlo-line p-5">
         <div className="flex items-center gap-2 text-sm font-semibold text-harlo-ink">
           <Star size={16} className="text-harlo-teal" />
@@ -548,9 +548,9 @@ function MessageBubble({
   const isUser = message.role === "user";
 
   return (
-    <div className={cn("mb-5 flex gap-3", isUser ? "justify-end" : "justify-start")}>
+    <div className={cn("mb-5 flex gap-2 sm:gap-3", isUser ? "justify-end" : "justify-start")}>
       {!isUser ? <AssistantAvatar logoUrl={businessLogoUrl} accent={accent} botName={botName} /> : null}
-      <div className={cn("flex max-w-[78%] flex-col", isUser ? "items-end" : "items-start")}>
+      <div className={cn("flex max-w-[86%] flex-col sm:max-w-[78%]", isUser ? "items-end" : "items-start")}>
         <div
           className={cn(
             "rounded-[10px] px-3 py-[11px] text-sm leading-[1.5]",

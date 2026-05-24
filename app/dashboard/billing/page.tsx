@@ -17,7 +17,7 @@ export default async function BillingPage() {
     <div className="mx-auto max-w-6xl space-y-6">
       <div>
         <Badge>Billing</Badge>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-harlo-ink">Billing</h1>
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-harlo-ink sm:text-3xl">Billing</h1>
         <p className="mt-2 text-harlo-muted">Manage plan, monthly credits, and subscription settings.</p>
       </div>
 

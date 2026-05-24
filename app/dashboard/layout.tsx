@@ -44,14 +44,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
       </aside>
       <div className="min-w-0 lg:pl-64">
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-harlo-line bg-harlo-canvas/90 px-6 backdrop-blur lg:hidden">
-          <BrandLogo />
-          <button className="flex h-9 items-center gap-2 rounded-lg border border-harlo-line bg-white px-2.5 text-sm font-semibold text-harlo-ink shadow-sm">
-            <span className="grid h-6 w-6 place-items-center rounded-md bg-harlo-ink text-xs text-white">{initials}</span>
-            <span className="hidden max-w-32 truncate md:inline">{workspace.user.email ?? "Account"}</span>
-          </button>
+        <header className="sticky top-0 z-20 border-b border-harlo-line bg-harlo-canvas/95 px-4 py-3 backdrop-blur lg:hidden">
+          <div className="flex items-center justify-between gap-3">
+            <BrandLogo />
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-harlo-line bg-white text-xs font-semibold text-harlo-ink shadow-sm">{initials}</span>
+          </div>
+          <div className="mt-3">
+            <SidebarNav role={workspace.role} variant="mobile" />
+          </div>
         </header>
-        <main className="min-w-0 overflow-x-clip p-6">
+        <main className="min-w-0 overflow-x-clip px-4 py-5 sm:p-6">
           <AutoRechargeFailureBanner failure={billingOverview.autoRechargeFailure} />
           <CreditUsageBanner canManageBilling={canManageBilling} status={billingOverview.status} used={billingOverview.creditsUsed} limit={billingOverview.creditLimit} />
           {children}

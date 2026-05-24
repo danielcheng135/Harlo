@@ -384,7 +384,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
               </div>
               <p className="mt-1 text-sm text-harlo-muted">Switch agents, add capacity-backed templates, and edit each setup in compact tabs.</p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid gap-2 sm:flex sm:flex-wrap">
               {AGENT_TEMPLATES.map((template) => (
                 <Button
                   key={template.type}
@@ -445,7 +445,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
 
         <section className="overflow-hidden rounded-lg border border-harlo-line bg-white">
           <div className="border-b border-harlo-line bg-harlo-canvas/70 p-3">
-            <div className="grid gap-2 md:grid-cols-5">
+            <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] md:grid md:grid-cols-5 [&::-webkit-scrollbar]:hidden">
               {BUILDER_TABS.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -455,7 +455,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id)}
-                    className={`rounded-lg border px-3 py-2 text-left transition ${
+                    className={`min-w-[9rem] rounded-lg border px-3 py-2 text-left transition md:min-w-0 ${
                       isActive
                         ? "border-harlo-teal bg-white text-harlo-ink shadow-sm"
                         : "border-transparent bg-transparent text-harlo-muted hover:border-harlo-line hover:bg-white"
@@ -692,7 +692,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                   title="Control where this agent appears"
                   description="Use page paths to auto-select this agent and domains to control where the widget can load."
                 />
-                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
                   <Panel
                     title="Page routing"
                     description="Match website paths to this agent. The default agent handles unmatched pages."
@@ -749,7 +749,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                       </div>
                       <div className="space-y-3">
                         {routePatterns.map((pattern, index) => (
-                          <div key={index} className="flex gap-2">
+                          <div key={index} className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-2">
                             <span className="grid h-11 w-11 place-items-center rounded-lg border border-harlo-line bg-harlo-canvas text-harlo-muted">
                               <RouteIcon size={16} />
                             </span>
@@ -791,7 +791,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                         </div>
                         <div className="mt-3 space-y-3">
                           {excludedRoutePatterns.map((pattern, index) => (
-                            <div key={index} className="flex gap-2">
+                            <div key={index} className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-2">
                               <span className="grid h-11 w-11 place-items-center rounded-lg border border-harlo-line bg-harlo-canvas text-harlo-muted">
                                 <RouteIcon size={16} />
                               </span>
@@ -822,7 +822,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                   >
                     <div className="space-y-3">
                       {allowedDomains.map((domain, index) => (
-                        <div key={index} className="flex gap-2">
+                        <div key={index} className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-2">
                           <span className="grid h-11 w-11 place-items-center rounded-lg border border-harlo-line bg-harlo-canvas text-harlo-muted">
                             <Globe2 size={16} />
                           </span>
@@ -854,7 +854,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                     </a>
                   }
                 />
-                <div className="grid gap-5 xl:grid-cols-[460px_minmax(0,1fr)]">
+                <div className="grid gap-5 xl:grid-cols-[minmax(360px,460px)_minmax(0,1fr)]">
                   <ChatWidgetPreview
                     title={widgetTitle}
                     greeting={greeting}
@@ -877,9 +877,9 @@ export function BuilderForm({ initial }: BuilderFormProps) {
           </div>
         </section>
 
-        <div className="sticky bottom-4 z-10 flex justify-end">
+        <div className="sticky bottom-4 z-10 flex justify-stretch sm:justify-end">
           <div className="rounded-lg border border-harlo-line bg-white/95 p-2 shadow-soft backdrop-blur">
-            <Button type="submit" disabled={isSaving} className="shadow-soft">
+            <Button type="submit" disabled={isSaving} className="w-full shadow-soft sm:w-auto">
               {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
               Save agent settings
             </Button>

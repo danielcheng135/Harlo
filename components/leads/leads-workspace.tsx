@@ -246,7 +246,7 @@ export function LeadsWorkspace({ leads, initialLeadId, activeAgentId }: LeadsWor
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-harlo-line">
+      <div className="flex shrink-0 gap-2 overflow-x-auto border-b border-harlo-line [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <ViewTab active={view === "table"} icon={<Table2 size={15} />} label="Table" count={items.length} onClick={() => setView("table")} />
         <ViewTab active={view === "pipeline"} icon={<Workflow size={15} />} label="Pipeline" count={items.length} onClick={() => setView("pipeline")} />
         <ViewTab active={view === "activity"} icon={<Activity size={15} />} label="Activity" count={items.length} onClick={() => setView("activity")} />
@@ -498,7 +498,19 @@ function LeadTable({
 }) {
   return (
     <div className="min-h-0 flex-1 overflow-auto">
-      <table className="min-w-[920px] w-full border-separate border-spacing-0 text-left text-sm">
+      <div className="space-y-3 p-3 md:hidden">
+        {leads.map((lead) => (
+          <LeadMobileCard
+            key={lead.id}
+            checked={selectedRows.has(lead.id)}
+            lead={lead}
+            selected={selectedId === lead.id}
+            onSelect={() => onSelect(lead)}
+            onToggle={() => onToggleRow(lead)}
+          />
+        ))}
+      </div>
+      <table className="hidden min-w-[920px] w-full border-separate border-spacing-0 text-left text-sm md:table">
         <thead className="sticky top-0 z-10 bg-white text-xs font-semibold text-harlo-muted">
           <tr>
             <th className="w-10 border-b border-harlo-line px-4 py-3">
@@ -596,6 +608,68 @@ function LeadTable({
         </tbody>
       </table>
     </div>
+  );
+}
+
+function LeadMobileCard({
+  checked,
+  lead,
+  selected,
+  onSelect,
+  onToggle
+}: {
+  checked: boolean;
+  lead: LeadRow;
+  selected: boolean;
+  onSelect: () => void;
+  onToggle: () => void;
+}) {
+  const score = getLeadScore(lead);
+  const source = getLeadSource(lead);
+
+  return (
+    <article
+      className={cn(
+        "w-full rounded-lg border bg-white p-3 text-left transition hover:border-harlo-teal",
+        selected ? "border-harlo-teal bg-harlo-mist/50 ring-1 ring-harlo-teal/10" : "border-harlo-line"
+      )}
+    >
+      <button type="button" onClick={onSelect} className="block w-full text-left">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-harlo-ink">{lead.name}</p>
+            <p className="mt-1 truncate text-xs text-harlo-muted">{lead.email}</p>
+            {getLeadPhone(lead) ? <p className="mt-1 truncate text-xs text-harlo-muted">{getLeadPhone(lead)}</p> : null}
+          </div>
+          <MiniScore score={score} />
+        </div>
+        <p className="mt-3 line-clamp-2 text-sm leading-5 text-harlo-ink">{lead.question}</p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <LeadStatusBadge status={lead.status} score={score} />
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-harlo-canvas px-2.5 py-1 text-xs font-semibold text-harlo-muted">
+            {source.icon}
+            {source.label}
+          </span>
+          <span className="rounded-full bg-harlo-canvas px-2.5 py-1 text-xs font-semibold text-harlo-muted">
+            {formatDate(lead.created_at)}
+          </span>
+        </div>
+      </button>
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-harlo-line pt-3">
+        <span className="text-xs text-harlo-muted">Lead score {score}</span>
+        <button
+          type="button"
+          onClick={onToggle}
+          className={cn(
+            "grid h-8 w-8 place-items-center rounded-lg border transition",
+            checked ? "border-harlo-teal bg-harlo-teal text-white" : "border-harlo-line bg-white text-white"
+          )}
+          aria-label={`Select ${lead.name}`}
+        >
+          {checked ? <Check size={14} /> : null}
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -712,7 +786,7 @@ function LeadDetailPanel({
   const company = getLeadCompany(lead);
 
   return (
-    <aside className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm">
+    <aside className="flex min-h-[520px] flex-col overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm xl:min-h-0">
       <div className="min-h-0 flex-1 overflow-auto p-4">
         <div className="text-center">
           <LeadAvatar name={lead.name} />

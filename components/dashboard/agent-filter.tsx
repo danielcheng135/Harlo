@@ -22,7 +22,7 @@ export function AgentFilter({ basePath, bots, activeAgentId, counts = {}, allCou
 
   return (
     <div className="group relative shrink-0" tabIndex={0}>
-      <div className="flex h-16 min-w-52 cursor-default items-center justify-between gap-3 rounded-lg border border-harlo-line bg-white px-4 shadow-sm transition group-hover:border-harlo-teal group-focus-within:border-harlo-teal group-focus:outline-none group-focus:ring-2 group-focus:ring-harlo-mist">
+      <div className="flex h-16 w-full cursor-default items-center justify-between gap-3 rounded-lg border border-harlo-line bg-white px-4 shadow-sm transition group-hover:border-harlo-teal group-focus-within:border-harlo-teal group-focus:outline-none group-focus:ring-2 group-focus:ring-harlo-mist sm:min-w-52">
         <span className="min-w-0">
           <span className="block text-xs font-semibold text-harlo-teal">Agents</span>
           <span className="mt-0.5 block truncate text-sm font-semibold text-harlo-ink">{selectedAgentLabel}</span>

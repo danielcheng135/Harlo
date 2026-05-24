@@ -22,10 +22,10 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
   const agentCounts = getAgentCounts(leads);
 
   return (
-    <div className="flex h-[calc(100vh-7rem)] flex-col gap-5 overflow-hidden">
+    <div className="flex min-h-[calc(100svh-10rem)] flex-col gap-5 lg:h-[calc(100vh-7rem)] lg:overflow-hidden">
       <header className="flex shrink-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-harlo-ink">Leads</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-harlo-ink sm:text-3xl">Leads</h1>
           <p className="mt-2 text-harlo-muted">Manage and qualify leads captured by your agents.</p>
         </div>
         <AgentFilter

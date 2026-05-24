@@ -46,7 +46,7 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <div>
         <Badge>{workspace.bot.name}</Badge>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-harlo-ink">Overview</h1>
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-harlo-ink sm:text-3xl">Overview</h1>
         <p className="mt-2 max-w-2xl text-harlo-muted">
           A quick pulse on conversations, leads, AI resolution, and knowledge readiness.
         </p>
@@ -85,7 +85,7 @@ export default async function DashboardPage() {
 
       <section className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="space-y-6">
-          <MessageVolumeCard data={dailyVolume} chartClassName="h-[420px]" />
+          <MessageVolumeCard data={dailyVolume} chartClassName="h-[320px] sm:h-[420px]" />
           <Card>
             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
