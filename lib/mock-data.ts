@@ -3,6 +3,7 @@ import {
   BarChart3,
   Bot,
   Code2,
+  Grid2X2,
   LayoutDashboard,
   Library,
   MessageSquare,
@@ -19,7 +20,8 @@ export const navItems = [
   { label: "Leads", href: "/dashboard/leads", icon: Users },
   { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
   { label: "Team", href: "/dashboard/team", icon: UserPlus, adminOnly: true },
-  { label: "Widget", href: "/dashboard/widget", icon: Code2, adminOnly: true }
+  { label: "Widget", href: "/dashboard/widget", icon: Code2, adminOnly: true },
+  { label: "Integrations", href: "/dashboard/integrations", icon: Grid2X2, adminOnly: true }
 ] as const;
 
 export const stats = [

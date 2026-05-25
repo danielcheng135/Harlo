@@ -2,6 +2,7 @@ export type BillingPlanKey = "starter" | "growth" | "pro";
 export type BillingInterval = "monthly" | "annual";
 export type BillingStatus = "trialing" | "active" | "past_due" | "canceled" | "incomplete";
 export type AddOnKey = "auto_recharge_credits" | "extra_agent" | "extra_seat" | "remove_branding";
+export type IntegrationCatalogKey = "calendly" | "housecallpro" | "jobber" | "zapier" | "slack" | "hubspot";
 
 export type BillingPlan = {
   key: BillingPlanKey;
@@ -21,6 +22,17 @@ export type BillingAddOn = {
   price: number;
   unit: string;
   description: string;
+};
+
+export type IntegrationEntitlements = {
+  enabled: boolean;
+  providers: IntegrationCatalogKey[];
+  connectedAccountsPerProvider: number;
+  actionsPerVisitorFlow: number;
+  advancedFieldMapping: boolean;
+  conditionalRouting: boolean;
+  retryControls: boolean;
+  logLevel: "none" | "basic" | "advanced";
 };
 
 export const TRIAL_CONFIG = {
@@ -96,8 +108,49 @@ export const BILLING_ADD_ONS: BillingAddOn[] = [
   }
 ];
 
+export const INTEGRATION_ENTITLEMENTS: Record<BillingPlanKey, IntegrationEntitlements> = {
+  starter: {
+    enabled: false,
+    providers: [],
+    connectedAccountsPerProvider: 0,
+    actionsPerVisitorFlow: 0,
+    advancedFieldMapping: false,
+    conditionalRouting: false,
+    retryControls: false,
+    logLevel: "none"
+  },
+  growth: {
+    enabled: true,
+    providers: ["calendly", "housecallpro", "jobber", "zapier", "slack"],
+    connectedAccountsPerProvider: 1,
+    actionsPerVisitorFlow: 1,
+    advancedFieldMapping: false,
+    conditionalRouting: false,
+    retryControls: false,
+    logLevel: "basic"
+  },
+  pro: {
+    enabled: true,
+    providers: ["calendly", "housecallpro", "jobber", "zapier", "slack", "hubspot"],
+    connectedAccountsPerProvider: 3,
+    actionsPerVisitorFlow: 3,
+    advancedFieldMapping: true,
+    conditionalRouting: true,
+    retryControls: true,
+    logLevel: "advanced"
+  }
+};
+
 export function getBillingPlan(planKey: string | null | undefined) {
   return BILLING_PLANS.find((plan) => plan.key === planKey) ?? BILLING_PLANS[0];
+}
+
+export function getIntegrationEntitlements(planKey: BillingPlanKey) {
+  return INTEGRATION_ENTITLEMENTS[planKey];
+}
+
+export function canUseIntegrationProvider(planKey: BillingPlanKey, provider: IntegrationCatalogKey) {
+  return getIntegrationEntitlements(planKey).providers.includes(provider);
 }
 
 export function hasHigherTier(planKey: BillingPlanKey) {

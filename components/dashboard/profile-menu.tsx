@@ -95,10 +95,12 @@ export function ProfileMenu({ brandLogoUrl, businessName, canManageBilling, emai
           aria-expanded={isOpen}
         >
           <div className="flex items-center gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-harlo-ink text-xs text-white">{initials}</span>
+            <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-harlo-ink text-xs text-white">
+              {initials}
+            </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate">{email ?? "Account"}</span>
-              <span className="block text-xs font-medium capitalize text-harlo-muted">{role}</span>
+              <span className="block truncate text-xs font-medium text-harlo-muted">{role}</span>
             </span>
             <ChevronsUpDown size={16} className={`shrink-0 text-harlo-muted transition group-hover:text-harlo-teal ${isOpen ? "text-harlo-teal" : ""}`} />
           </div>

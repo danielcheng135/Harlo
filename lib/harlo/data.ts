@@ -9,7 +9,9 @@ import {
 } from "lucide-react";
 import {
   BILLING_ADD_ONS,
+  canUseIntegrationProvider,
   getBillingPlan,
+  getIntegrationEntitlements,
   getPlanCreditLimit,
   hasHigherTier,
   type AddOnKey,
@@ -17,6 +19,9 @@ import {
   type BillingPlanKey,
   type BillingStatus
 } from "@/lib/billing/plans";
+import { INTEGRATION_PROVIDERS, isIntegrationProviderKey } from "@/lib/integrations/registry";
+import { isIntegrationOAuthConfigured } from "@/lib/integrations/oauth";
+import type { IntegrationActionType, IntegrationProviderKey, IntegrationStatus, IntegrationTriggerType } from "@/lib/integrations/types";
 import { normalizeAgentType, type AgentType } from "@/lib/agents";
 import { normalizeLeadFields, normalizeLeadMetadata, type LeadCaptureField } from "@/lib/lead-fields";
 import {
@@ -230,6 +235,56 @@ export type BillingOverview = {
       remaining: number;
     };
   };
+};
+
+export type IntegrationOverview = {
+  migrationReady: boolean;
+  entitlements: ReturnType<typeof getIntegrationEntitlements>;
+  bots: IntegrationBotOverview[];
+  providers: IntegrationProviderOverview[];
+  recentRuns: IntegrationRunOverview[];
+};
+
+export type IntegrationBotOverview = {
+  id: string;
+  name: string;
+};
+
+export type IntegrationProviderOverview = {
+  key: IntegrationProviderKey;
+  name: string;
+  description: string;
+  actionTypes: IntegrationActionType[];
+  planAllowed: boolean;
+  requiredPlan: "Growth" | "Pro";
+  oauthConfigured: boolean;
+  integrationId: string | null;
+  status: IntegrationStatus;
+  displayName: string | null;
+  lastSuccessAt: string | null;
+  lastError: string | null;
+  configuredActions: IntegrationConfiguredAction[];
+};
+
+export type IntegrationConfiguredAction = {
+  id: string;
+  botId: string;
+  actionType: IntegrationActionType;
+  triggerType: IntegrationTriggerType;
+  enabled: boolean;
+  successMessage: string | null;
+  fallbackMessage: string | null;
+};
+
+export type IntegrationRunOverview = {
+  id: string;
+  provider: IntegrationProviderKey;
+  actionType: string;
+  status: string;
+  externalRecordId: string | null;
+  externalUrl: string | null;
+  errorMessage: string | null;
+  createdAt: string;
 };
 
 export async function getWorkspaceOrRedirect(): Promise<Workspace> {
@@ -594,6 +649,129 @@ export async function getBillingOverview(workspace: Workspace): Promise<BillingO
         remaining: Math.max(0, seatLimit - memberCount - pendingInviteCount)
       }
     }
+  };
+}
+
+export async function getIntegrationOverview(workspace: Workspace, billing: BillingOverview): Promise<IntegrationOverview> {
+  const supabase = await createSupabaseServerClient();
+  const entitlements = getIntegrationEntitlements(billing.planKey);
+  const integrationResult = await supabase
+    .from("integrations")
+    .select("id, provider, status, display_name, last_success_at, last_error")
+    .eq("organization_id", workspace.organization.id);
+
+  const migrationReady = !integrationResult.error;
+  const rows = migrationReady
+    ? ((integrationResult.data ?? []) as Array<{
+      id: string;
+      provider: string;
+      status: IntegrationStatus;
+      display_name: string | null;
+      last_success_at: string | null;
+      last_error: string | null;
+    }>)
+    : [];
+  const rowsByProvider = new Map(rows.filter((row) => isIntegrationProviderKey(row.provider)).map((row) => [row.provider, row]));
+  const integrationIds = rows.map((row) => row.id);
+  const actionsResult = integrationIds.length > 0 && migrationReady
+    ? await supabase
+      .from("bot_integration_actions")
+      .select("id, bot_id, integration_id, trigger_type, action_type, enabled, success_message, fallback_message")
+      .eq("organization_id", workspace.organization.id)
+      .in("integration_id", integrationIds)
+    : { data: [] };
+  const actionsByIntegrationId = new Map<string, IntegrationConfiguredAction[]>();
+
+  ((actionsResult.data ?? []) as Array<{
+    id: string;
+    bot_id: string;
+    integration_id: string;
+    trigger_type: IntegrationTriggerType;
+    action_type: IntegrationActionType;
+    enabled: boolean;
+    success_message: string | null;
+    fallback_message: string | null;
+  }>).forEach((action) => {
+    const current = actionsByIntegrationId.get(action.integration_id) ?? [];
+    current.push({
+      id: action.id,
+      botId: action.bot_id,
+      actionType: action.action_type,
+      triggerType: action.trigger_type,
+      enabled: action.enabled,
+      successMessage: action.success_message,
+      fallbackMessage: action.fallback_message
+    });
+    actionsByIntegrationId.set(action.integration_id, current);
+  });
+  const providers = INTEGRATION_PROVIDERS.map((provider) => {
+    const row = rowsByProvider.get(provider.key);
+
+    return {
+      key: provider.key,
+      name: provider.name,
+      description: provider.description,
+      actionTypes: provider.actionTypes,
+      planAllowed: canUseIntegrationProvider(billing.planKey, provider.key),
+      requiredPlan: provider.growthEnabled ? "Growth" as const : "Pro" as const,
+      oauthConfigured: isIntegrationOAuthConfigured(provider.key),
+      integrationId: row?.id ?? null,
+      status: row?.status ?? "disconnected",
+      displayName: row?.display_name ?? null,
+      lastSuccessAt: row?.last_success_at ?? null,
+      lastError: row?.last_error ?? null,
+      configuredActions: row?.id ? actionsByIntegrationId.get(row.id) ?? [] : []
+    };
+  });
+  const bots = workspace.bots.map((bot) => ({
+    id: bot.id,
+    name: bot.name
+  }));
+
+  if (!migrationReady) {
+    return {
+      migrationReady,
+      entitlements,
+      bots,
+      providers,
+      recentRuns: []
+    };
+  }
+
+  const runsResult = await supabase
+    .from("integration_action_runs")
+    .select("id, provider, action_type, status, external_record_id, external_url, error_message, created_at")
+    .eq("organization_id", workspace.organization.id)
+    .order("created_at", { ascending: false })
+    .limit(8);
+  const recentRuns = ((runsResult.data ?? []) as Array<{
+    id: string;
+    provider: string;
+    action_type: string;
+    status: string;
+    external_record_id: string | null;
+    external_url: string | null;
+    error_message: string | null;
+    created_at: string;
+  }>)
+    .filter((run) => isIntegrationProviderKey(run.provider))
+    .map((run) => ({
+      id: run.id,
+      provider: run.provider as IntegrationProviderKey,
+      actionType: run.action_type,
+      status: run.status,
+      externalRecordId: run.external_record_id,
+      externalUrl: run.external_url,
+      errorMessage: run.error_message,
+      createdAt: run.created_at
+    }));
+
+  return {
+    migrationReady,
+    entitlements,
+    bots,
+    providers,
+    recentRuns
   };
 }
 

@@ -20,17 +20,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const canManageBilling = isWorkspaceAdmin(workspace.role);
 
   return (
-    <div className="min-h-screen bg-harlo-canvas">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-harlo-line bg-white p-5 lg:flex lg:flex-col">
+    <div className="min-h-screen bg-white">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-harlo-line bg-white p-5 text-harlo-ink lg:flex lg:flex-col">
         <div>
           <BrandLogo />
           <SidebarNav role={workspace.role} />
         </div>
         <div className="mt-auto space-y-3">
-          <CreditUsageIndicator
-            used={billingOverview.creditsUsed}
-            limit={billingOverview.creditLimit}
-            title={billingOverview.status === "trialing" ? "Trial credits" : "Credits"}
+          <WorkspaceCard
+            brandLogoUrl={workspace.organization.brand_logo_url ?? null}
+            businessName={workspace.organization.name}
+            initials={getInitials(workspace.organization.name)}
           />
           <ProfileMenu
             brandLogoUrl={workspace.organization.brand_logo_url ?? null}
@@ -44,7 +44,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
       </aside>
       <div className="min-w-0 lg:pl-64">
-        <header className="sticky top-0 z-20 border-b border-harlo-line bg-harlo-canvas/95 px-4 py-3 backdrop-blur lg:hidden">
+        <header className="sticky top-0 z-20 border-b border-harlo-line bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
           <div className="flex items-center justify-between gap-3">
             <BrandLogo />
             <ProfileMenu
@@ -62,11 +62,37 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <SidebarNav role={workspace.role} variant="mobile" />
           </div>
         </header>
-        <main className="min-w-0 overflow-x-clip px-4 py-5 sm:p-6">
+        <main className="min-w-0 overflow-x-clip bg-white px-4 py-5 sm:p-6">
           <AutoRechargeFailureBanner failure={billingOverview.autoRechargeFailure} />
           <CreditUsageBanner canManageBilling={canManageBilling} status={billingOverview.status} used={billingOverview.creditsUsed} limit={billingOverview.creditLimit} />
           {children}
         </main>
+      </div>
+    </div>
+  );
+}
+
+function WorkspaceCard({ brandLogoUrl, businessName, initials }: { brandLogoUrl: string | null; businessName: string; initials: string }) {
+  return (
+    <div className="rounded-lg border border-harlo-line bg-white p-3 shadow-sm">
+      <div className="flex items-center gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-700 text-sm font-bold text-white">
+          {brandLogoUrl ? (
+            <img
+              src={brandLogoUrl}
+              alt=""
+              className="h-full w-full object-contain p-1.5"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            initials
+          )}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-harlo-ink">{businessName}</span>
+          <span className="block truncate text-xs text-harlo-muted">Main workspace</span>
+        </span>
       </div>
     </div>
   );
@@ -162,16 +188,16 @@ function CreditUsageIndicator({ used, limit, title }: { used: number; limit: num
   const percent = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
   const isOverLimit = percent >= 100;
   const isLow = percent >= 80;
-  const accentClass = isOverLimit ? "text-harlo-teal" : isLow ? "text-amber-600" : "text-harlo-teal";
-  const barClass = isOverLimit ? "bg-gradient-to-r from-harlo-teal to-cyan-500" : isLow ? "bg-amber-500" : "bg-harlo-teal";
+  const accentClass = isOverLimit ? "text-cyan-200" : isLow ? "text-amber-200" : "text-cyan-200";
+  const barClass = isOverLimit ? "bg-gradient-to-r from-cyan-300 to-teal-300" : isLow ? "bg-amber-300" : "bg-cyan-300";
   const cardClass = isOverLimit
-    ? "rounded-lg border border-harlo-teal/25 bg-gradient-to-br from-harlo-mist via-white to-cyan-50 p-3 shadow-sm shadow-harlo-teal/10"
+    ? "rounded-lg border border-cyan-300/25 bg-white/[0.07] p-3 shadow-sm shadow-slate-950/15"
     : isLow
-      ? "rounded-lg border border-amber-200 bg-amber-50 p-3 shadow-sm"
-      : "rounded-lg border border-harlo-line bg-white p-3 shadow-sm";
+      ? "rounded-lg border border-amber-200/30 bg-amber-200/10 p-3 shadow-sm shadow-slate-950/15"
+      : "rounded-lg border border-white/10 bg-white/[0.06] p-3 shadow-sm shadow-slate-950/15";
   const iconClass = isOverLimit
-    ? "grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-harlo-teal to-cyan-500 text-white shadow-sm shadow-harlo-teal/20"
-    : "grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-harlo-mist text-harlo-teal";
+    ? "grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-cyan-400 to-teal-400 text-[#002932] shadow-sm shadow-cyan-950/20"
+    : "grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-cyan-300/12 text-cyan-200";
 
   return (
     <div className={cardClass}>
@@ -181,13 +207,13 @@ function CreditUsageIndicator({ used, limit, title }: { used: number; limit: num
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-harlo-muted">{title}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-300">{title}</p>
             <p className={`text-xs font-semibold ${accentClass}`}>{percent}%</p>
           </div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-harlo-line">
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
             <div className={`h-full rounded-full ${barClass}`} style={{ width: `${percent}%` }} />
           </div>
-          <p className="mt-2 text-xs text-harlo-muted">
+          <p className="mt-2 text-xs text-slate-300">
             {formatter.format(used)} / {formatter.format(limit)} used
           </p>
         </div>
