@@ -5,11 +5,26 @@ import {
 } from "@/lib/ai/lead-capture";
 import { classifyVisitorIntent, type VisitorIntent } from "@/lib/ai/intent";
 import { extractLeadDraftWithModel } from "@/lib/ai/lead-field-extraction";
+import {
+  planAgentNextStep,
+  type AgentPlannerNextStep,
+  type AgentPlannerResult,
+  type AvailablePlannerAction
+} from "@/lib/ai/planner";
 import { generateAnswer, retrieveKnowledgeChunks } from "@/lib/ai/rag";
 import { normalizeAgentType, type AgentType } from "@/lib/agents";
 import { attemptAutoRecharge, isAutoRechargeFailureReason } from "@/lib/billing/auto-recharge";
 import { sendAutoRechargeFailedEmail, sendCreditLimitEmail } from "@/lib/billing/notifications";
 import { getCreditUsageStatus, recordAssistantMessageUsage } from "@/lib/billing/usage";
+import {
+  getConnectedCalendlyBookingAction,
+  getConnectedHubSpotContactAction,
+  getConnectedJobberLeadAction,
+  getEnabledIntegrationActionsForBot,
+  runIntegrationAction,
+  type EnabledIntegrationAction
+} from "@/lib/integrations/actions";
+import type { IntegrationActionPayload, IntegrationActionResult } from "@/lib/integrations/types";
 import {
   buildConfiguredLeadReply,
   configuredLeadMetadata,
@@ -277,23 +292,145 @@ export async function POST(request: NextRequest) {
       role: message.role,
       content: message.content
     }));
+  const effectiveVisitorMessage = resolveAcceptedFollowUpMessage(body.message, conversationMessages);
   const retrievalQuery = conversationContext
-    ? `${conversationContext}\nvisitor latest: ${body.message}`
-    : body.message;
-  const intent = await classifyVisitorIntent({
-    message: body.message,
-    conversationContext
+    ? `${conversationContext}\nvisitor latest: ${effectiveVisitorMessage}`
+    : effectiveVisitorMessage;
+  const [intent, loadedIntegrationActions] = await Promise.all([
+    classifyVisitorIntent({
+      message: body.message,
+      conversationContext
+    }),
+    getEnabledIntegrationActionsForBot({
+      supabase,
+      organizationId,
+      botId,
+      requestUrl: request.url
+    })
+  ]);
+  let integrationActions = loadedIntegrationActions;
+  const bookingRequested = hasBookingLanguage(effectiveVisitorMessage);
+
+  if (bookingRequested && !hasCalendlyBookingAction(integrationActions)) {
+    const calendlyFallbackAction = await getConnectedCalendlyBookingAction({
+      supabase,
+      organizationId,
+      requestUrl: request.url
+    });
+
+    if (calendlyFallbackAction) {
+      integrationActions = [calendlyFallbackAction, ...integrationActions];
+    }
+  }
+
+  if (!hasJobberLeadAction(integrationActions)) {
+    const jobberFallbackAction = await getConnectedJobberLeadAction({
+      supabase,
+      organizationId,
+      requestUrl: request.url
+    });
+
+    if (jobberFallbackAction) {
+      integrationActions = [...integrationActions, jobberFallbackAction];
+    }
+  }
+
+  if (!hasHubSpotContactAction(integrationActions)) {
+    const hubSpotFallbackAction = await getConnectedHubSpotContactAction({
+      supabase,
+      organizationId,
+      requestUrl: request.url
+    });
+
+    if (hubSpotFallbackAction) {
+      integrationActions = [...integrationActions, hubSpotFallbackAction];
+    }
+  }
+
+  const chunks = await retrieveKnowledgeChunks({
+    botId,
+    organizationId,
+    query: retrievalQuery
   });
 
-  const isCollectingLead = shouldCollectLeadForAgent({
+  const [generatedAnswer, plannerResult] = await Promise.all([
+    generateAnswer({
+      question: effectiveVisitorMessage,
+      chunks,
+      conversationContext,
+      intent: intent.intent,
+      agent
+    }),
+    getPlannerResult({
+      latestMessage: effectiveVisitorMessage,
+      conversationMessages,
+      chunks,
+      leadFields,
+      actions: integrationActions,
+      agent
+    })
+  ]);
+  const decision = decideChatNextStep({
     agentType: agent.type,
     intent: intent.intent,
-    message: body.message,
+    message: effectiveVisitorMessage,
     conversationMessages,
-    leadFields
+    leadFields,
+    plannerResult,
+    actions: integrationActions,
+    bookingRequested
   });
+  let answer = generatedAnswer;
+  const integrationResults: WidgetIntegrationResult[] = [];
+  const widgetActions: WidgetAction[] = [];
+  const bookingAction = decision.step === "show_booking"
+    ? findBookingAction({
+      actions: integrationActions,
+      plannerResult,
+      message: effectiveVisitorMessage
+    })
+    : null;
 
-  if (isCollectingLead) {
+  if (bookingAction) {
+    const bookingResult = await runIntegrationAction({
+      supabase,
+      action: bookingAction,
+      requestUrl: request.url,
+      payload: buildIntegrationActionPayload({
+        organizationId,
+        botId,
+        conversationId: activeConversationId,
+        visitorMessage: effectiveVisitorMessage,
+        lead: {},
+        sourcePageUrl: body.visitor?.pageUrl
+      })
+    });
+    integrationResults.push({
+      provider: bookingAction.provider,
+      actionType: bookingAction.actionType,
+      status: bookingResult.status,
+      externalRecordId: bookingResult.externalRecordId ?? null,
+      externalUrl: bookingResult.externalUrl ?? null,
+      message: bookingResult.message ?? null,
+      error: bookingResult.error ?? null
+    });
+
+    if (bookingResult.ok && bookingResult.externalUrl) {
+      answer = buildBookingActionAnswer(plannerResult);
+      widgetActions.push({
+        type: "booking",
+        provider: "calendly",
+        title: "Book a time",
+        description: "Choose an available time in Calendly without leaving this page.",
+        buttonLabel: "Open scheduler",
+        url: bookingResult.externalUrl
+      });
+    }
+  } else if (decision.step === "show_booking") {
+    answer = buildMissingBookingActionAnswer(plannerResult);
+  }
+
+  if (widgetActions.length === 0 && shouldRunLeadCaptureDecision(decision)) {
     const { data: leadMessages } = await supabase
       .from("messages")
       .select("role, content")
@@ -313,7 +450,9 @@ export async function POST(request: NextRequest) {
       const saveError = await saveAssistantReply(invalidEmailReply, {
         lead_partial: true,
         invalid_email: true,
-        intent
+        intent,
+        planner: plannerResult,
+        decision
       });
 
       if (saveError) {
@@ -350,16 +489,52 @@ export async function POST(request: NextRequest) {
         status: "new",
         metadata: configuredLeadMetadata(draft, leadFields)
       };
+      let leadId = existingLead?.id ?? null;
 
       if (existingLead) {
-        await supabase.from("leads").update(leadPayload).eq("id", existingLead.id);
+        const { data: updatedLead } = await supabase
+          .from("leads")
+          .update(leadPayload)
+          .eq("id", existingLead.id)
+          .select("id")
+          .maybeSingle();
+        leadId = updatedLead?.id ?? leadId;
       } else {
-        await supabase.from("leads").insert(leadPayload);
+        const { data: insertedLead } = await supabase
+          .from("leads")
+          .insert(leadPayload)
+          .select("id")
+          .single();
+        leadId = insertedLead?.id ?? null;
       }
+
+      const leadIntegrationResults = await runLeadCapturedIntegrationActions({
+        supabase,
+        actions: integrationActions,
+        requestUrl: request.url,
+        payload: buildIntegrationActionPayload({
+          organizationId,
+          botId,
+          conversationId: activeConversationId,
+          leadId,
+          visitorMessage: body.message,
+          lead: {
+            name: draft.name ?? "Website visitor",
+            email: draft.email,
+            phone: draft.phone ?? null,
+            question: originalQuestion,
+            metadata: configuredLeadMetadata(draft, leadFields)
+          },
+          sourcePageUrl: body.visitor?.pageUrl
+        })
+      });
 
       const saveError = await saveAssistantReply(answer, {
         lead_captured: true,
-        intent
+        intent,
+        planner: plannerResult,
+        decision,
+        integration_results: leadIntegrationResults
       });
 
       if (saveError) {
@@ -371,14 +546,17 @@ export async function POST(request: NextRequest) {
         answer,
         fallback: false,
         leadCaptured: true,
+        integrationResults: leadIntegrationResults,
         retrieval: []
       });
     }
 
-    const leadFormIntro = "I can collect those details and pass them to the team for follow-up.";
+    const leadFormIntro = buildLeadCaptureIntro(plannerResult);
     const saveError = await saveAssistantReply(leadFormIntro, {
       lead_partial: true,
-      intent
+      intent,
+      planner: plannerResult,
+      decision
     });
 
     if (saveError) {
@@ -395,25 +573,9 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const chunks = await retrieveKnowledgeChunks({
-    botId,
-    organizationId,
-    query: retrievalQuery
-  });
-
-  let answer = await generateAnswer({
-    question: body.message,
-    chunks,
-    conversationContext,
-    intent: intent.intent,
-    agent
-  });
-  const shouldShowLeadCaptureForm = shouldAppendLeadQuestion({
-    answer,
-    intent: intent.intent,
-    message: body.message,
-    leadFields
-  });
+  if (decision.step === "clarify" && plannerResult?.messageToVisitor) {
+    answer = plannerResult.messageToVisitor;
+  }
 
   const saveError = await saveAssistantReply(answer, {
     fallback: chunks.length === 0,
@@ -422,7 +584,12 @@ export async function POST(request: NextRequest) {
       id: chunk.id,
       sourceTitle: chunk.sourceTitle,
       similarity: chunk.similarity
-    }))
+    })),
+    planner: plannerResult,
+    decision,
+    integration_results: integrationResults,
+    widget_actions: widgetActions,
+    effective_visitor_message: effectiveVisitorMessage === body.message ? null : effectiveVisitorMessage
   });
 
   if (saveError) {
@@ -433,12 +600,392 @@ export async function POST(request: NextRequest) {
     conversationId: activeConversationId,
     answer,
     fallback: chunks.length === 0,
-    leadCaptureForm: shouldShowLeadCaptureForm ? getLeadCaptureFormPayload(leadFields) : undefined,
+    integrationResults,
+    widgetActions,
     retrieval: chunks.map((chunk) => ({
       sourceTitle: chunk.sourceTitle,
       similarity: chunk.similarity
     }))
   });
+}
+
+type WidgetIntegrationResult = {
+  provider: EnabledIntegrationAction["provider"];
+  actionType: EnabledIntegrationAction["actionType"];
+  status: IntegrationActionResult["status"];
+  externalRecordId: string | null;
+  externalUrl: string | null;
+  message: string | null;
+  error: string | null;
+};
+
+type WidgetAction = {
+  type: "booking";
+  provider: "calendly";
+  title: string;
+  description: string;
+  buttonLabel: string;
+  url: string;
+};
+
+type ChatRoutingDecision = {
+  step: AgentPlannerNextStep;
+  confidence: number;
+  source: "planner" | "rule";
+  reason: string;
+};
+
+async function getPlannerResult({
+  latestMessage,
+  conversationMessages,
+  chunks,
+  leadFields,
+  actions,
+  agent
+}: {
+  latestMessage: string;
+  conversationMessages: Array<{ role: string; content: string }>;
+  chunks: Parameters<typeof planAgentNextStep>[0]["chunks"];
+  leadFields: LeadCaptureField[];
+  actions: EnabledIntegrationAction[];
+  agent: Parameters<typeof planAgentNextStep>[0]["agent"];
+}): Promise<AgentPlannerResult | null> {
+  try {
+    return await planAgentNextStep({
+      latestMessage,
+      conversationMessages,
+      chunks,
+      leadFields,
+      availableActions: actions.map(toPlannerAction),
+      agent
+    });
+  } catch (error) {
+    console.error("Agent planner failed", error);
+    return null;
+  }
+}
+
+function toPlannerAction(action: EnabledIntegrationAction): AvailablePlannerAction {
+  return {
+    provider: action.provider,
+    actionType: action.actionType,
+    label: `${action.provider} ${action.actionType.replace(/_/g, " ")}`,
+    requiredFields: action.requiredFields
+  };
+}
+
+function decideChatNextStep({
+  agentType,
+  intent,
+  message,
+  conversationMessages,
+  leadFields,
+  plannerResult,
+  actions,
+  bookingRequested
+}: {
+  agentType: AgentType;
+  intent: VisitorIntent;
+  message: string;
+  conversationMessages: Array<{ role: string; content: string }>;
+  leadFields: LeadCaptureField[];
+  plannerResult: AgentPlannerResult | null;
+  actions: EnabledIntegrationAction[];
+  bookingRequested: boolean;
+}): ChatRoutingDecision {
+  const normalizedMessage = message.toLowerCase();
+  const hasBookingAction = hasCalendlyBookingAction(actions);
+  const generalInformationQuestion = isGeneralInformationQuestion(normalizedMessage);
+  const recentAssistantAskedConfiguredField = isAnsweringConfiguredLeadPrompt(conversationMessages, leadFields);
+  const lastAssistant = findLastAssistantBeforeLatestVisitor(conversationMessages);
+  const recentAssistantOfferedLead = lastAssistant ? assistantOfferedLeadCapture(lastAssistant.content) : false;
+  const visitorProvidesLeadLike = visitorProvidesLeadDetails(normalizedMessage, leadFields);
+
+  if (/^\s*lead capture details\s*:/i.test(message)) {
+    return {
+      step: "continue_lead_capture",
+      confidence: 1,
+      source: "rule",
+      reason: "widget submitted lead capture details"
+    };
+  }
+
+  if (generalInformationQuestion) {
+    return {
+      step: "answer_question",
+      confidence: 1,
+      source: "rule",
+      reason: "visitor asked an informational question"
+    };
+  }
+
+  if (bookingRequested && hasBookingAction) {
+    return {
+      step: "show_booking",
+      confidence: 1,
+      source: "rule",
+      reason: "visitor asked to book and a booking action is available"
+    };
+  }
+
+  if (
+    plannerResult?.nextStep === "show_booking" &&
+    hasBookingAction &&
+    plannerResult.confidence >= 0.45
+  ) {
+    return {
+      step: "show_booking",
+      confidence: plannerResult.confidence,
+      source: "planner",
+      reason: "planner selected booking"
+    };
+  }
+
+  if (recentAssistantAskedConfiguredField && visitorProvidesLeadLike) {
+    return {
+      step: "continue_lead_capture",
+      confidence: 0.9,
+      source: "rule",
+      reason: "visitor is answering configured lead fields"
+    };
+  }
+
+  if (intent === "provide_contact_info" && visitorProvidesLeadLike) {
+    return {
+      step: "continue_lead_capture",
+      confidence: 0.88,
+      source: "rule",
+      reason: "visitor provided contact or project details"
+    };
+  }
+
+  if (intent === "accept_follow_up" && recentAssistantOfferedLead) {
+    return {
+      step: "start_lead_capture",
+      confidence: 0.82,
+      source: "rule",
+      reason: "visitor accepted an explicit follow-up offer"
+    };
+  }
+
+  if (intent === "request_human_follow_up" && !bookingRequested) {
+    return {
+      step: "start_lead_capture",
+      confidence: 0.84,
+      source: "rule",
+      reason: "visitor explicitly requested human follow-up"
+    };
+  }
+
+  if (plannerResult && plannerResult.confidence >= 0.7) {
+    if (plannerResult.nextStep === "start_lead_capture" || plannerResult.nextStep === "continue_lead_capture") {
+      return {
+        step: plannerResult.nextStep,
+        confidence: plannerResult.confidence,
+        source: "planner",
+        reason: "planner selected lead capture"
+      };
+    }
+
+    if (plannerResult.nextStep === "create_crm_contact" && visitorProvidesLeadLike) {
+      return {
+        step: "create_crm_contact",
+        confidence: plannerResult.confidence,
+        source: "planner",
+        reason: "planner selected CRM contact creation"
+      };
+    }
+
+    if (plannerResult.nextStep === "handoff" && (agentType === "sales" || intent === "request_human_follow_up")) {
+      return {
+        step: "handoff",
+        confidence: plannerResult.confidence,
+        source: "planner",
+        reason: "planner selected handoff"
+      };
+    }
+
+    if (plannerResult.nextStep === "clarify") {
+      return {
+        step: "clarify",
+        confidence: plannerResult.confidence,
+        source: "planner",
+        reason: "planner needs clarification"
+      };
+    }
+  }
+
+  return {
+    step: "answer_question",
+    confidence: plannerResult?.confidence ?? 0.7,
+    source: plannerResult ? "planner" : "rule",
+    reason: "default to answering"
+  };
+}
+
+function shouldRunLeadCaptureDecision(decision: ChatRoutingDecision) {
+  return decision.step === "start_lead_capture" ||
+    decision.step === "continue_lead_capture" ||
+    decision.step === "create_crm_contact" ||
+    decision.step === "handoff";
+}
+
+function findBookingAction({
+  actions,
+  plannerResult,
+  message
+}: {
+  actions: EnabledIntegrationAction[];
+  plannerResult: AgentPlannerResult | null;
+  message: string;
+}) {
+  const calendlyAction = actions.find(
+    (action) => action.provider === "calendly" && action.actionType === "show_booking_link"
+  );
+
+  if (!calendlyAction) {
+    return null;
+  }
+
+  const plannedBooking =
+    plannerResult?.nextAction?.type === "show_booking_link" &&
+    (!plannerResult.nextAction.provider || plannerResult.nextAction.provider === "calendly") &&
+    plannerResult.confidence >= 0.45;
+
+  if (plannedBooking) {
+    return calendlyAction;
+  }
+
+  if (plannerResult?.visitorGoal === "book_appointment" && plannerResult.confidence >= 0.5) {
+    return calendlyAction;
+  }
+
+  if (hasBookingLanguage(message)) {
+    return calendlyAction;
+  }
+
+  return null;
+}
+
+function hasBookingLanguage(message: string) {
+  const normalized = message.toLowerCase();
+
+  return (
+    /\b(?:book|booking|schedule|appointment|consultation|calendar|availability|openings?|slots?|demo)\b/.test(normalized) ||
+    /\b(?:book|schedule|set up|reserve)\b[\s\S]{0,40}\b(?:call|meeting|demo|appointment|consultation|time)\b/.test(normalized) ||
+    /\b(?:call|meeting|demo|appointment|consultation)\b[\s\S]{0,40}\b(?:book|schedule|set up|reserve)\b/.test(normalized)
+  );
+}
+
+function hasCalendlyBookingAction(actions: EnabledIntegrationAction[]) {
+  return actions.some(
+    (action) => action.provider === "calendly" && action.actionType === "show_booking_link"
+  );
+}
+
+function hasJobberLeadAction(actions: EnabledIntegrationAction[]) {
+  return actions.some(
+    (action) => action.provider === "jobber" && action.actionType === "submit_service_request"
+  );
+}
+
+function hasHubSpotContactAction(actions: EnabledIntegrationAction[]) {
+  return actions.some(
+    (action) => action.provider === "hubspot" && action.actionType === "create_crm_contact"
+  );
+}
+
+async function runLeadCapturedIntegrationActions({
+  supabase,
+  actions,
+  requestUrl,
+  payload
+}: {
+  supabase: ReturnType<typeof createSupabaseServiceClient>;
+  actions: EnabledIntegrationAction[];
+  requestUrl: string;
+  payload: IntegrationActionPayload;
+}) {
+  const leadActions = actions.filter(
+    (action) => action.triggerType === "lead_captured" ||
+      (action.provider === "jobber" && action.actionType === "submit_service_request") ||
+      (action.provider === "hubspot" && action.actionType === "create_crm_contact")
+  );
+
+  return Promise.all(
+    leadActions.map(async (action) => {
+      const result = await runIntegrationAction({
+        supabase,
+        action,
+        requestUrl,
+        payload
+      });
+
+      return toWidgetIntegrationResult(action, result);
+    })
+  );
+}
+
+function buildIntegrationActionPayload(payload: IntegrationActionPayload): IntegrationActionPayload {
+  return {
+    ...payload,
+    conversationId: payload.conversationId ?? null,
+    leadId: payload.leadId ?? null,
+    sourcePageUrl: payload.sourcePageUrl ?? null,
+    lead: {
+      ...payload.lead,
+      name: payload.lead.name ?? null,
+      email: payload.lead.email ?? null,
+      phone: payload.lead.phone ?? null,
+      question: payload.lead.question ?? null,
+      metadata: payload.lead.metadata ?? {}
+    }
+  };
+}
+
+function toWidgetIntegrationResult(
+  action: EnabledIntegrationAction,
+  result: IntegrationActionResult
+): WidgetIntegrationResult {
+  return {
+    provider: action.provider,
+    actionType: action.actionType,
+    status: result.status,
+    externalRecordId: result.externalRecordId ?? null,
+    externalUrl: result.externalUrl ?? null,
+    message: result.message ?? null,
+    error: result.error ?? null
+  };
+}
+
+function buildBookingActionAnswer(plannerResult: AgentPlannerResult | null) {
+  const plannedMessage = plannerResult?.messageToVisitor?.trim();
+
+  if (plannedMessage && (plannerResult?.confidence ?? 0) >= 0.45) {
+    return plannedMessage;
+  }
+
+  return "Absolutely. You can choose an available time below.";
+}
+
+function buildMissingBookingActionAnswer(plannerResult: AgentPlannerResult | null) {
+  const plannedMessage = plannerResult?.messageToVisitor?.trim();
+
+  if (plannedMessage && (plannerResult?.confidence ?? 0) >= 0.6) {
+    return plannedMessage;
+  }
+
+  return "I can help with scheduling, but online booking is not connected right now.";
+}
+
+function buildLeadCaptureIntro(plannerResult: AgentPlannerResult | null) {
+  const plannedMessage = plannerResult?.messageToVisitor?.trim();
+
+  if (plannedMessage && (plannerResult?.confidence ?? 0) >= 0.7) {
+    return plannedMessage;
+  }
+
+  return "I can collect those details and pass them to the team for follow-up.";
 }
 
 function getLeadCaptureFormPayload(fields: LeadCaptureField[]) {
@@ -491,136 +1038,99 @@ function getCreditLimitReply(_reason: "past_due" | "inactive" | "limit_reached" 
   return "I cannot answer messages right now. Please contact the business directly for help.";
 }
 
-function shouldCollectLeadForAgent({
-  agentType,
-  intent,
-  message,
-  conversationMessages,
-  leadFields
-}: {
-  agentType: AgentType;
-  intent: VisitorIntent;
-  message: string;
-  conversationMessages: Array<{ role: string; content: string }>;
-  leadFields: LeadCaptureField[];
-}) {
-  const latest = message.toLowerCase();
-  const recentAssistantAskedConfiguredField = isAnsweringConfiguredLeadPrompt(conversationMessages, leadFields);
+function resolveAcceptedFollowUpMessage(
+  message: string,
+  conversationMessages: Array<{ role: string; content: string }>
+) {
+  if (!isShortAcceptance(message)) {
+    return message;
+  }
+
   const lastAssistant = findLastAssistantBeforeLatestVisitor(conversationMessages);
-  const recentAssistantOfferedLead = lastAssistant ? assistantOfferedLeadCapture(lastAssistant.content) : false;
+  const offeredTopic = lastAssistant ? extractOfferedFollowUpTopic(lastAssistant.content) : null;
 
-  if (intent === "provide_contact_info" || intent === "request_human_follow_up") {
-    return true;
-  }
+  return offeredTopic ?? message;
+}
 
-  if (intent === "accept_follow_up") {
-    return recentAssistantAskedConfiguredField || recentAssistantOfferedLead;
-  }
-
-  const fieldSpecificAnswer = mentionsConfiguredLeadField(latest, leadFields);
-  const visitorProvidesLeadLike =
-    fieldSpecificAnswer ||
-    /@|(?:\+?\d[\d\s().-]{6,})|\b(?:my name is|name is|i am|i'm|call me|email me|contact me|company|timeline|budget|date|tomorrow|today|next week|january|february|march|april|may|june|july|august|september|october|november|december|20\d{2}|\d{2,5}\s*(?:sq\s*ft|sqft|square feet|sf))\b/.test(latest);
-
-  if (agentType === "support") {
-    return (
-      recentAssistantAskedConfiguredField ||
-      visitorProvidesLeadLike ||
-      /\b(?:quote|estimate|callback|call me|contact me|email me|book|booking|appointment|schedule|talk to a person|human|follow up|someone to help|speak to|talk to)\b/.test(latest)
-    );
-  }
-
-  const buyingIntent =
-    /\b(?:pricing|price|cost|budget|quote|estimate|demo|book|booking|appointment|schedule|consultation|hire|buy|start|sign up|talk to sales|call me|follow up|interested|looking for|need|want|available|availability|can you help|help me|ready)\b/.test(latest);
-
-  return (
-    recentAssistantAskedConfiguredField ||
-    visitorProvidesLeadLike ||
-    (recentAssistantOfferedLead && (visitorProvidesLeadLike || buyingIntent)) ||
-    ((agentType === "sales" || agentType === "custom") && buyingIntent)
+function isShortAcceptance(message: string) {
+  return /^(?:yes|yeah|yep|sure|ok|okay|please|yes please|yeah please|sure please|do that|yes do that|yes please do that|please do that|that sounds good|sounds good|go ahead|show me|show me that|tell me|tell me more)$/i.test(
+    message.trim()
   );
 }
 
-function appendLeadQuestionForContactAnswer({
-  answer,
-  intent,
-  message,
-  conversationMessages,
-  leadFields
-}: {
-  answer: string;
-  intent: VisitorIntent;
-  message: string;
-  conversationMessages: Array<{ role: string; content: string }>;
-  leadFields: LeadCaptureField[];
-}) {
-  if (!shouldAppendLeadQuestion({ answer, intent, message, leadFields })) {
-    return answer;
+function extractOfferedFollowUpTopic(message: string) {
+  const normalized = message.replace(/[’]/g, "'").replace(/\s+/g, " ").trim();
+  const specificTopic = getSpecificOfferedTopic(normalized);
+
+  if (specificTopic) {
+    return specificTopic;
   }
 
-  const prompt = buildConfiguredLeadReply({}, leadFields, conversationMessages);
-  const trimmedAnswer = answer.trim();
-  const trimmedPrompt = prompt.trim();
+  const offerMatch = normalized.match(
+    /\b(?:if you want,\s*)?(?:i can also|i can|i can help|would you like me to|do you want me to)\s+(.+?)(?:[.!?]|$)/i
+  );
+  const rawTopic = offerMatch?.[1]?.trim();
 
-  if (!trimmedPrompt || answerAlreadyAsksConfiguredLeadField(trimmedAnswer, leadFields)) {
-    return answer;
+  if (!rawTopic || isGenericOffer(rawTopic)) {
+    return null;
   }
 
-  return `${trimmedAnswer}\n\n${trimmedPrompt}`;
+  return `Please ${rawTopic}.`;
 }
 
-function shouldAppendLeadQuestion({
-  answer,
-  intent,
-  message,
-  leadFields
-}: {
-  answer: string;
-  intent: VisitorIntent;
-  message: string;
-  leadFields: LeadCaptureField[];
-}) {
-  if (leadFields.filter((field) => field.enabled).length === 0) {
-    return false;
+function getSpecificOfferedTopic(message: string) {
+  if (/\b(?:explain|show|share|tell you about)\b[\s\S]{0,80}\b(?:demo|booking|scheduling)\b[\s\S]{0,60}\b(?:works?|process)\b/i.test(message)) {
+    return "Please explain how demo booking works.";
   }
 
-  if (intent === "request_human_follow_up") {
+  if (/\b(?:outline|explain|show|share|tell you about)\b[\s\S]{0,80}\b(?:what's|what is) included in each plan\b/i.test(message)) {
+    return "Please outline what is included in each plan.";
+  }
+
+  if (/\b(?:outline|explain|show|share|tell you about)\b[\s\S]{0,80}\bwhat each plan includes\b/i.test(message)) {
+    return "Please outline what each plan includes.";
+  }
+
+  return null;
+}
+
+function isGenericOffer(topic: string) {
+  return /\b(?:help|help with|answer|questions?|anything else|other questions?|what you need)\b/i.test(topic) &&
+    !/\b(?:pricing|price|cost|plans?|included|includes|services?|hours|booking|demo|availability)\b/i.test(topic);
+}
+
+function isGeneralInformationQuestion(message: string) {
+  const asksBookingProcessInfo =
+    /\b(?:how|what|explain|show|share|tell me)\b[\s\S]{0,90}\b(?:demo|booking|book|scheduler|scheduling)\b[\s\S]{0,70}\b(?:works?|process)\b/.test(message) ||
+    /\b(?:demo|booking|book|scheduler|scheduling)\b[\s\S]{0,70}\b(?:works?|process)\b/.test(message);
+
+  if (asksBookingProcessInfo) {
     return true;
   }
 
-  const normalizedMessage = message.toLowerCase();
-  const normalizedAnswer = answer.toLowerCase();
-  const visitorAskedAboutContact =
-    /\b(?:contact|reach|email|call|phone|text|message|speak|talk)\b[\s\S]{0,80}\b(?:you|someone|team|person|human|representative|rep|agent|business|company)\b/.test(
-      normalizedMessage
-    ) ||
-    /\b(?:how|where|who|what)\b[\s\S]{0,80}\b(?:contact|reach|call|email|message|speak|talk)\b/.test(normalizedMessage);
-  const answerOffersContact =
-    /\b(?:contact|reach out|call|email|speak with|talk with|someone can help|team can follow up|pass this along|share your details|collect .*details)\b/.test(
-      normalizedAnswer
-    );
+  const asksGeneralInfo =
+    /\b(?:what|which|do you|can you|could you|tell me|show me|list)\b[\s\S]{0,80}\b(?:service|services|offer|offers|provide|do)\b/.test(message) ||
+    /\b(?:what|which)\b[\s\S]{0,80}\b(?:hours|locations|areas|policies|features)\b/.test(message);
+  const asksForNextStep =
+    /\b(?:quote|estimate|book|booking|schedule|appointment|consultation|demo|callback|call me|contact me|email me|talk to sales|talk to someone|speak to someone|human|follow up|sign up|buy|start)\b/.test(message);
 
-  return visitorAskedAboutContact || answerOffersContact;
+  return asksGeneralInfo && !asksForNextStep;
 }
 
-function answerAlreadyAsksConfiguredLeadField(answer: string, fields: LeadCaptureField[]) {
-  return fields
-    .filter((field) => field.enabled)
-    .some((field) => {
-      const prompt = normalizePromptText(field.prompt);
-      const label = normalizePromptText(field.label);
-      const normalizedAnswer = normalizePromptText(answer);
+function visitorProvidesLeadDetails(message: string, fields: LeadCaptureField[]) {
+  if (isGeneralInformationQuestion(message)) {
+    return false;
+  }
 
-      return (
-        Boolean(prompt && normalizedAnswer.includes(prompt)) ||
-        new RegExp(`\\b(?:share|provide|send|what is|what's|what|which)\\b[\\s\\S]{0,120}\\b${escapeRegExp(label)}\\b`, "i").test(
-          answer
-        )
-      );
-    });
+  return mentionsConfiguredLeadField(message, fields) ||
+    /@|(?:\+?\d[\d\s().-]{6,})|\b(?:my name is|name is|i am|i'm|call me|email me|contact me|company|timeline|budget|date|tomorrow|today|next week|january|february|march|april|may|june|july|august|september|october|november|december|20\d{2}|\d{2,5}\s*(?:sq\s*ft|sqft|square feet|sf))\b/.test(message);
 }
 
 function mentionsConfiguredLeadField(message: string, fields: LeadCaptureField[]) {
+  if (isGeneralInformationQuestion(message)) {
+    return false;
+  }
+
   return fields
     .filter((field) => field.enabled)
     .some((field) => {
@@ -635,7 +1145,7 @@ function mentionsConfiguredLeadField(message: string, fields: LeadCaptureField[]
 }
 
 function assistantOfferedLeadCapture(message: string) {
-  return /\b(?:quote|estimate|callback|call you|follow up|reach out|book|booking|appointment|consultation|send this to|share your details|best email|contact details|pass this along|connect you|someone can help|someone who can help|team can follow up|team follow up)\b/i.test(
+  return /\b(?:quote|estimate|callback|call you|follow up|reach out|send this to|share your details|best email|contact details|pass this along|connect you|someone can help|someone who can help|team can follow up|team follow up)\b/i.test(
     message
   );
 }

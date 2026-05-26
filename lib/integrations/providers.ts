@@ -1,6 +1,8 @@
 import { getIntegrationOAuthConfig } from "@/lib/integrations/oauth";
 import type { IntegrationProviderKey } from "@/lib/integrations/types";
 
+const DEFAULT_JOBBER_GRAPHQL_VERSION = "2025-04-16";
+
 export type OAuthTokenSet = {
   accessToken: string;
   refreshToken?: string | null;
@@ -22,6 +24,12 @@ type TokenInput = {
   provider: IntegrationProviderKey;
   requestUrl: string;
   code: string;
+};
+
+type RefreshTokenInput = {
+  provider: IntegrationProviderKey;
+  requestUrl: string;
+  tokenSet: OAuthTokenSet;
 };
 
 export function getProviderAuthorizationUrl({ provider, requestUrl, state }: AuthorizationInput) {
@@ -85,6 +93,57 @@ export async function exchangeProviderCode({ provider, requestUrl, code }: Token
   return hydrateTokenSet(provider, normalizeTokenSet(provider, token));
 }
 
+export async function refreshProviderTokenIfNeeded({
+  provider,
+  requestUrl,
+  tokenSet
+}: RefreshTokenInput): Promise<OAuthTokenSet> {
+  if (!tokenSet.refreshToken || !shouldRefreshToken(tokenSet.expiresAt)) {
+    return tokenSet;
+  }
+
+  const config = getIntegrationOAuthConfig(provider, requestUrl);
+
+  if (!config) {
+    return tokenSet;
+  }
+
+  const endpoint = getTokenEndpoint(provider);
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: tokenSet.refreshToken,
+    client_id: config.clientId,
+    client_secret: config.clientSecret
+  });
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      accept: "application/json"
+    },
+    body
+  });
+  const token = await parseProviderJson(response);
+
+  if (!response.ok || isProviderError(provider, token)) {
+    throw new Error(getProviderErrorMessage(provider, token, "Could not refresh integration token."));
+  }
+
+  const refreshedTokenSet = normalizeTokenSet(provider, token);
+
+  return hydrateTokenSet(provider, {
+    ...tokenSet,
+    ...refreshedTokenSet,
+    refreshToken: refreshedTokenSet.refreshToken ?? tokenSet.refreshToken,
+    providerAccountId: refreshedTokenSet.providerAccountId ?? tokenSet.providerAccountId,
+    providerAccountName: refreshedTokenSet.providerAccountName ?? tokenSet.providerAccountName,
+    raw: {
+      ...tokenSet.raw,
+      ...refreshedTokenSet.raw
+    }
+  });
+}
+
 export async function testProviderConnection(provider: IntegrationProviderKey, credentials: OAuthTokenSet) {
   if (provider === "calendly") {
     const response = await fetch("https://api.calendly.com/users/me", {
@@ -116,10 +175,7 @@ export async function testProviderConnection(provider: IntegrationProviderKey, c
   if (provider === "jobber") {
     const response = await fetch("https://api.getjobber.com/api/graphql", {
       method: "POST",
-      headers: {
-        authorization: `Bearer ${credentials.accessToken}`,
-        "content-type": "application/json"
-      },
+      headers: getJobberHeaders(credentials.accessToken),
       body: JSON.stringify({ query: "{ account { id name } }" })
     });
 
@@ -244,6 +300,20 @@ function getExpiresAt(token: Record<string, unknown>) {
   return new Date(Date.now() + expiresIn * 1000).toISOString();
 }
 
+function shouldRefreshToken(expiresAt: string | null | undefined) {
+  if (!expiresAt) {
+    return false;
+  }
+
+  const expiresAtMs = new Date(expiresAt).getTime();
+
+  if (!Number.isFinite(expiresAtMs)) {
+    return false;
+  }
+
+  return expiresAtMs - Date.now() < 5 * 60 * 1000;
+}
+
 function getProviderAccountId(provider: IntegrationProviderKey, token: Record<string, unknown>) {
   if (provider === "slack") {
     const team = token.team && typeof token.team === "object" ? token.team as Record<string, unknown> : null;
@@ -298,10 +368,7 @@ async function hydrateTokenSet(provider: IntegrationProviderKey, tokenSet: OAuth
     if (provider === "jobber") {
       const response = await fetch("https://api.getjobber.com/api/graphql", {
         method: "POST",
-        headers: {
-          authorization: `Bearer ${tokenSet.accessToken}`,
-          "content-type": "application/json"
-        },
+        headers: getJobberHeaders(tokenSet.accessToken),
         body: JSON.stringify({ query: "{ account { id name } }" })
       });
       const payload = await response.json().catch(() => null) as { data?: { account?: { id?: string; name?: string } } } | null;
@@ -318,4 +385,17 @@ async function hydrateTokenSet(provider: IntegrationProviderKey, tokenSet: OAuth
   }
 
   return tokenSet;
+}
+
+function getJobberHeaders(accessToken: string) {
+  const headers: Record<string, string> = {
+    authorization: `Bearer ${accessToken}`,
+    "content-type": "application/json",
+    accept: "application/json"
+  };
+  const graphqlVersion = process.env.JOBBER_GRAPHQL_VERSION?.trim() || DEFAULT_JOBBER_GRAPHQL_VERSION;
+
+  headers["X-JOBBER-GRAPHQL-VERSION"] = graphqlVersion;
+
+  return headers;
 }

@@ -11,7 +11,7 @@ export function SidebarNav({ role, variant = "sidebar" }: { role: string; varian
   const isMobile = variant === "mobile";
 
   return (
-    <nav className={isMobile ? "-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "mt-10 space-y-2"}>
+    <nav className={isMobile ? "-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "mt-10 space-y-1.5"}>
       {items.map((item) => {
         const isActive =
           item.href === "/dashboard"
@@ -31,12 +31,12 @@ export function SidebarNav({ role, variant = "sidebar" }: { role: string; varian
                 }`
                 : `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
                   isActive
-                    ? "bg-harlo-mist text-harlo-teal shadow-sm"
-                    : "text-slate-600 hover:bg-harlo-canvas hover:text-harlo-ink"
+                    ? "bg-teal-500/20 text-white shadow-sm shadow-slate-950/10 ring-1 ring-teal-300/20"
+                    : "text-slate-200/80 hover:bg-white/[0.07] hover:text-white"
                 }`
             }
           >
-            <item.icon size={isMobile ? 16 : 18} className={isMobile ? undefined : isActive ? "text-harlo-teal" : "text-slate-500"} />
+            <item.icon size={isMobile ? 16 : 18} className={isMobile ? undefined : isActive ? "text-teal-200" : "text-slate-300/70"} />
             <span>{item.label}</span>
           </Link>
         );

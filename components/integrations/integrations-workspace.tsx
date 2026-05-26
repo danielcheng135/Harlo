@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Link, Loader2, Lock, Settings2, Unlink } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, Link, Loader2, Lock, Settings2, Unlink } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -22,11 +22,14 @@ type DisplayProvider = IntegrationProviderOverview & {
 
 const logoUrls: Record<IntegrationProviderKey, string> = {
   calendly: "https://www.google.com/s2/favicons?domain=calendly.com&sz=128",
-  housecallpro: "https://www.google.com/s2/favicons?domain=housecallpro.com&sz=128",
+  calcom: "https://www.google.com/s2/favicons?domain=cal.com&sz=128",
   jobber: "https://www.google.com/s2/favicons?domain=getjobber.com&sz=128",
-  zapier: "https://www.google.com/s2/favicons?domain=zapier.com&sz=128",
   slack: "https://www.google.com/s2/favicons?domain=slack.com&sz=128",
-  hubspot: "https://www.google.com/s2/favicons?domain=hubspot.com&sz=128"
+  hubspot: "https://www.google.com/s2/favicons?domain=hubspot.com&sz=128",
+  mailchimp: "https://www.google.com/s2/favicons?domain=mailchimp.com&sz=128",
+  whatsapp: "https://www.google.com/s2/favicons?domain=whatsapp.com&sz=128",
+  instagram: "https://www.google.com/s2/favicons?domain=instagram.com&sz=128",
+  messenger: "https://www.google.com/s2/favicons?domain=messenger.com&sz=128"
 };
 
 const actionLabels: Record<IntegrationActionType, string> = {
@@ -36,6 +39,30 @@ const actionLabels: Record<IntegrationActionType, string> = {
   send_notification: "Send notification",
   create_crm_contact: "Create CRM contact"
 };
+
+function getActionLabel(provider: IntegrationProviderKey, actionType: IntegrationActionType) {
+  if (provider === "calcom" && actionType === "show_booking_link") {
+    return "Show Cal.com Scheduler";
+  }
+
+  if (provider === "jobber" && actionType === "submit_service_request") {
+    return "Create Jobber Client";
+  }
+
+  if (provider === "slack" && actionType === "send_notification") {
+    return "Lead Capture Notification";
+  }
+
+  if (provider === "mailchimp" && actionType === "create_crm_contact") {
+    return "Add Lead to Audience";
+  }
+
+  if ((provider === "whatsapp" || provider === "instagram" || provider === "messenger") && actionType === "send_notification") {
+    return "Lead Handoff Notification";
+  }
+
+  return actionLabels[actionType];
+}
 
 export function IntegrationsWorkspace({
   initialTab,
@@ -105,10 +132,16 @@ export function IntegrationsWorkspace({
   }
 
   async function handleSaveConfiguration(provider: DisplayProvider, form: HTMLFormElement) {
-    setSavingProvider(provider.key);
-
     try {
       const formData = new FormData(form);
+      const validationError = validateIntegrationConfiguration(provider, formData);
+
+      if (validationError) {
+        showToast("error", validationError);
+        return;
+      }
+
+      setSavingProvider(provider.key);
       const response = await fetch(`/api/integrations/${provider.key}/configure`, {
         method: "POST",
         headers: {
@@ -298,9 +331,9 @@ function ProviderRow({
 
           <InfoCell label="Last error">
             {provider.lastError ? (
-              <span className="inline-flex min-w-0 items-center gap-2 text-sm font-medium text-harlo-ink">
+              <span className="inline-flex min-w-0 max-w-full items-center gap-2 text-sm font-medium text-harlo-ink" title={provider.lastError}>
                 <AlertTriangle size={15} className="shrink-0 text-rose-500" />
-                <span className="min-w-0 break-words lg:truncate">{provider.lastError}</span>
+                <span className="block min-w-0 max-w-full truncate">{provider.lastError}</span>
               </span>
             ) : (
               <span className="text-sm font-medium text-harlo-ink">-</span>
@@ -340,7 +373,9 @@ function ConfigurePanel({
   const hasConfiguredAgents = provider.configuredActions.some((action) => action.enabled);
   const primaryAction = provider.actionTypes[0];
   const firstAction = provider.configuredActions.find((action) => action.successMessage || action.fallbackMessage);
+  const slackChannelId = getStringConfig(firstAction?.config, "slackChannelId");
   const canConfigure = provider.status === "connected" && provider.integrationId;
+  const slackMissingChannel = provider.key === "slack" && !slackChannelId;
 
   return (
     <div className="border-t border-harlo-line bg-gradient-to-b from-slate-50/80 to-white px-4 py-4 sm:px-5">
@@ -367,7 +402,7 @@ function ConfigurePanel({
         <div className="grid gap-3 md:grid-cols-3">
           <ConfigSummary label="Status" value={provider.status === "connected" ? "Connected" : "Not connected"} />
           <ConfigSummary label="Account" value={provider.displayName ?? "Connected account"} />
-          <ConfigSummary label="Action" value={primaryAction ? actionLabels[primaryAction] : "No action available"} />
+          <ConfigSummary label="Action" value={primaryAction ? getActionLabel(provider.key, primaryAction) : "No action available"} />
         </div>
 
         <fieldset className="space-y-3">
@@ -408,6 +443,36 @@ function ConfigurePanel({
           </label>
         </div>
 
+        {provider.key === "slack" ? (
+          <label className="block text-sm font-semibold text-harlo-ink">
+            <span className="flex items-center gap-2">
+              Slack channel ID
+              <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700">Required</span>
+              <InfoTooltip text="Invite the Slack app to this channel before testing. In Slack, type /invite @Harlo in the channel." />
+            </span>
+            <input
+              name="slackChannelId"
+              defaultValue={slackChannelId ?? ""}
+              disabled={!canConfigure || !expanded}
+              placeholder="C0123456789"
+              aria-invalid={slackMissingChannel}
+              required
+              className={`mt-2 h-11 w-full rounded-lg border px-3 text-sm font-medium text-harlo-ink outline-none transition focus:ring-2 disabled:bg-slate-50 disabled:text-harlo-muted ${
+                slackMissingChannel
+                  ? "border-rose-300 bg-rose-50/40 focus:border-rose-400 focus:ring-rose-100"
+                  : "border-harlo-line focus:border-harlo-teal focus:ring-harlo-teal/20"
+              }`}
+            />
+            {slackMissingChannel ? (
+              <span className="mt-2 flex items-center gap-2 text-xs font-semibold leading-5 text-rose-700">
+                <AlertTriangle size={13} />
+                Add a channel ID before saving Slack notifications.
+              </span>
+            ) : null}
+            <span className="mt-2 block text-xs font-medium leading-5 text-harlo-muted">Example: C0123456789 or G0123456789 for a private channel.</span>
+          </label>
+        ) : null}
+
         <div className="flex flex-col gap-2 border-t border-harlo-line pt-4 sm:flex-row sm:items-center sm:justify-between">
           {canConfigure ? (
             <span aria-hidden="true" />
@@ -430,6 +495,20 @@ function ConfigSummary({ label, value }: { label: string; value: string }) {
       <p className="text-xs font-medium text-harlo-muted">{label}</p>
       <p className="mt-1 truncate text-sm font-semibold text-harlo-ink">{value}</p>
     </div>
+  );
+}
+
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <span className="group relative inline-grid h-5 w-5 place-items-center">
+      <Info size={14} className="text-harlo-muted" aria-hidden="true" />
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden w-64 -translate-x-1/2 rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold leading-5 text-white shadow-lg group-hover:block group-focus-within:block"
+      >
+        {text}
+      </span>
+    </span>
   );
 }
 
@@ -529,14 +608,49 @@ function getConfiguredActionsFromForm(provider: DisplayProvider, formData: FormD
       id: `${provider.key}-${botId}-${normalizedActionType}`,
       botId,
       actionType: normalizedActionType,
-      triggerType: getClientDefaultTriggerType(normalizedActionType),
+      triggerType: getClientDefaultTriggerType(provider.key, normalizedActionType),
       enabled: true,
       successMessage,
-      fallbackMessage
+      fallbackMessage,
+      config: getClientActionConfig(provider, formData)
     }));
 }
 
 function normalizeFormMessage(value: FormDataEntryValue | null) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function validateIntegrationConfiguration(provider: DisplayProvider, formData: FormData) {
+  if (provider.key === "slack" && !normalizeFormMessage(formData.get("slackChannelId"))) {
+    return "Slack channel ID is required before saving Slack notifications.";
+  }
+
+  return null;
+}
+
+function getClientActionConfig(provider: DisplayProvider, formData?: FormData) {
+  if (provider.key === "calendly") {
+    return {
+      provider: provider.key,
+      calendlySchedulingMode: "popup"
+    };
+  }
+
+  if (provider.key === "slack") {
+    return {
+      provider: provider.key,
+      slackChannelId: normalizeFormMessage(formData?.get("slackChannelId") ?? null)
+    };
+  }
+
+  return {
+    provider: provider.key
+  };
+}
+
+function getStringConfig(config: Record<string, unknown> | undefined, key: string) {
+  const value = config?.[key];
+
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
@@ -548,9 +662,16 @@ function isIntegrationActionType(value: string): value is IntegrationActionType 
     value === "create_crm_contact";
 }
 
-function getClientDefaultTriggerType(actionType: IntegrationActionType): IntegrationTriggerType {
+function getClientDefaultTriggerType(
+  provider: IntegrationProviderKey,
+  actionType: IntegrationActionType
+): IntegrationTriggerType {
   if (actionType === "show_booking_link") {
     return "booking_requested";
+  }
+
+  if (provider === "jobber" && actionType === "submit_service_request") {
+    return "lead_captured";
   }
 
   if (actionType === "submit_service_request") {
@@ -569,7 +690,19 @@ function getDefaultSuccessMessage(provider: IntegrationProviderKey) {
     return "Here is a booking link so you can choose a time that works.";
   }
 
+  if (provider === "calcom") {
+    return "Here is a scheduler so you can choose a time that works.";
+  }
+
   if (provider === "slack") {
+    return "I sent this to the team so they can follow up.";
+  }
+
+  if (provider === "mailchimp") {
+    return "I added your details so the team can follow up.";
+  }
+
+  if (provider === "whatsapp" || provider === "instagram" || provider === "messenger") {
     return "I sent this to the team so they can follow up.";
   }
 
@@ -577,7 +710,7 @@ function getDefaultSuccessMessage(provider: IntegrationProviderKey) {
     return "I saved your details so the team can follow up with context.";
   }
 
-  if (provider === "jobber" || provider === "housecallpro") {
+  if (provider === "jobber") {
     return "I sent this request to the team so they can follow up.";
   }
 

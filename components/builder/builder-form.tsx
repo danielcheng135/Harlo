@@ -10,6 +10,8 @@ import { ToastViewport, useToast } from "@/components/ui/toast";
 import { AGENT_TEMPLATES, getAgentTemplate, type AgentType } from "@/lib/agents";
 import { DEFAULT_LEAD_FIELDS, type LeadCaptureField, type LeadFieldType } from "@/lib/lead-fields";
 
+const MAX_WELCOME_PROMPTS = 4;
+
 type BuilderFormProps = {
   initial: {
     botName: string;
@@ -134,7 +136,10 @@ export function BuilderForm({ initial }: BuilderFormProps) {
   const selectedAgent = agents.find((agent) => agent.id === selectedAgentId) ?? agents[0] ?? firstAgent;
   const agentLimit = Math.max(initial.agentCapacity.limit, agents.length);
   const canCreateAgent = agents.length < agentLimit;
-  const cleanPrompts = useMemo(() => welcomePrompts.map((prompt) => prompt.trim()).filter(Boolean), [welcomePrompts]);
+  const cleanPrompts = useMemo(
+    () => welcomePrompts.map((prompt) => prompt.trim()).filter(Boolean).slice(0, MAX_WELCOME_PROMPTS),
+    [welcomePrompts]
+  );
   const cleanDomains = useMemo(() => allowedDomains.map((domain) => domain.trim()).filter(Boolean), [allowedDomains]);
   const cleanRoutePatterns = useMemo(() => normalizeRoutePatternsClient(routePatterns), [routePatterns]);
   const cleanExcludedRoutePatterns = useMemo(() => normalizeRoutePatternsClient(excludedRoutePatterns), [excludedRoutePatterns]);
@@ -273,6 +278,10 @@ export function BuilderForm({ initial }: BuilderFormProps) {
   }
 
   function updatePrompt(index: number, value: string) {
+    if (index >= MAX_WELCOME_PROMPTS) {
+      return;
+    }
+
     setWelcomePrompts((current) => current.map((prompt, promptIndex) => promptIndex === index ? value : prompt));
   }
 
@@ -605,7 +614,12 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                     title="Welcome prompts"
                     description="Quick-start questions customers can tap."
                     action={
-                      <Button type="button" variant="secondary" onClick={() => setWelcomePrompts((current) => [...current, ""])} disabled={welcomePrompts.length >= 4}>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setWelcomePrompts((current) => current.length >= MAX_WELCOME_PROMPTS ? current : [...current, ""])}
+                        disabled={welcomePrompts.length >= MAX_WELCOME_PROMPTS}
+                      >
                         <Plus size={16} />
                         Add
                       </Button>
@@ -1022,7 +1036,11 @@ function makeAgentFromInitial(initial: BuilderInitial): BuilderAgentDraft {
 }
 
 function padPrompts(prompts: string[]) {
-  return prompts.length > 0 ? prompts : ["What services do you offer?", "How much does it cost?", "Can I book a consultation?"];
+  const normalizedPrompts = prompts.map((prompt) => prompt.trim()).filter(Boolean).slice(0, MAX_WELCOME_PROMPTS);
+
+  return normalizedPrompts.length > 0
+    ? normalizedPrompts
+    : ["What services do you offer?", "How much does it cost?", "Can I book a consultation?"];
 }
 
 function padDomains(domains: string[]) {

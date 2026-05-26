@@ -53,11 +53,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
     .filter((value): value is string => typeof value === "string" && value.length > 0);
   const successMessage = normalizeMessage(formData.get("successMessage"));
   const fallbackMessage = normalizeMessage(formData.get("fallbackMessage"));
+  const actionConfig = getActionConfig(provider, formData);
+  const validationError = validateActionConfig(provider, actionConfig);
 
   if (!actionType) {
     redirectUrl.searchParams.set("status", "configure_failed");
     if (wantsJson(request)) {
       return NextResponse.json({ ok: false, error: "This provider has no configurable action." }, { status: 400 });
+    }
+
+    return NextResponse.redirect(redirectUrl, { status: 303 });
+  }
+
+  if (validationError) {
+    redirectUrl.searchParams.set("status", "configure_failed");
+    if (wantsJson(request)) {
+      return NextResponse.json({ ok: false, error: validationError }, { status: 400 });
     }
 
     return NextResponse.redirect(redirectUrl, { status: 303 });
@@ -92,16 +103,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
       organization_id: auth.organizationId,
       bot_id: botId,
       integration_id: integration.id,
-      trigger_type: getDefaultTriggerType(actionType),
+      trigger_type: getDefaultTriggerType(provider, actionType),
       action_type: actionType,
       enabled: true,
       required_fields: [],
       field_mapping: {},
       success_message: successMessage,
       fallback_message: fallbackMessage,
-      config: {
-        provider
-      },
+      config: actionConfig,
       updated_at: new Date().toISOString()
     }));
 
@@ -144,7 +153,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         triggerType: row.trigger_type,
         enabled: row.enabled,
         successMessage: row.success_message,
-        fallbackMessage: row.fallback_message
+        fallbackMessage: row.fallback_message,
+        config: row.config
       }))
     });
   }
@@ -173,9 +183,47 @@ function normalizeMessage(value: FormDataEntryValue | null) {
   return typeof value === "string" && value.trim() ? value.trim().slice(0, 500) : null;
 }
 
-function getDefaultTriggerType(actionType: IntegrationActionType): IntegrationTriggerType {
+function getActionConfig(provider: NonNullable<ReturnType<typeof parseIntegrationProviderParam>>, formData: FormData) {
+  if (provider === "calendly") {
+    return {
+      provider,
+      calendlySchedulingMode: "popup"
+    };
+  }
+
+  if (provider === "slack") {
+    return {
+      provider,
+      slackChannelId: normalizeMessage(formData.get("slackChannelId"))
+    };
+  }
+
+  return {
+    provider
+  };
+}
+
+function validateActionConfig(
+  provider: NonNullable<ReturnType<typeof parseIntegrationProviderParam>>,
+  config: Record<string, unknown>
+) {
+  if (provider === "slack" && !normalizeMessage(config.slackChannelId as FormDataEntryValue | null)) {
+    return "Slack channel ID is required before saving Slack notifications.";
+  }
+
+  return null;
+}
+
+function getDefaultTriggerType(
+  provider: NonNullable<ReturnType<typeof parseIntegrationProviderParam>>,
+  actionType: IntegrationActionType
+): IntegrationTriggerType {
   if (actionType === "show_booking_link") {
     return "booking_requested";
+  }
+
+  if (provider === "jobber" && actionType === "submit_service_request") {
+    return "lead_captured";
   }
 
   if (actionType === "submit_service_request") {

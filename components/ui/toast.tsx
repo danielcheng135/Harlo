@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, Info, TriangleAlert, X } from "lucide-react";
 
 export type ToastMessage = {
@@ -12,18 +12,19 @@ export type ToastMessage = {
 export function useToast() {
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
-  function showToast(tone: ToastMessage["tone"], message: string) {
+  const showToast = useCallback((tone: ToastMessage["tone"], message: string) => {
     setToast({
       id: Date.now(),
       tone,
       message
     });
-  }
+  }, []);
+  const dismissToast = useCallback(() => setToast(null), []);
 
   return {
     toast,
     showToast,
-    dismissToast: () => setToast(null)
+    dismissToast
   };
 }
 

@@ -16,23 +16,17 @@ const OAUTH_ENV_KEYS: Record<IntegrationProviderKey, { clientId: string; clientS
     redirectUri: "CALENDLY_REDIRECT_URI",
     scopes: "CALENDLY_REQUESTED_SCOPES"
   },
-  housecallpro: {
-    clientId: "HOUSECALLPRO_CLIENT_ID",
-    clientSecret: "HOUSECALLPRO_CLIENT_SECRET",
-    redirectUri: "HOUSECALLPRO_REDIRECT_URI",
-    scopes: "HOUSECALLPRO_REQUESTED_SCOPES"
+  calcom: {
+    clientId: "CALCOM_CLIENT_ID",
+    clientSecret: "CALCOM_CLIENT_SECRET",
+    redirectUri: "CALCOM_REDIRECT_URI",
+    scopes: "CALCOM_REQUESTED_SCOPES"
   },
   jobber: {
     clientId: "JOBBER_CLIENT_ID",
     clientSecret: "JOBBER_CLIENT_SECRET",
     redirectUri: "JOBBER_REDIRECT_URI",
     scopes: "JOBBER_REQUESTED_SCOPES"
-  },
-  zapier: {
-    clientId: "ZAPIER_CLIENT_ID",
-    clientSecret: "ZAPIER_CLIENT_SECRET",
-    redirectUri: "ZAPIER_REDIRECT_URI",
-    scopes: "ZAPIER_REQUESTED_SCOPES"
   },
   slack: {
     clientId: "SLACK_CLIENT_ID",
@@ -45,6 +39,30 @@ const OAUTH_ENV_KEYS: Record<IntegrationProviderKey, { clientId: string; clientS
     clientSecret: "HUBSPOT_CLIENT_SECRET",
     redirectUri: "HUBSPOT_REDIRECT_URI",
     scopes: "HUBSPOT_REQUESTED_SCOPES"
+  },
+  mailchimp: {
+    clientId: "MAILCHIMP_CLIENT_ID",
+    clientSecret: "MAILCHIMP_CLIENT_SECRET",
+    redirectUri: "MAILCHIMP_REDIRECT_URI",
+    scopes: "MAILCHIMP_REQUESTED_SCOPES"
+  },
+  whatsapp: {
+    clientId: "WHATSAPP_CLIENT_ID",
+    clientSecret: "WHATSAPP_CLIENT_SECRET",
+    redirectUri: "WHATSAPP_REDIRECT_URI",
+    scopes: "WHATSAPP_REQUESTED_SCOPES"
+  },
+  instagram: {
+    clientId: "INSTAGRAM_CLIENT_ID",
+    clientSecret: "INSTAGRAM_CLIENT_SECRET",
+    redirectUri: "INSTAGRAM_REDIRECT_URI",
+    scopes: "INSTAGRAM_REQUESTED_SCOPES"
+  },
+  messenger: {
+    clientId: "MESSENGER_CLIENT_ID",
+    clientSecret: "MESSENGER_CLIENT_SECRET",
+    redirectUri: "MESSENGER_REDIRECT_URI",
+    scopes: "MESSENGER_REQUESTED_SCOPES"
   }
 };
 

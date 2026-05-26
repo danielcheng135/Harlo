@@ -274,6 +274,7 @@ export type IntegrationConfiguredAction = {
   enabled: boolean;
   successMessage: string | null;
   fallbackMessage: string | null;
+  config: Record<string, unknown>;
 };
 
 export type IntegrationRunOverview = {
@@ -676,7 +677,7 @@ export async function getIntegrationOverview(workspace: Workspace, billing: Bill
   const actionsResult = integrationIds.length > 0 && migrationReady
     ? await supabase
       .from("bot_integration_actions")
-      .select("id, bot_id, integration_id, trigger_type, action_type, enabled, success_message, fallback_message")
+      .select("id, bot_id, integration_id, trigger_type, action_type, enabled, success_message, fallback_message, config")
       .eq("organization_id", workspace.organization.id)
       .in("integration_id", integrationIds)
     : { data: [] };
@@ -691,6 +692,7 @@ export async function getIntegrationOverview(workspace: Workspace, billing: Bill
     enabled: boolean;
     success_message: string | null;
     fallback_message: string | null;
+    config: Record<string, unknown> | null;
   }>).forEach((action) => {
     const current = actionsByIntegrationId.get(action.integration_id) ?? [];
     current.push({
@@ -700,7 +702,8 @@ export async function getIntegrationOverview(workspace: Workspace, billing: Bill
       triggerType: action.trigger_type,
       enabled: action.enabled,
       successMessage: action.success_message,
-      fallbackMessage: action.fallback_message
+      fallbackMessage: action.fallback_message,
+      config: action.config ?? {}
     });
     actionsByIntegrationId.set(action.integration_id, current);
   });

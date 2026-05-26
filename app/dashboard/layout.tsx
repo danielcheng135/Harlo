@@ -21,26 +21,24 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="min-h-screen bg-white">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-harlo-line bg-white p-5 text-harlo-ink lg:flex lg:flex-col">
-        <div>
-          <BrandLogo />
-          <SidebarNav role={workspace.role} />
-        </div>
-        <div className="mt-auto space-y-3">
-          <WorkspaceCard
-            brandLogoUrl={workspace.organization.brand_logo_url ?? null}
-            businessName={workspace.organization.name}
-            initials={getInitials(workspace.organization.name)}
-          />
-          <ProfileMenu
-            brandLogoUrl={workspace.organization.brand_logo_url ?? null}
-            businessName={workspace.organization.name}
-            canManageBilling={canManageBilling}
-            email={workspace.user.email}
-            hasHigherTier={billingOverview.hasHigherTier}
-            initials={initials}
-            role={workspace.role}
-          />
+      <aside className="fixed inset-y-0 left-0 z-50 hidden w-64 overflow-visible border-r border-white/10 bg-[#032832] p-5 text-white shadow-[8px_0_40px_rgba(2,18,24,0.18)] lg:flex lg:flex-col">
+        <div className="relative z-10 flex min-h-0 flex-1 flex-col">
+          <div>
+            <BrandLogo tone="light" />
+            <SidebarNav role={workspace.role} />
+          </div>
+          <div className="mt-auto space-y-3">
+            <CreditUsageIndicator used={billingOverview.creditsUsed} limit={billingOverview.creditLimit} title="Message credits" />
+            <ProfileMenu
+              brandLogoUrl={workspace.organization.brand_logo_url ?? null}
+              businessName={workspace.organization.name}
+              canManageBilling={canManageBilling}
+              email={workspace.user.email}
+              hasHigherTier={billingOverview.hasHigherTier}
+              initials={initials}
+              role={workspace.role}
+            />
+          </div>
         </div>
       </aside>
       <div className="min-w-0 lg:pl-64">
@@ -67,32 +65,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <CreditUsageBanner canManageBilling={canManageBilling} status={billingOverview.status} used={billingOverview.creditsUsed} limit={billingOverview.creditLimit} />
           {children}
         </main>
-      </div>
-    </div>
-  );
-}
-
-function WorkspaceCard({ brandLogoUrl, businessName, initials }: { brandLogoUrl: string | null; businessName: string; initials: string }) {
-  return (
-    <div className="rounded-lg border border-harlo-line bg-white p-3 shadow-sm">
-      <div className="flex items-center gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-700 text-sm font-bold text-white">
-          {brandLogoUrl ? (
-            <img
-              src={brandLogoUrl}
-              alt=""
-              className="h-full w-full object-contain p-1.5"
-              loading="lazy"
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            initials
-          )}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold text-harlo-ink">{businessName}</span>
-          <span className="block truncate text-xs text-harlo-muted">Main workspace</span>
-        </span>
       </div>
     </div>
   );

@@ -1,10 +1,13 @@
 export type IntegrationProviderKey =
   | "calendly"
-  | "housecallpro"
+  | "calcom"
   | "jobber"
-  | "zapier"
   | "slack"
-  | "hubspot";
+  | "hubspot"
+  | "mailchimp"
+  | "whatsapp"
+  | "instagram"
+  | "messenger";
 
 export type IntegrationStatus = "connected" | "disconnected" | "error";
 
@@ -48,6 +51,7 @@ export type IntegrationActionResult = {
   externalUrl?: string | null;
   message?: string | null;
   error?: string | null;
+  metadata?: Record<string, unknown>;
 };
 
 export type IntegrationProvider = {

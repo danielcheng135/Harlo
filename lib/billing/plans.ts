@@ -2,7 +2,16 @@ export type BillingPlanKey = "starter" | "growth" | "pro";
 export type BillingInterval = "monthly" | "annual";
 export type BillingStatus = "trialing" | "active" | "past_due" | "canceled" | "incomplete";
 export type AddOnKey = "auto_recharge_credits" | "extra_agent" | "extra_seat" | "remove_branding";
-export type IntegrationCatalogKey = "calendly" | "housecallpro" | "jobber" | "zapier" | "slack" | "hubspot";
+export type IntegrationCatalogKey =
+  | "calendly"
+  | "calcom"
+  | "jobber"
+  | "slack"
+  | "hubspot"
+  | "mailchimp"
+  | "whatsapp"
+  | "instagram"
+  | "messenger";
 
 export type BillingPlan = {
   key: BillingPlanKey;
@@ -121,7 +130,7 @@ export const INTEGRATION_ENTITLEMENTS: Record<BillingPlanKey, IntegrationEntitle
   },
   growth: {
     enabled: true,
-    providers: ["calendly", "housecallpro", "jobber", "zapier", "slack"],
+    providers: ["calendly", "calcom", "jobber", "slack", "hubspot", "mailchimp"],
     connectedAccountsPerProvider: 1,
     actionsPerVisitorFlow: 1,
     advancedFieldMapping: false,
@@ -131,7 +140,7 @@ export const INTEGRATION_ENTITLEMENTS: Record<BillingPlanKey, IntegrationEntitle
   },
   pro: {
     enabled: true,
-    providers: ["calendly", "housecallpro", "jobber", "zapier", "slack", "hubspot"],
+    providers: ["calendly", "calcom", "jobber", "slack", "hubspot", "mailchimp", "whatsapp", "instagram", "messenger"],
     connectedAccountsPerProvider: 3,
     actionsPerVisitorFlow: 3,
     advancedFieldMapping: true,
