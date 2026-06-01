@@ -254,7 +254,5 @@ function isIntegrationProvider(value: unknown): value is IntegrationProviderKey 
     value === "slack" ||
     value === "hubspot" ||
     value === "mailchimp" ||
-    value === "whatsapp" ||
-    value === "instagram" ||
-    value === "messenger";
+    value === "google_sheets";
 }

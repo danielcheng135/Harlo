@@ -42,27 +42,11 @@ export const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     proEnabled: true
   },
   {
-    key: "whatsapp",
-    name: "WhatsApp",
-    description: "Route lead follow-up and handoff messages through WhatsApp Business.",
-    actionTypes: ["send_notification"],
-    growthEnabled: false,
-    proEnabled: true
-  },
-  {
-    key: "instagram",
-    name: "Instagram",
-    description: "Connect Instagram DM handoffs for businesses that manage leads in social inboxes.",
-    actionTypes: ["send_notification"],
-    growthEnabled: false,
-    proEnabled: true
-  },
-  {
-    key: "messenger",
-    name: "Messenger",
-    description: "Connect Facebook Messenger handoffs for Page-based customer conversations.",
-    actionTypes: ["send_notification"],
-    growthEnabled: false,
+    key: "google_sheets",
+    name: "Google Sheets",
+    description: "Append captured leads to a spreadsheet row for lightweight tracking and handoff.",
+    actionTypes: ["create_crm_contact"],
+    growthEnabled: true,
     proEnabled: true
   },
   {

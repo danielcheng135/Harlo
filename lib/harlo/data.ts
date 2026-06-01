@@ -104,6 +104,11 @@ export type ConversationRow = {
   id: string;
   visitor_id: string | null;
   page_url: string | null;
+  source_channel: "website";
+  integration_channel_id?: string | null;
+  external_thread_id?: string | null;
+  external_sender_id?: string | null;
+  external_profile?: Record<string, unknown> | null;
   created_at: string;
   bot_id?: string | null;
   bot_name?: string;
@@ -658,7 +663,7 @@ export async function getIntegrationOverview(workspace: Workspace, billing: Bill
   const entitlements = getIntegrationEntitlements(billing.planKey);
   const integrationResult = await supabase
     .from("integrations")
-    .select("id, provider, status, display_name, last_success_at, last_error")
+    .select("id, provider, status, display_name, last_success_at, last_error, config")
     .eq("organization_id", workspace.organization.id);
 
   const migrationReady = !integrationResult.error;
@@ -670,6 +675,7 @@ export async function getIntegrationOverview(workspace: Workspace, billing: Bill
       display_name: string | null;
       last_success_at: string | null;
       last_error: string | null;
+      config: Record<string, unknown> | null;
     }>)
     : [];
   const rowsByProvider = new Map(rows.filter((row) => isIntegrationProviderKey(row.provider)).map((row) => [row.provider, row]));
@@ -903,13 +909,13 @@ export async function getConversations(workspace: Workspace): Promise<Conversati
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("conversations")
-    .select("id, visitor_id, page_url, created_at, bot_id")
+    .select("id, visitor_id, page_url, source_channel, integration_channel_id, external_thread_id, external_sender_id, external_profile, created_at, bot_id")
     .eq("organization_id", workspace.organization.id)
     .order("created_at", { ascending: false })
     .limit(20);
 
   return ((data ?? []) as ConversationRow[]).map((conversation) => ({
-    ...conversation,
+    ...normalizeConversationSource(conversation),
     ...getWorkspaceBotMeta(workspace, conversation.bot_id)
   }));
 }
@@ -918,7 +924,7 @@ export async function getInboxConversations(workspace: Workspace): Promise<Inbox
   const supabase = await createSupabaseServerClient();
   const { data: conversations } = await supabase
     .from("conversations")
-    .select("id, visitor_id, page_url, created_at, bot_id")
+    .select("id, visitor_id, page_url, source_channel, integration_channel_id, external_thread_id, external_sender_id, external_profile, created_at, bot_id")
     .eq("organization_id", workspace.organization.id)
     .order("created_at", { ascending: false })
     .limit(20);
@@ -974,7 +980,7 @@ export async function getInboxConversations(workspace: Workspace): Promise<Inbox
         : "Answered";
 
     return {
-      ...conversation,
+      ...normalizeConversationSource(conversation as ConversationRow),
       ...getWorkspaceBotMeta(workspace, conversation.bot_id),
       messages: conversationMessages,
       lead,
@@ -1014,6 +1020,14 @@ function getWorkspaceBotMeta(workspace: Workspace, botId?: string | null) {
 
 function getLeadFieldsForBot(workspace: Workspace, botId?: string | null) {
   return (workspace.bots.find((item) => item.id === botId) ?? workspace.bot).lead_capture_fields;
+}
+
+function normalizeConversationSource(conversation: ConversationRow): ConversationRow {
+  return {
+    ...conversation,
+    source_channel: "website",
+    external_profile: isRecord(conversation.external_profile) ? conversation.external_profile : {}
+  };
 }
 
 export function getInitials(email: string | null) {
@@ -1101,6 +1115,10 @@ async function getServiceCount(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 function normalizePlanKey(value: unknown): BillingPlanKey {

@@ -9,9 +9,7 @@ export type IntegrationCatalogKey =
   | "slack"
   | "hubspot"
   | "mailchimp"
-  | "whatsapp"
-  | "instagram"
-  | "messenger";
+  | "google_sheets";
 
 export type BillingPlan = {
   key: BillingPlanKey;
@@ -130,7 +128,7 @@ export const INTEGRATION_ENTITLEMENTS: Record<BillingPlanKey, IntegrationEntitle
   },
   growth: {
     enabled: true,
-    providers: ["calendly", "calcom", "jobber", "slack", "hubspot", "mailchimp"],
+    providers: ["calendly", "calcom", "jobber", "slack", "hubspot", "mailchimp", "google_sheets"],
     connectedAccountsPerProvider: 1,
     actionsPerVisitorFlow: 1,
     advancedFieldMapping: false,
@@ -140,7 +138,7 @@ export const INTEGRATION_ENTITLEMENTS: Record<BillingPlanKey, IntegrationEntitle
   },
   pro: {
     enabled: true,
-    providers: ["calendly", "calcom", "jobber", "slack", "hubspot", "mailchimp", "whatsapp", "instagram", "messenger"],
+    providers: ["calendly", "calcom", "jobber", "slack", "hubspot", "mailchimp", "google_sheets"],
     connectedAccountsPerProvider: 3,
     actionsPerVisitorFlow: 3,
     advancedFieldMapping: true,

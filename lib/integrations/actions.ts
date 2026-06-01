@@ -1,4 +1,7 @@
-import { decryptIntegrationCredentials, encryptIntegrationCredentials } from "@/lib/integrations/credentials";
+import { createHash } from "crypto";
+import { encryptIntegrationCredentials } from "@/lib/integrations/credentials";
+import { getFreshIntegrationCredentials, normalizeSelectedEventTypes } from "@/lib/integrations/event-types";
+import { getMailchimpErrorMessage, getMailchimpMarketingApiBase } from "@/lib/integrations/mailchimp";
 import { refreshProviderTokenIfNeeded, type OAuthTokenSet } from "@/lib/integrations/providers";
 import type {
   IntegrationActionPayload,
@@ -12,6 +15,7 @@ import type { createSupabaseServiceClient } from "@/lib/supabase/server";
 type SupabaseServiceClient = ReturnType<typeof createSupabaseServiceClient>;
 
 const DEFAULT_JOBBER_GRAPHQL_VERSION = "2025-04-16";
+const CALCOM_API_VERSION = "2024-06-14";
 
 export type EnabledIntegrationAction = {
   id: string;
@@ -187,6 +191,59 @@ export async function getConnectedCalendlyBookingAction({
   }
 }
 
+export async function getConnectedCalcomBookingAction({
+  supabase,
+  organizationId,
+  requestUrl
+}: {
+  supabase: SupabaseServiceClient;
+  organizationId: string;
+  requestUrl?: string;
+}): Promise<EnabledIntegrationAction | null> {
+  const { data: integration, error } = await supabase
+    .from("integrations")
+    .select("id, provider, credentials_encrypted")
+    .eq("organization_id", organizationId)
+    .eq("provider", "calcom")
+    .eq("status", "connected")
+    .maybeSingle();
+
+  if (error || !integration?.credentials_encrypted) {
+    if (error) {
+      console.error("Could not load connected Cal.com integration", error);
+    }
+
+    return null;
+  }
+
+  try {
+    return {
+      id: `calcom-fallback-${integration.id}`,
+      integrationId: integration.id,
+      provider: "calcom",
+      actionType: "show_booking_link",
+      triggerType: "booking_requested",
+      requiredFields: [],
+      successMessage: null,
+      fallbackMessage: null,
+      config: {
+        provider: "calcom",
+        calcomSchedulingMode: "popup"
+      },
+      credentials: await getFreshIntegrationCredentials({
+        supabase,
+        integrationId: integration.id,
+        provider: "calcom",
+        encryptedCredentials: integration.credentials_encrypted,
+        requestUrl
+      })
+    };
+  } catch (decryptError) {
+    console.error("Could not decrypt Cal.com integration credentials", decryptError);
+    return null;
+  }
+}
+
 export async function getConnectedJobberLeadAction({
   supabase,
   organizationId,
@@ -291,44 +348,63 @@ export async function getConnectedHubSpotContactAction({
   }
 }
 
-async function getFreshIntegrationCredentials({
+export async function getConnectedMailchimpContactAction({
   supabase,
-  integrationId,
-  provider,
-  encryptedCredentials,
+  organizationId,
   requestUrl
 }: {
   supabase: SupabaseServiceClient;
-  integrationId: string;
-  provider: IntegrationProviderKey;
-  encryptedCredentials: string;
+  organizationId: string;
   requestUrl?: string;
-}) {
-  const credentials = decryptIntegrationCredentials<OAuthTokenSet>(encryptedCredentials);
+}): Promise<EnabledIntegrationAction | null> {
+  const defaultAudienceId = process.env.MAILCHIMP_DEFAULT_AUDIENCE_ID?.trim();
 
-  if (!requestUrl) {
-    return credentials;
+  if (!defaultAudienceId) {
+    return null;
   }
 
-  const refreshedCredentials = await refreshProviderTokenIfNeeded({
-    provider,
-    requestUrl,
-    tokenSet: credentials
-  });
+  const { data: integration, error } = await supabase
+    .from("integrations")
+    .select("id, provider, credentials_encrypted")
+    .eq("organization_id", organizationId)
+    .eq("provider", "mailchimp")
+    .eq("status", "connected")
+    .maybeSingle();
 
-  if (
-    refreshedCredentials.accessToken !== credentials.accessToken ||
-    refreshedCredentials.refreshToken !== credentials.refreshToken ||
-    refreshedCredentials.expiresAt !== credentials.expiresAt
-  ) {
-    await persistRefreshedCredentials({
-      supabase,
-      integrationId,
-      credentials: refreshedCredentials
-    });
+  if (error || !integration?.credentials_encrypted) {
+    if (error) {
+      console.error("Could not load connected Mailchimp integration", error);
+    }
+
+    return null;
   }
 
-  return refreshedCredentials;
+  try {
+    return {
+      id: `mailchimp-fallback-${integration.id}`,
+      integrationId: integration.id,
+      provider: "mailchimp",
+      actionType: "create_crm_contact",
+      triggerType: "lead_captured",
+      requiredFields: ["email"],
+      successMessage: null,
+      fallbackMessage: null,
+      config: {
+        provider: "mailchimp",
+        mailchimpAudienceId: defaultAudienceId
+      },
+      credentials: await getFreshIntegrationCredentials({
+        supabase,
+        integrationId: integration.id,
+        provider: "mailchimp",
+        encryptedCredentials: integration.credentials_encrypted,
+        requestUrl
+      })
+    };
+  } catch (decryptError) {
+    console.error("Could not decrypt Mailchimp integration credentials", decryptError);
+    return null;
+  }
 }
 
 async function persistRefreshedCredentials({
@@ -401,8 +477,20 @@ async function runIntegrationActionOnce(
     return runCalendlyBookingAction(action, payload);
   }
 
+  if (action.provider === "calcom" && action.actionType === "show_booking_link") {
+    return runCalcomBookingAction(action, payload);
+  }
+
   if (action.provider === "hubspot" && action.actionType === "create_crm_contact") {
     return runHubSpotContactAction(action, payload);
+  }
+
+  if (action.provider === "mailchimp" && action.actionType === "create_crm_contact") {
+    return runMailchimpContactAction(action, payload);
+  }
+
+  if (action.provider === "google_sheets" && action.actionType === "create_crm_contact") {
+    return runGoogleSheetsAppendAction(action, payload);
   }
 
   if (action.provider === "jobber" && action.actionType === "submit_service_request") {
@@ -473,6 +561,23 @@ async function runCalendlyBookingAction(
   _payload: IntegrationActionPayload
 ): Promise<IntegrationActionResult> {
   const configuredUrl = getString(action.config.bookingUrl) ?? getString(action.config.schedulingUrl);
+  const selectedEventTypes = normalizeSelectedEventTypes(action.config.selectedEventTypes);
+
+  if (selectedEventTypes.length > 0) {
+    const primaryEventType = selectedEventTypes[0];
+
+    return {
+      ok: true,
+      status: "success",
+      message: action.successMessage ?? "You can book a time here:",
+      externalUrl: primaryEventType.url,
+      externalRecordId: primaryEventType.id,
+      error: null,
+      metadata: {
+        bookingOptions: selectedEventTypes
+      }
+    };
+  }
 
   if (configuredUrl) {
     return {
@@ -514,6 +619,74 @@ async function runCalendlyBookingAction(
   };
 }
 
+async function runCalcomBookingAction(
+  action: EnabledIntegrationAction,
+  _payload: IntegrationActionPayload
+): Promise<IntegrationActionResult> {
+  const configuredUrl = getString(action.config.bookingUrl) ??
+    getString(action.config.schedulingUrl) ??
+    getString(action.config.calcomBookingUrl);
+  const selectedEventTypes = normalizeSelectedEventTypes(action.config.selectedEventTypes);
+
+  if (selectedEventTypes.length > 0) {
+    const primaryEventType = selectedEventTypes[0];
+
+    return {
+      ok: true,
+      status: "success",
+      message: action.successMessage ?? "You can book a time here:",
+      externalUrl: primaryEventType.url,
+      externalRecordId: primaryEventType.id,
+      error: null,
+      metadata: {
+        bookingOptions: selectedEventTypes
+      }
+    };
+  }
+
+  if (configuredUrl) {
+    return {
+      ok: true,
+      status: "success",
+      message: action.successMessage ?? "You can book a time here:",
+      externalUrl: configuredUrl,
+      externalRecordId: null,
+      error: null,
+      metadata: {}
+    };
+  }
+
+  const firstEventType = await getCalcomPrimaryEventType(action.credentials.accessToken);
+  const rawEventTypeId = firstEventType?.id;
+  const eventTypeId = typeof rawEventTypeId === "number" || typeof rawEventTypeId === "string"
+    ? String(rawEventTypeId)
+    : null;
+  const bookingUrl = getString(firstEventType?.bookingUrl);
+
+  if (!bookingUrl || !eventTypeId) {
+    return {
+      ok: false,
+      status: "skipped",
+      message: action.fallbackMessage ?? "Cal.com is connected, but no active booking link was found.",
+      externalRecordId: null,
+      externalUrl: null,
+      error: "No Cal.com event type with a booking URL was found."
+    };
+  }
+
+  return {
+    ok: true,
+    status: "success",
+    message: action.successMessage ?? "You can book a time here:",
+    externalRecordId: eventTypeId,
+    externalUrl: bookingUrl,
+    error: null,
+    metadata: {
+      eventTypeId
+    }
+  };
+}
+
 async function getCalendlyPrimaryEventType(accessToken: string) {
   const userResponse = await fetch("https://api.calendly.com/users/me", {
     headers: {
@@ -543,6 +716,29 @@ async function getCalendlyPrimaryEventType(accessToken: string) {
   const collection = Array.isArray(eventTypesPayload.collection) ? eventTypesPayload.collection : [];
 
   return collection[0] as Record<string, unknown> | undefined;
+}
+
+async function getCalcomPrimaryEventType(accessToken: string) {
+  const eventTypesUrl = new URL("https://api.cal.com/v2/event-types");
+  eventTypesUrl.searchParams.set("sortCreatedAt", "asc");
+
+  const eventTypesResponse = await fetch(eventTypesUrl, {
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      accept: "application/json",
+      "cal-api-version": CALCOM_API_VERSION
+    }
+  });
+  const eventTypesPayload = await parseProviderResponse(eventTypesResponse, "Cal.com event type lookup failed.");
+  const collection = Array.isArray(eventTypesPayload.data) ? eventTypesPayload.data : [];
+
+  return collection.find((eventType) => {
+    if (!eventType || typeof eventType !== "object") {
+      return false;
+    }
+
+    return typeof (eventType as Record<string, unknown>).bookingUrl === "string";
+  }) as Record<string, unknown> | undefined;
 }
 
 async function runHubSpotContactAction(
@@ -594,6 +790,461 @@ async function runHubSpotContactAction(
       noteError: note.error
     }
   };
+}
+
+async function runMailchimpContactAction(
+  action: EnabledIntegrationAction,
+  payload: IntegrationActionPayload
+): Promise<IntegrationActionResult> {
+  const email = cleanString(payload.lead.email);
+
+  if (!email) {
+    return {
+      ok: false,
+      status: "skipped",
+      message: action.fallbackMessage ?? "Mailchimp sync was skipped because no email was captured.",
+      externalRecordId: null,
+      externalUrl: null,
+      error: "Missing lead email."
+    };
+  }
+
+  const audienceId = getString(action.config.mailchimpAudienceId) ??
+    getString(action.config.audienceId) ??
+    process.env.MAILCHIMP_DEFAULT_AUDIENCE_ID?.trim();
+
+  if (!audienceId) {
+    return {
+      ok: false,
+      status: "skipped",
+      message: action.fallbackMessage ?? "Mailchimp is connected, but no audience is selected.",
+      externalRecordId: null,
+      externalUrl: null,
+      error: "Missing Mailchimp audience ID."
+    };
+  }
+
+  const apiBase = getMailchimpMarketingApiBase(action.credentials);
+
+  if (!apiBase) {
+    throw new Error("Mailchimp did not return an API data center. Reconnect Mailchimp and try again.");
+  }
+
+  const subscriberHash = createHash("md5").update(email.toLowerCase()).digest("hex");
+  const memberPayload = await upsertMailchimpMember({
+    accessToken: action.credentials.accessToken,
+    apiBase,
+    audienceId,
+    subscriberHash,
+    email,
+    payload
+  });
+  const memberId = getString(memberPayload.id) ?? subscriberHash;
+  const note = await tryCreateMailchimpContactNote({
+    accessToken: action.credentials.accessToken,
+    apiBase,
+    audienceId,
+    subscriberHash,
+    payload
+  });
+
+  return {
+    ok: true,
+    status: "success",
+    message: action.successMessage ?? "The lead was added to Mailchimp.",
+    externalRecordId: memberId,
+    externalUrl: null,
+    error: null,
+    metadata: {
+      audienceId,
+      subscriberHash,
+      noteId: note.id,
+      noteError: note.error
+    }
+  };
+}
+
+async function runGoogleSheetsAppendAction(
+  action: EnabledIntegrationAction,
+  payload: IntegrationActionPayload
+): Promise<IntegrationActionResult> {
+  const spreadsheetId = getString(action.config.spreadsheetId);
+  const sheetName = getString(action.config.sheetName) ?? "Leads";
+
+  if (!spreadsheetId) {
+    return {
+      ok: false,
+      status: "skipped",
+      message: action.fallbackMessage ?? "Google Sheets is connected, but no spreadsheet is selected.",
+      externalRecordId: null,
+      externalUrl: null,
+      error: "Missing Google Sheets spreadsheet ID."
+    };
+  }
+
+  const range = `${quoteGoogleSheetName(sheetName)}!A:Z`;
+  const appendUrl = new URL(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}:append`);
+  appendUrl.searchParams.set("valueInputOption", "USER_ENTERED");
+  appendUrl.searchParams.set("insertDataOption", "INSERT_ROWS");
+  const response = await fetch(appendUrl, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${action.credentials.accessToken}`,
+      "content-type": "application/json",
+      accept: "application/json"
+    },
+    body: JSON.stringify({
+      majorDimension: "ROWS",
+      values: [buildGoogleSheetsLeadRow(payload)]
+    })
+  });
+  const appendPayload = await parseProviderResponse(response, "Google Sheets row append failed.");
+  const updates = appendPayload.updates && typeof appendPayload.updates === "object"
+    ? appendPayload.updates as Record<string, unknown>
+    : {};
+  const updatedRange = getString(updates.updatedRange);
+
+  return {
+    ok: true,
+    status: "success",
+    message: action.successMessage ?? "The lead was added to Google Sheets.",
+    externalRecordId: updatedRange,
+    externalUrl: `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/edit`,
+    error: null,
+    metadata: {
+      spreadsheetId,
+      sheetName,
+      updatedRange
+    }
+  };
+}
+
+function buildGoogleSheetsLeadRow(payload: IntegrationActionPayload) {
+  return [
+    new Date().toISOString(),
+    cleanString(payload.lead.name) ?? "",
+    cleanString(payload.lead.email) ?? "",
+    cleanString(payload.lead.phone) ?? "",
+    cleanString(payload.lead.question) ?? cleanString(payload.visitorMessage) ?? "",
+    cleanString(payload.sourcePageUrl) ?? "",
+    cleanString(payload.conversationSummary) ?? "",
+    formatLeadMetadataForSheet(payload.lead.metadata)
+  ];
+}
+
+function formatLeadMetadataForSheet(metadata: Record<string, unknown> | undefined) {
+  if (!metadata) {
+    return "";
+  }
+
+  return Object.entries(metadata)
+    .filter(([key]) => !key.endsWith("_label") && !key.endsWith("_type"))
+    .map(([key, value]) => {
+      const formattedValue = formatMetadataValue(value);
+
+      if (!formattedValue) {
+        return null;
+      }
+
+      const label = cleanString(metadata[`${key}_label`] as string | null | undefined) ?? titleizeKey(key);
+
+      return `${label}: ${formattedValue}`;
+    })
+    .filter((line): line is string => Boolean(line))
+    .join("; ");
+}
+
+function quoteGoogleSheetName(sheetName: string) {
+  return `'${sheetName.replace(/'/g, "''")}'`;
+}
+
+async function upsertMailchimpMember({
+  accessToken,
+  apiBase,
+  audienceId,
+  subscriberHash,
+  email,
+  payload
+}: {
+  accessToken: string;
+  apiBase: string;
+  audienceId: string;
+  subscriberHash: string;
+  email: string;
+  payload: IntegrationActionPayload;
+}) {
+  const memberUrl = `${apiBase}/lists/${encodeURIComponent(audienceId)}/members/${subscriberHash}`;
+
+  try {
+    const leadMergeFieldValues = getMailchimpLeadMergeFieldValues(payload);
+    const supportedMergeFields = await ensureMailchimpLeadMergeFields({
+      accessToken,
+      apiBase,
+      audienceId,
+      mergeFieldValues: leadMergeFieldValues
+    });
+    const response = await fetch(memberUrl, {
+      method: "PUT",
+      headers: getMailchimpHeaders(accessToken),
+      body: JSON.stringify(buildMailchimpMemberPayload(email, payload, supportedMergeFields, leadMergeFieldValues))
+    });
+
+    return await parseMailchimpProviderResponse(response, "Mailchimp contact upsert failed.");
+  } catch (error) {
+    if (!isMailchimpMergeFieldError(error)) {
+      throw error;
+    }
+
+    const response = await fetch(memberUrl, {
+      method: "PUT",
+      headers: getMailchimpHeaders(accessToken),
+      body: JSON.stringify(buildMailchimpMemberPayload(email, payload, new Set()))
+    });
+
+    return parseMailchimpProviderResponse(response, "Mailchimp contact upsert failed.");
+  }
+}
+
+async function getMailchimpMergeFieldTags({
+  accessToken,
+  apiBase,
+  audienceId
+}: {
+  accessToken: string;
+  apiBase: string;
+  audienceId: string;
+}) {
+  const url = new URL(`${apiBase}/lists/${encodeURIComponent(audienceId)}/merge-fields`);
+  url.searchParams.set("count", "100");
+  url.searchParams.set("fields", "merge_fields.tag");
+  const response = await fetch(url, {
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      accept: "application/json"
+    }
+  });
+  const payload = await parseMailchimpProviderResponse(response, "Mailchimp merge fields could not be loaded.");
+  const fields = Array.isArray(payload.merge_fields) ? payload.merge_fields : [];
+
+  return new Set(fields
+    .map((field) => {
+      if (!field || typeof field !== "object") {
+        return null;
+      }
+
+      return getString((field as Record<string, unknown>).tag)?.toUpperCase() ?? null;
+    })
+    .filter((tag): tag is string => Boolean(tag)));
+}
+
+async function ensureMailchimpLeadMergeFields({
+  accessToken,
+  apiBase,
+  audienceId,
+  mergeFieldValues
+}: {
+  accessToken: string;
+  apiBase: string;
+  audienceId: string;
+  mergeFieldValues: Record<string, string>;
+}) {
+  const supportedMergeFields = await getMailchimpMergeFieldTags({ accessToken, apiBase, audienceId });
+
+  if (mergeFieldValues.PHONE && !supportedMergeFields.has("PHONE")) {
+    const created = await tryCreateMailchimpMergeField({
+      accessToken,
+      apiBase,
+      audienceId,
+      tag: "PHONE",
+      name: "Phone",
+      type: "phone"
+    });
+
+    if (created) {
+      supportedMergeFields.add("PHONE");
+    }
+  }
+
+  if (mergeFieldValues.COMPANY && !supportedMergeFields.has("COMPANY")) {
+    const created = await tryCreateMailchimpMergeField({
+      accessToken,
+      apiBase,
+      audienceId,
+      tag: "COMPANY",
+      name: "Company",
+      type: "text"
+    });
+
+    if (created) {
+      supportedMergeFields.add("COMPANY");
+    }
+  }
+
+  return supportedMergeFields;
+}
+
+async function tryCreateMailchimpMergeField({
+  accessToken,
+  apiBase,
+  audienceId,
+  tag,
+  name,
+  type
+}: {
+  accessToken: string;
+  apiBase: string;
+  audienceId: string;
+  tag: string;
+  name: string;
+  type: "text" | "phone";
+}) {
+  const response = await fetch(`${apiBase}/lists/${encodeURIComponent(audienceId)}/merge-fields`, {
+    method: "POST",
+    headers: getMailchimpHeaders(accessToken),
+    body: JSON.stringify({
+      tag,
+      name,
+      type,
+      required: false,
+      public: false
+    })
+  });
+
+  if (response.status === 400 || response.status === 409) {
+    return false;
+  }
+
+  await parseMailchimpProviderResponse(response, `Mailchimp ${name.toLowerCase()} merge field could not be created.`);
+
+  return true;
+}
+
+function buildMailchimpMemberPayload(
+  email: string,
+  payload: IntegrationActionPayload,
+  supportedMergeFields: Set<string>,
+  leadMergeFieldValues = getMailchimpLeadMergeFieldValues(payload)
+) {
+  const nameParts = splitName(payload.lead.name);
+  const mergeFields: Record<string, string> = {};
+
+  if (supportedMergeFields.has("FNAME") && nameParts.firstName) {
+    mergeFields.FNAME = nameParts.firstName;
+  }
+
+  if (supportedMergeFields.has("LNAME") && nameParts.lastName) {
+    mergeFields.LNAME = nameParts.lastName;
+  }
+
+  if (supportedMergeFields.has("PHONE") && leadMergeFieldValues.PHONE) {
+    mergeFields.PHONE = leadMergeFieldValues.PHONE;
+  }
+
+  if (supportedMergeFields.has("COMPANY") && leadMergeFieldValues.COMPANY) {
+    mergeFields.COMPANY = leadMergeFieldValues.COMPANY;
+  }
+
+  return omitNullish({
+    email_address: email,
+    status_if_new: "subscribed",
+    merge_fields: Object.keys(mergeFields).length > 0 ? mergeFields : undefined,
+    tags: ["Harlo Lead"]
+  });
+}
+
+function isMailchimpMergeFieldError(error: unknown) {
+  return error instanceof Error && /merge fields? (?:were )?invalid|merge_fields/i.test(error.message);
+}
+
+function getMailchimpLeadMergeFieldValues(payload: IntegrationActionPayload) {
+  return omitNullish({
+    PHONE: cleanString(payload.lead.phone) ?? getLeadMetadataString(payload.lead.metadata, ["phone", "phone_number", "mobile", "tel"]),
+    COMPANY: getLeadMetadataString(payload.lead.metadata, ["company", "company_name", "business", "organization"])
+  }) as Record<string, string>;
+}
+
+function getLeadMetadataString(metadata: Record<string, unknown> | undefined, keys: string[]) {
+  if (!metadata) {
+    return null;
+  }
+
+  for (const key of keys) {
+    const value = formatMetadataValue(metadata[key]);
+
+    if (value) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+async function createMailchimpContactNote({
+  accessToken,
+  apiBase,
+  audienceId,
+  subscriberHash,
+  payload
+}: {
+  accessToken: string;
+  apiBase: string;
+  audienceId: string;
+  subscriberHash: string;
+  payload: IntegrationActionPayload;
+}) {
+  const note = buildMailchimpLeadNote(payload);
+
+  if (!note) {
+    return null;
+  }
+
+  const response = await fetch(`${apiBase}/lists/${encodeURIComponent(audienceId)}/members/${subscriberHash}/notes`, {
+    method: "POST",
+    headers: getMailchimpHeaders(accessToken),
+    body: JSON.stringify({ note })
+  });
+  const notePayload = await parseMailchimpProviderResponse(response, "Mailchimp note creation failed.");
+
+  return getString(notePayload.id);
+}
+
+async function tryCreateMailchimpContactNote({
+  accessToken,
+  apiBase,
+  audienceId,
+  subscriberHash,
+  payload
+}: {
+  accessToken: string;
+  apiBase: string;
+  audienceId: string;
+  subscriberHash: string;
+  payload: IntegrationActionPayload;
+}) {
+  try {
+    return {
+      id: await createMailchimpContactNote({ accessToken, apiBase, audienceId, subscriberHash, payload }),
+      error: null
+    };
+  } catch (error) {
+    return {
+      id: null,
+      error: error instanceof Error ? error.message : "Mailchimp note creation failed."
+    };
+  }
+}
+
+function buildMailchimpLeadNote(payload: IntegrationActionPayload) {
+  const lines = [
+    "Captured by Harlo.",
+    formatNoteLine("Name", cleanString(payload.lead.name)),
+    formatNoteLine("Phone", cleanString(payload.lead.phone)),
+    formatNoteLine("Question", cleanString(payload.lead.question) ?? cleanString(payload.visitorMessage)),
+    formatNoteLine("Source page", cleanString(payload.sourcePageUrl)),
+    ...getLeadMetadataNoteLines(payload.lead.metadata)
+  ].filter((line): line is string => Boolean(line));
+
+  return cleanString(lines.join("\n"));
 }
 
 async function findHubSpotContactByEmail(accessToken: string, email: string) {
@@ -1111,11 +1762,30 @@ function getHubSpotHeaders(accessToken: string) {
   };
 }
 
+function getMailchimpHeaders(accessToken: string) {
+  return {
+    authorization: `Bearer ${accessToken}`,
+    "content-type": "application/json",
+    accept: "application/json"
+  };
+}
+
 async function parseProviderResponse(response: Response, fallbackMessage: string) {
   const payload = await response.json().catch(() => null);
 
   if (!response.ok || !payload || typeof payload !== "object") {
     const message = getProviderResponseMessage(payload) ?? fallbackMessage;
+    throw new Error(message);
+  }
+
+  return payload as Record<string, unknown>;
+}
+
+async function parseMailchimpProviderResponse(response: Response, fallbackMessage: string) {
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok || !payload || typeof payload !== "object") {
+    const message = getMailchimpErrorMessage(payload) ?? fallbackMessage;
     throw new Error(message);
   }
 
@@ -1265,9 +1935,7 @@ function isIntegrationProvider(value: string): value is IntegrationProviderKey {
     value === "slack" ||
     value === "hubspot" ||
     value === "mailchimp" ||
-    value === "whatsapp" ||
-    value === "instagram" ||
-    value === "messenger";
+    value === "google_sheets";
 }
 
 function isIntegrationTriggerType(value: string): value is IntegrationTriggerType {

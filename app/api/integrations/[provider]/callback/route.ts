@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { encryptIntegrationCredentials } from "@/lib/integrations/credentials";
-import { getIntegrationAdminAuth } from "@/lib/integrations/auth";
 import { exchangeProviderCode } from "@/lib/integrations/providers";
 import { parseIntegrationProviderParam } from "@/lib/integrations/oauth";
-import { verifyIntegrationOAuthState } from "@/lib/integrations/state";
+import { type IntegrationOAuthState, verifyIntegrationOAuthState } from "@/lib/integrations/state";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -39,19 +38,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.redirect(returnUrl);
   }
 
-  const auth = await getIntegrationAdminAuth();
-
-  if ("response" in auth) {
-    return auth.response;
-  }
-
-  if (auth.userId !== state.userId || auth.organizationId !== state.organizationId) {
-    returnUrl.searchParams.set("integration", provider);
-    returnUrl.searchParams.set("status", "workspace_mismatch");
-    return NextResponse.redirect(returnUrl);
-  }
-
   try {
+    const auth = await getIntegrationOAuthCallbackAuth(state);
     const tokenSet = await exchangeProviderCode({
       provider,
       requestUrl: request.url,
@@ -98,4 +86,28 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     return NextResponse.redirect(returnUrl);
   }
+}
+
+async function getIntegrationOAuthCallbackAuth(state: IntegrationOAuthState) {
+  const service = createSupabaseServiceClient();
+  const { data: membership, error } = await service
+    .from("memberships")
+    .select("organization_id, role")
+    .eq("user_id", state.userId)
+    .eq("organization_id", state.organizationId)
+    .maybeSingle();
+
+  if (error || !membership) {
+    throw new Error("The OAuth callback did not match an active Harlo workspace membership.");
+  }
+
+  if (membership.role !== "owner" && membership.role !== "admin") {
+    throw new Error("Only owners and admins can connect integrations.");
+  }
+
+  return {
+    userId: state.userId,
+    organizationId: state.organizationId,
+    role: membership.role
+  };
 }

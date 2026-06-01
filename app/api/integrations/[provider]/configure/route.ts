@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { canUseIntegrationProvider, type BillingPlanKey } from "@/lib/billing/plans";
 import { getIntegrationAdminAuth } from "@/lib/integrations/auth";
+import { normalizeSelectedEventTypes } from "@/lib/integrations/event-types";
 import { parseIntegrationProviderParam } from "@/lib/integrations/oauth";
 import { getIntegrationProvider } from "@/lib/integrations/registry";
 import type { IntegrationActionType, IntegrationTriggerType } from "@/lib/integrations/types";
@@ -47,6 +48,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const providerDefinition = getIntegrationProvider(provider);
   const formData = await request.formData();
+  const { data: integration } = await service
+    .from("integrations")
+    .select("id, status, credentials_encrypted, config")
+    .eq("organization_id", auth.organizationId)
+    .eq("provider", provider)
+    .maybeSingle();
+
   const actionType = normalizeActionType(formData.get("actionType"), providerDefinition?.actionTypes ?? []);
   const selectedBotIds = formData
     .getAll("botIds")
@@ -74,13 +82,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.redirect(redirectUrl, { status: 303 });
   }
 
-  const { data: integration } = await service
-    .from("integrations")
-    .select("id, status")
-    .eq("organization_id", auth.organizationId)
-    .eq("provider", provider)
-    .maybeSingle();
-
   if (!integration?.id || integration.status !== "connected") {
     redirectUrl.searchParams.set("status", "not_connected");
     if (wantsJson(request)) {
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       trigger_type: getDefaultTriggerType(provider, actionType),
       action_type: actionType,
       enabled: true,
-      required_fields: [],
+      required_fields: getRequiredFields(provider, actionType),
       field_mapping: {},
       success_message: successMessage,
       fallback_message: fallbackMessage,
@@ -183,11 +184,26 @@ function normalizeMessage(value: FormDataEntryValue | null) {
   return typeof value === "string" && value.trim() ? value.trim().slice(0, 500) : null;
 }
 
+function getBooleanFormValue(formData: FormData, key: string, defaultValue: boolean) {
+  const values = formData.getAll(key);
+
+  if (values.some((value) => value === "true" || value === "on")) {
+    return true;
+  }
+
+  if (values.some((value) => value === "false" || value === "off")) {
+    return false;
+  }
+
+  return defaultValue;
+}
+
 function getActionConfig(provider: NonNullable<ReturnType<typeof parseIntegrationProviderParam>>, formData: FormData) {
-  if (provider === "calendly") {
+  if (provider === "calendly" || provider === "calcom") {
     return {
       provider,
-      calendlySchedulingMode: "popup"
+      schedulingMode: "popup",
+      selectedEventTypes: getSelectedEventTypesFromForm(formData)
     };
   }
 
@@ -195,6 +211,22 @@ function getActionConfig(provider: NonNullable<ReturnType<typeof parseIntegratio
     return {
       provider,
       slackChannelId: normalizeMessage(formData.get("slackChannelId"))
+    };
+  }
+
+  if (provider === "mailchimp") {
+    return {
+      provider,
+      mailchimpAudienceId: normalizeMessage(formData.get("mailchimpAudienceId")),
+      mailchimpAudienceName: normalizeMessage(formData.get("mailchimpAudienceName"))
+    };
+  }
+
+  if (provider === "google_sheets") {
+    return {
+      provider,
+      spreadsheetId: normalizeSpreadsheetId(formData.get("spreadsheetId")),
+      sheetName: normalizeMessage(formData.get("sheetName")) ?? "Leads"
     };
   }
 
@@ -211,7 +243,70 @@ function validateActionConfig(
     return "Slack channel ID is required before saving Slack notifications.";
   }
 
+  if (provider === "mailchimp" && !normalizeMessage(config.mailchimpAudienceId as FormDataEntryValue | null)) {
+    return "Select a Mailchimp audience before saving this integration.";
+  }
+
+  if (provider === "google_sheets") {
+    if (!normalizeMessage(config.spreadsheetId as FormDataEntryValue | null)) {
+      return "Google Sheets needs a spreadsheet ID before saving.";
+    }
+
+    if (!normalizeMessage(config.sheetName as FormDataEntryValue | null)) {
+      return "Google Sheets needs a sheet tab name before saving.";
+    }
+  }
+
+  if (
+    (provider === "calendly" || provider === "calcom") &&
+    normalizeSelectedEventTypes(config.selectedEventTypes).length === 0
+  ) {
+    return `Select at least one ${provider === "calcom" ? "Cal.com" : "Calendly"} event type.`;
+  }
+
   return null;
+}
+
+function getRequiredFields(provider: NonNullable<ReturnType<typeof parseIntegrationProviderParam>>, actionType: IntegrationActionType) {
+  if (provider === "google_sheets") {
+    return [];
+  }
+
+  return actionType === "create_crm_contact" ? ["email"] : [];
+}
+
+function normalizeSpreadsheetId(value: FormDataEntryValue | null) {
+  const text = normalizeMessage(value);
+
+  if (!text) {
+    return null;
+  }
+
+  const match = text.match(/\/spreadsheets\/d\/([^/?#]+)/);
+
+  return match?.[1] ?? text;
+}
+
+function getSelectedEventTypesFromForm(formData: FormData) {
+  const selectedIds = new Set(
+    formData
+      .getAll("eventTypeIds")
+      .filter((value): value is string => typeof value === "string" && value.length > 0)
+  );
+  const rawSnapshot = formData.get("eventTypesSnapshot");
+  const snapshot = typeof rawSnapshot === "string" ? parseJsonArray(rawSnapshot) : [];
+
+  return normalizeSelectedEventTypes(snapshot).filter((eventType) => selectedIds.has(eventType.id));
+}
+
+function parseJsonArray(value: string) {
+  try {
+    const parsed = JSON.parse(value);
+
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 function getDefaultTriggerType(

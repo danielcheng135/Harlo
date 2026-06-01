@@ -5,9 +5,7 @@ export type IntegrationProviderKey =
   | "slack"
   | "hubspot"
   | "mailchimp"
-  | "whatsapp"
-  | "instagram"
-  | "messenger";
+  | "google_sheets";
 
 export type IntegrationStatus = "connected" | "disconnected" | "error";
 

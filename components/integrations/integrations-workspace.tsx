@@ -1,9 +1,10 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Info, Link, Loader2, Lock, Settings2, Unlink } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, Clock3, ExternalLink, Info, Link, Loader2, Lock, Settings2, Unlink } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select } from "@/components/ui/select";
 import { ToastViewport, useToast } from "@/components/ui/toast";
 import type { IntegrationConfiguredAction, IntegrationOverview, IntegrationProviderOverview } from "@/lib/harlo/data";
 import type { IntegrationActionType, IntegrationProviderKey, IntegrationTriggerType } from "@/lib/integrations/types";
@@ -20,6 +21,31 @@ type DisplayProvider = IntegrationProviderOverview & {
   locked: boolean;
 };
 
+type BookingEventTypeOption = {
+  id: string;
+  name: string;
+  url: string;
+  durationLabel: string | null;
+};
+
+type EventTypeState = {
+  loading: boolean;
+  error: string | null;
+  options: BookingEventTypeOption[];
+};
+
+type MailchimpAudienceOption = {
+  id: string;
+  name: string;
+  memberCount: number | null;
+};
+
+type AudienceState = {
+  loading: boolean;
+  error: string | null;
+  options: MailchimpAudienceOption[];
+};
+
 const logoUrls: Record<IntegrationProviderKey, string> = {
   calendly: "https://www.google.com/s2/favicons?domain=calendly.com&sz=128",
   calcom: "https://www.google.com/s2/favicons?domain=cal.com&sz=128",
@@ -27,9 +53,7 @@ const logoUrls: Record<IntegrationProviderKey, string> = {
   slack: "https://www.google.com/s2/favicons?domain=slack.com&sz=128",
   hubspot: "https://www.google.com/s2/favicons?domain=hubspot.com&sz=128",
   mailchimp: "https://www.google.com/s2/favicons?domain=mailchimp.com&sz=128",
-  whatsapp: "https://www.google.com/s2/favicons?domain=whatsapp.com&sz=128",
-  instagram: "https://www.google.com/s2/favicons?domain=instagram.com&sz=128",
-  messenger: "https://www.google.com/s2/favicons?domain=messenger.com&sz=128"
+  google_sheets: "/google-sheets-logo.svg"
 };
 
 const actionLabels: Record<IntegrationActionType, string> = {
@@ -57,8 +81,8 @@ function getActionLabel(provider: IntegrationProviderKey, actionType: Integratio
     return "Add Lead to Audience";
   }
 
-  if ((provider === "whatsapp" || provider === "instagram" || provider === "messenger") && actionType === "send_notification") {
-    return "Lead Handoff Notification";
+  if (provider === "google_sheets" && actionType === "create_crm_contact") {
+    return "Append Lead Row";
   }
 
   return actionLabels[actionType];
@@ -75,6 +99,8 @@ export function IntegrationsWorkspace({
   const [connectingProvider, setConnectingProvider] = useState<IntegrationProviderKey | null>(null);
   const [disconnectingProvider, setDisconnectingProvider] = useState<IntegrationProviderKey | null>(null);
   const [savingProvider, setSavingProvider] = useState<IntegrationProviderKey | null>(null);
+  const [eventTypesByProvider, setEventTypesByProvider] = useState<Partial<Record<IntegrationProviderKey, EventTypeState>>>({});
+  const [audiencesByProvider, setAudiencesByProvider] = useState<Partial<Record<IntegrationProviderKey, AudienceState>>>({});
   const { toast, showToast, dismissToast } = useToast();
   const [providers, setProviders] = useState<DisplayProvider[]>(() => overview.providers.map(toDisplayProvider));
   const connectedCount = providers.filter((provider) => provider.status === "connected").length;
@@ -98,6 +124,122 @@ export function IntegrationsWorkspace({
     const message = getStatusMessage(integrationStatus, provider?.name ?? "Integration");
     showToast(message.tone === "success" ? "success" : "error", `${message.title} ${message.body}`);
   }, [integrationStatus, statusProvider]);
+
+  useEffect(() => {
+    if (!expandedProvider || !isBookingProvider(expandedProvider)) {
+      return;
+    }
+
+    const provider = providers.find((item) => item.key === expandedProvider);
+
+    if (!provider || provider.status !== "connected" || eventTypesByProvider[expandedProvider]) {
+      return;
+    }
+
+    setEventTypesByProvider((current) => ({
+      ...current,
+      [expandedProvider]: {
+        loading: true,
+        error: null,
+        options: []
+      }
+    }));
+
+    fetch(`/api/integrations/${expandedProvider}/event-types`, {
+      headers: {
+        accept: "application/json",
+        "x-requested-with": "fetch"
+      }
+    })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => null) as {
+          ok?: boolean;
+          error?: string;
+          eventTypes?: BookingEventTypeOption[];
+        } | null;
+
+        if (!response.ok || payload?.ok !== true) {
+          throw new Error(payload?.error ?? "Event types could not be loaded.");
+        }
+
+        setEventTypesByProvider((current) => ({
+          ...current,
+          [expandedProvider]: {
+            loading: false,
+            error: null,
+            options: normalizeEventTypeOptions(payload.eventTypes)
+          }
+        }));
+      })
+      .catch((error) => {
+        setEventTypesByProvider((current) => ({
+          ...current,
+          [expandedProvider]: {
+            loading: false,
+            error: error instanceof Error ? error.message : "Event types could not be loaded.",
+            options: []
+          }
+        }));
+      });
+  }, [expandedProvider, providers, eventTypesByProvider]);
+
+  useEffect(() => {
+    if (expandedProvider !== "mailchimp") {
+      return;
+    }
+
+    const provider = providers.find((item) => item.key === expandedProvider);
+
+    if (!provider || provider.status !== "connected" || audiencesByProvider[expandedProvider]) {
+      return;
+    }
+
+    setAudiencesByProvider((current) => ({
+      ...current,
+      mailchimp: {
+        loading: true,
+        error: null,
+        options: []
+      }
+    }));
+
+    fetch("/api/integrations/mailchimp/audiences", {
+      headers: {
+        accept: "application/json",
+        "x-requested-with": "fetch"
+      }
+    })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => null) as {
+          ok?: boolean;
+          error?: string;
+          audiences?: MailchimpAudienceOption[];
+        } | null;
+
+        if (!response.ok || payload?.ok !== true) {
+          throw new Error(payload?.error ?? "Mailchimp audiences could not be loaded.");
+        }
+
+        setAudiencesByProvider((current) => ({
+          ...current,
+          mailchimp: {
+            loading: false,
+            error: null,
+            options: normalizeAudienceOptions(payload.audiences)
+          }
+        }));
+      })
+      .catch((error) => {
+        setAudiencesByProvider((current) => ({
+          ...current,
+          mailchimp: {
+            loading: false,
+            error: error instanceof Error ? error.message : "Mailchimp audiences could not be loaded.",
+            options: []
+          }
+        }));
+      });
+  }, [expandedProvider, providers, audiencesByProvider]);
 
   async function handleDisconnect(provider: DisplayProvider) {
     setDisconnectingProvider(provider.key);
@@ -150,7 +292,10 @@ export function IntegrationsWorkspace({
         },
         body: formData
       });
-      const payload = await response.json().catch(() => null) as { ok?: boolean; error?: string } | null;
+      const payload = await response.json().catch(() => null) as {
+        ok?: boolean;
+        error?: string;
+      } | null;
 
       if (!response.ok || payload?.ok !== true) {
         throw new Error(payload?.error ?? "Configuration could not be saved.");
@@ -230,6 +375,8 @@ export function IntegrationsWorkspace({
             onToggleConfigure={() => setExpandedProvider((current) => current === provider.key ? null : provider.key)}
             overview={overview}
             provider={provider}
+            eventTypeState={eventTypesByProvider[provider.key] ?? null}
+            audienceState={audiencesByProvider[provider.key] ?? null}
           />
         )) : (
           <div className="rounded-lg border border-dashed border-harlo-line bg-white px-4 py-10 text-center">
@@ -254,7 +401,9 @@ function ProviderRow({
   onSaveConfiguration,
   onToggleConfigure,
   overview,
-  provider
+  provider,
+  eventTypeState,
+  audienceState
 }: {
   expanded: boolean;
   loadingConnect: boolean;
@@ -266,6 +415,8 @@ function ProviderRow({
   onToggleConfigure: () => void;
   overview: IntegrationOverview;
   provider: DisplayProvider;
+  eventTypeState: EventTypeState | null;
+  audienceState: AudienceState | null;
 }) {
   const isConnected = provider.status === "connected";
   const showConnect = !provider.locked && !isConnected;
@@ -348,7 +499,15 @@ function ProviderRow({
       >
         <div className="min-h-0 overflow-hidden rounded-b-lg">
           <div className={`transition-opacity duration-200 ${expanded ? "opacity-100 delay-100" : "opacity-0"}`}>
-            <ConfigurePanel expanded={expanded} loadingSave={loadingSave} onSave={onSaveConfiguration} provider={provider} overview={overview} />
+            <ConfigurePanel
+              eventTypeState={eventTypeState}
+              audienceState={audienceState}
+              expanded={expanded}
+              loadingSave={loadingSave}
+              onSave={onSaveConfiguration}
+              provider={provider}
+              overview={overview}
+            />
           </div>
         </div>
       </div>
@@ -357,12 +516,16 @@ function ProviderRow({
 }
 
 function ConfigurePanel({
+  eventTypeState,
+  audienceState,
   expanded,
   loadingSave,
   onSave,
   provider,
   overview
 }: {
+  eventTypeState: EventTypeState | null;
+  audienceState: AudienceState | null;
   expanded: boolean;
   loadingSave: boolean;
   onSave: (form: HTMLFormElement) => void;
@@ -372,42 +535,85 @@ function ConfigurePanel({
   const enabledBotIds = new Set(provider.configuredActions.filter((action) => action.enabled).map((action) => action.botId));
   const hasConfiguredAgents = provider.configuredActions.some((action) => action.enabled);
   const primaryAction = provider.actionTypes[0];
-  const firstAction = provider.configuredActions.find((action) => action.successMessage || action.fallbackMessage);
+  const firstAction = provider.configuredActions.find((action) => action.successMessage || action.fallbackMessage || action.config) ?? provider.configuredActions[0];
   const slackChannelId = getStringConfig(firstAction?.config, "slackChannelId");
+  const mailchimpAudienceId = getStringConfig(firstAction?.config, "mailchimpAudienceId");
+  const mailchimpAudienceName = getStringConfig(firstAction?.config, "mailchimpAudienceName");
+  const googleSpreadsheetId = getStringConfig(firstAction?.config, "spreadsheetId");
+  const googleSheetName = getStringConfig(firstAction?.config, "sheetName");
+  const selectedEventTypes = normalizeEventTypeOptions(firstAction?.config?.selectedEventTypes);
+  const selectedEventTypeIds = new Set(selectedEventTypes.map((eventType) => eventType.id));
+  const hasSavedEventTypes = selectedEventTypeIds.size > 0;
+  const eventTypeOptions = eventTypeState?.options ?? [];
+  const shouldShowEventTypes = isBookingProvider(provider.key);
+  const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(() => new Set(selectedEventTypeIds));
+  const selectedEventTypeKey = selectedEventTypes.map((eventType) => eventType.id).join("|");
+  const eventTypeOptionKey = eventTypeOptions.map((eventType) => eventType.id).join("|");
   const canConfigure = provider.status === "connected" && provider.integrationId;
   const slackMissingChannel = provider.key === "slack" && !slackChannelId;
+  const mailchimpMissingAudience = provider.key === "mailchimp" && !mailchimpAudienceId;
+  const googleSheetsMissingTarget = provider.key === "google_sheets" && (!googleSpreadsheetId || !googleSheetName);
+  const selectedEventCount = selectedEventIds.size;
+
+  useEffect(() => {
+    if (!shouldShowEventTypes || eventTypeOptions.length === 0) {
+      setSelectedEventIds(new Set(selectedEventTypeIds));
+      return;
+    }
+
+    setSelectedEventIds(new Set(hasSavedEventTypes ? selectedEventTypeIds : eventTypeOptions.map((eventType) => eventType.id)));
+  }, [shouldShowEventTypes, hasSavedEventTypes, selectedEventTypeKey, eventTypeOptionKey]);
+
+  function toggleEventType(eventTypeId: string, checked: boolean) {
+    setSelectedEventIds((current) => {
+      const next = new Set(current);
+
+      if (checked) {
+        next.add(eventTypeId);
+      } else {
+        next.delete(eventTypeId);
+      }
+
+      return next;
+    });
+  }
 
   return (
-    <div className="border-t border-harlo-line bg-gradient-to-b from-slate-50/80 to-white px-4 py-4 sm:px-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase text-harlo-muted">Widget configuration</p>
-          <h2 className="mt-1 text-lg font-semibold text-harlo-ink">{provider.name}</h2>
-          <p className="mt-2 text-sm leading-6 text-harlo-muted">
-            Choose which widget agents can use this integration. These settings will drive the agent planner and widget actions.
-          </p>
-        </div>
-      </div>
-
+    <div className="border-t border-harlo-line bg-white px-4 py-4 sm:px-5">
       <form
         action={`/api/integrations/${provider.key}/configure`}
         method="post"
-        className="mt-5 space-y-5"
+        className="space-y-5"
         onSubmit={(event) => {
           event.preventDefault();
           onSave(event.currentTarget);
         }}
       >
         <input type="hidden" name="actionType" value={primaryAction ?? ""} />
-        <div className="grid gap-3 md:grid-cols-3">
-          <ConfigSummary label="Status" value={provider.status === "connected" ? "Connected" : "Not connected"} />
-          <ConfigSummary label="Account" value={provider.displayName ?? "Connected account"} />
-          <ConfigSummary label="Action" value={primaryAction ? getActionLabel(provider.key, primaryAction) : "No action available"} />
+        {shouldShowEventTypes ? (
+          <input type="hidden" name="eventTypesSnapshot" value={JSON.stringify(eventTypeOptions)} />
+        ) : null}
+        <div className="flex flex-col gap-4 rounded-lg border border-harlo-line bg-slate-50/70 px-4 py-3 md:flex-row md:items-center">
+          <div className="flex items-center gap-3 md:pr-5">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white text-harlo-teal shadow-sm ring-1 ring-harlo-line">
+              <Settings2 size={17} />
+            </span>
+            <ConfigMetaItem label="Status" value={provider.status === "connected" ? "Connected" : "Not connected"} tone={provider.status === "connected" ? "success" : "default"} />
+          </div>
+          <div className="hidden h-8 w-px bg-harlo-line md:block" />
+          <ConfigMetaItem label="Account" value={provider.displayName ?? "Connected account"} />
+          <div className="hidden h-8 w-px bg-harlo-line md:block" />
+          <ConfigMetaItem label="Action" value={primaryAction ? getActionLabel(provider.key, primaryAction) : "No action available"} />
         </div>
 
         <fieldset className="space-y-3">
-          <legend className="text-sm font-semibold text-harlo-ink">Widget agents</legend>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <legend className="text-sm font-semibold text-harlo-ink">Widget agents</legend>
+              <p className="mt-1 text-sm leading-6 text-harlo-muted">Choose which widget agents can use this integration.</p>
+            </div>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
             {overview.bots.map((bot) => (
               <label key={bot.id} className="flex min-w-0 items-center gap-3 rounded-lg border border-harlo-line bg-white px-3 py-3 text-sm font-medium text-harlo-ink shadow-sm transition hover:border-harlo-teal/60">
                 <Checkbox
@@ -423,22 +629,24 @@ function ConfigurePanel({
         </fieldset>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="block text-sm font-semibold text-harlo-ink">
-            Success message
+          <label className="block rounded-lg border border-harlo-line bg-white p-4 text-sm font-semibold text-harlo-ink shadow-sm">
+            <span>Success message</span>
             <textarea
               name="successMessage"
               defaultValue={firstAction?.successMessage ?? getDefaultSuccessMessage(provider.key)}
               disabled={!canConfigure || !expanded}
-              className="mt-2 min-h-24 w-full rounded-lg border border-harlo-line px-3 py-2 text-sm font-medium text-harlo-ink outline-none transition focus:border-harlo-teal focus:ring-2 focus:ring-harlo-teal/20 disabled:bg-slate-50 disabled:text-harlo-muted"
+              maxLength={300}
+              className="mt-3 min-h-28 w-full resize-none rounded-lg border-0 bg-transparent p-0 text-sm font-medium leading-6 text-harlo-ink outline-none placeholder:text-harlo-muted disabled:text-harlo-muted"
             />
           </label>
-          <label className="block text-sm font-semibold text-harlo-ink">
-            Fallback message
+          <label className="block rounded-lg border border-harlo-line bg-white p-4 text-sm font-semibold text-harlo-ink shadow-sm">
+            <span>Fallback message</span>
             <textarea
               name="fallbackMessage"
               defaultValue={firstAction?.fallbackMessage ?? "I could not complete that automatically, but I can collect your details for the team."}
               disabled={!canConfigure || !expanded}
-              className="mt-2 min-h-24 w-full rounded-lg border border-harlo-line px-3 py-2 text-sm font-medium text-harlo-ink outline-none transition focus:border-harlo-teal focus:ring-2 focus:ring-harlo-teal/20 disabled:bg-slate-50 disabled:text-harlo-muted"
+              maxLength={300}
+              className="mt-3 min-h-28 w-full resize-none rounded-lg border-0 bg-transparent p-0 text-sm font-medium leading-6 text-harlo-ink outline-none placeholder:text-harlo-muted disabled:text-harlo-muted"
             />
           </label>
         </div>
@@ -473,6 +681,190 @@ function ConfigurePanel({
           </label>
         ) : null}
 
+        {provider.key === "mailchimp" ? (
+          <label className="block text-sm font-semibold text-harlo-ink">
+            <span className="flex items-center gap-2">
+              Mailchimp audience
+              <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700">Required</span>
+              <InfoTooltip text="Captured leads with an email address will be added or updated in this audience and tagged as Harlo Lead." />
+            </span>
+            {audienceState?.loading ? (
+              <span className="mt-2 flex h-11 items-center gap-2 rounded-lg border border-harlo-line bg-slate-50 px-3 text-sm font-semibold text-harlo-muted">
+                <Loader2 size={16} className="animate-spin" />
+                Loading audiences
+              </span>
+            ) : audienceState?.options.length ? (
+              <Select
+                name="mailchimpAudienceId"
+                defaultValue={mailchimpAudienceId ?? ""}
+                disabled={!canConfigure || !expanded}
+                required
+                invalid={mailchimpMissingAudience}
+                placeholder="Select an audience"
+                className="mt-2"
+                options={audienceState.options.map((audience) => ({
+                  value: audience.id,
+                  label: audience.name,
+                  description: audience.memberCount == null ? null : `${audience.memberCount.toLocaleString()} contacts`
+                }))}
+              />
+            ) : (
+              <input
+                name="mailchimpAudienceId"
+                defaultValue={mailchimpAudienceId ?? ""}
+                disabled={!canConfigure || !expanded}
+                placeholder="Audience ID"
+                required
+                aria-invalid={mailchimpMissingAudience}
+                className={`mt-2 h-11 w-full rounded-lg border px-3 text-sm font-medium text-harlo-ink outline-none transition focus:ring-2 disabled:bg-slate-50 disabled:text-harlo-muted ${
+                  mailchimpMissingAudience
+                    ? "border-rose-300 bg-rose-50/40 focus:border-rose-400 focus:ring-rose-100"
+                    : "border-harlo-line focus:border-harlo-teal focus:ring-harlo-teal/20"
+                }`}
+              />
+            )}
+            {mailchimpAudienceName ? <input type="hidden" name="mailchimpAudienceName" value={mailchimpAudienceName} /> : null}
+            {audienceState?.error ? (
+              <span className="mt-2 flex items-center gap-2 text-xs font-semibold leading-5 text-rose-700">
+                <AlertTriangle size={13} />
+                {audienceState.error}
+              </span>
+            ) : mailchimpMissingAudience ? (
+              <span className="mt-2 flex items-center gap-2 text-xs font-semibold leading-5 text-rose-700">
+                <AlertTriangle size={13} />
+                Select the audience where Harlo should add captured leads.
+              </span>
+            ) : null}
+            <span className="mt-2 block text-xs font-medium leading-5 text-harlo-muted">Mailchimp will receive the lead email, first name, last name, Harlo Lead tag, and a note with the captured context.</span>
+          </label>
+        ) : null}
+
+        {provider.key === "google_sheets" ? (
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(180px,0.6fr)]">
+            <label className="block text-sm font-semibold text-harlo-ink">
+              <span className="flex items-center gap-2">
+                Spreadsheet ID or URL
+                <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700">Required</span>
+                <InfoTooltip text="Paste the full Google Sheets URL or just the ID between /d/ and /edit." />
+              </span>
+              <input
+                name="spreadsheetId"
+                defaultValue={googleSpreadsheetId ?? ""}
+                disabled={!canConfigure || !expanded}
+                placeholder="https://docs.google.com/spreadsheets/d/..."
+                aria-invalid={googleSheetsMissingTarget}
+                required
+                className={`mt-2 h-11 w-full rounded-lg border px-3 text-sm font-medium text-harlo-ink outline-none transition focus:ring-2 disabled:bg-slate-50 disabled:text-harlo-muted ${
+                  googleSheetsMissingTarget
+                    ? "border-rose-300 bg-rose-50/40 focus:border-rose-400 focus:ring-rose-100"
+                    : "border-harlo-line focus:border-harlo-teal focus:ring-harlo-teal/20"
+                }`}
+              />
+              {googleSheetsMissingTarget ? (
+                <span className="mt-2 flex items-center gap-2 text-xs font-semibold leading-5 text-rose-700">
+                  <AlertTriangle size={13} />
+                  Add a spreadsheet and tab before saving Google Sheets.
+                </span>
+              ) : null}
+              <span className="mt-2 block text-xs font-medium leading-5 text-harlo-muted">Share the sheet with the connected Google account so Harlo can append rows.</span>
+            </label>
+
+            <label className="block text-sm font-semibold text-harlo-ink">
+              Sheet tab name
+              <input
+                name="sheetName"
+                defaultValue={googleSheetName ?? "Leads"}
+                disabled={!canConfigure || !expanded}
+                placeholder="Leads"
+                required
+                className="mt-2 h-11 w-full rounded-lg border border-harlo-line px-3 text-sm font-medium text-harlo-ink outline-none transition focus:border-harlo-teal focus:ring-2 focus:ring-harlo-teal/20 disabled:bg-slate-50 disabled:text-harlo-muted"
+              />
+              <span className="mt-2 block text-xs font-medium leading-5 text-harlo-muted">Rows append to columns A-H in this tab.</span>
+            </label>
+          </div>
+        ) : null}
+
+        {shouldShowEventTypes ? (
+          <fieldset className="space-y-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <legend className="text-sm font-semibold text-harlo-ink">Meeting types</legend>
+                <p className="mt-1 text-sm leading-6 text-harlo-muted">
+                  Selected meetings appear as booking choices in the widget. Visitors choose the one that matches what they need.
+                </p>
+              </div>
+              <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-harlo-teal/15 bg-harlo-mist px-3 py-1 text-xs font-bold text-harlo-teal">
+                <CalendarDays size={13} />
+                {selectedEventCount} selected
+              </span>
+            </div>
+            <div className="rounded-xl border border-harlo-line bg-white p-3 shadow-sm">
+              {eventTypeState?.loading ? (
+                <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-4 py-6 text-sm font-semibold text-harlo-muted">
+                  <Loader2 size={16} className="animate-spin" />
+                  Loading event types
+                </div>
+              ) : eventTypeState?.error ? (
+                <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-semibold leading-5 text-rose-700">
+                  <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                  <span>{eventTypeState.error}</span>
+                </div>
+              ) : eventTypeOptions.length > 0 ? (
+                <div className="space-y-3">
+                  {eventTypeOptions.map((eventType) => {
+                    const checked = selectedEventIds.has(eventType.id);
+
+                    return (
+                    <label
+                      key={eventType.id}
+                      className={`group relative flex min-w-0 cursor-pointer items-center gap-4 overflow-hidden rounded-xl border px-4 py-4 text-sm font-medium shadow-sm transition ${
+                        checked
+                          ? "border-harlo-teal/35 bg-harlo-mist/55 ring-2 ring-harlo-teal/10"
+                          : "border-harlo-line bg-white hover:border-harlo-teal/50 hover:bg-slate-50"
+                      }`}
+                    >
+                      {checked ? <span className="absolute inset-y-0 left-0 w-1 bg-harlo-teal" /> : null}
+                      <Checkbox
+                        name="eventTypeIds"
+                        value={eventType.id}
+                        checked={checked}
+                        onChange={(event) => toggleEventType(eventType.id, event.currentTarget.checked)}
+                        disabled={!canConfigure || !expanded}
+                      />
+                      <span className="grid h-14 w-14 shrink-0 place-items-center self-stretch">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={logoUrls[provider.key]}
+                          alt=""
+                          className="h-9 w-9 object-contain"
+                        />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-bold text-harlo-ink">{eventType.name}</span>
+                        <span className="mt-1 flex min-w-0 items-center gap-2 text-xs font-semibold text-harlo-muted">
+                          <span className="min-w-0 truncate">{eventType.url}</span>
+                          <ExternalLink size={13} className="shrink-0" />
+                        </span>
+                      </span>
+                      {eventType.durationLabel ? (
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-harlo-muted ring-1 ring-harlo-line">
+                          <Clock3 size={12} />
+                          {eventType.durationLabel}
+                        </span>
+                      ) : null}
+                    </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-lg bg-slate-50 px-3 py-4 text-sm font-semibold text-harlo-muted">
+                  No active event types were found in {provider.name}.
+                </div>
+              )}
+            </div>
+          </fieldset>
+        ) : null}
+
         <div className="flex flex-col gap-2 border-t border-harlo-line pt-4 sm:flex-row sm:items-center sm:justify-between">
           {canConfigure ? (
             <span aria-hidden="true" />
@@ -489,11 +881,22 @@ function ConfigurePanel({
   );
 }
 
-function ConfigSummary({ label, value }: { label: string; value: string }) {
+function ConfigMetaItem({
+  label,
+  value,
+  tone = "default"
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "success";
+}) {
   return (
-    <div className="rounded-lg border border-harlo-line bg-white px-3 py-3 shadow-sm">
+    <div className="min-w-0 flex-1">
       <p className="text-xs font-medium text-harlo-muted">{label}</p>
-      <p className="mt-1 truncate text-sm font-semibold text-harlo-ink">{value}</p>
+      <p className={`mt-1 flex min-w-0 items-center gap-2 truncate text-sm font-semibold ${tone === "success" ? "text-emerald-700" : "text-harlo-ink"}`}>
+        {tone === "success" ? <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" /> : null}
+        <span className="truncate">{value}</span>
+      </p>
     </div>
   );
 }
@@ -625,14 +1028,33 @@ function validateIntegrationConfiguration(provider: DisplayProvider, formData: F
     return "Slack channel ID is required before saving Slack notifications.";
   }
 
+  if (provider.key === "mailchimp" && !normalizeFormMessage(formData.get("mailchimpAudienceId"))) {
+    return "Select a Mailchimp audience before saving this integration.";
+  }
+
+  if (provider.key === "google_sheets") {
+    if (!normalizeFormMessage(formData.get("spreadsheetId"))) {
+      return "Add a Google Sheets spreadsheet ID before saving.";
+    }
+
+    if (!normalizeFormMessage(formData.get("sheetName"))) {
+      return "Add a Google Sheets tab name before saving.";
+    }
+  }
+
+  if (isBookingProvider(provider.key) && getSelectedEventTypesFromForm(formData).length === 0) {
+    return `Select at least one ${provider.name} event type.`;
+  }
+
   return null;
 }
 
 function getClientActionConfig(provider: DisplayProvider, formData?: FormData) {
-  if (provider.key === "calendly") {
+  if (isBookingProvider(provider.key)) {
     return {
       provider: provider.key,
-      calendlySchedulingMode: "popup"
+      schedulingMode: "popup",
+      selectedEventTypes: formData ? getSelectedEventTypesFromForm(formData) : []
     };
   }
 
@@ -643,15 +1065,116 @@ function getClientActionConfig(provider: DisplayProvider, formData?: FormData) {
     };
   }
 
+  if (provider.key === "mailchimp") {
+    return {
+      provider: provider.key,
+      mailchimpAudienceId: normalizeFormMessage(formData?.get("mailchimpAudienceId") ?? null),
+      mailchimpAudienceName: normalizeFormMessage(formData?.get("mailchimpAudienceName") ?? null)
+    };
+  }
+
+  if (provider.key === "google_sheets") {
+    return {
+      provider: provider.key,
+      spreadsheetId: normalizeSpreadsheetId(formData?.get("spreadsheetId") ?? null),
+      sheetName: normalizeFormMessage(formData?.get("sheetName") ?? null) ?? "Leads"
+    };
+  }
+
   return {
     provider: provider.key
   };
+}
+
+function normalizeSpreadsheetId(value: FormDataEntryValue | null) {
+  const text = normalizeFormMessage(value);
+
+  if (!text) {
+    return null;
+  }
+
+  const match = text.match(/\/spreadsheets\/d\/([^/?#]+)/);
+
+  return match?.[1] ?? text;
 }
 
 function getStringConfig(config: Record<string, unknown> | undefined, key: string) {
   const value = config?.[key];
 
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function getSelectedEventTypesFromForm(formData: FormData) {
+  const selectedIds = new Set(
+    formData
+      .getAll("eventTypeIds")
+      .filter((value): value is string => typeof value === "string" && value.length > 0)
+  );
+  const rawSnapshot = formData.get("eventTypesSnapshot");
+  const snapshot = typeof rawSnapshot === "string" ? parseJsonArray(rawSnapshot) : [];
+
+  return normalizeEventTypeOptions(snapshot).filter((eventType) => selectedIds.has(eventType.id));
+}
+
+function parseJsonArray(value: string) {
+  try {
+    const parsed = JSON.parse(value);
+
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function normalizeEventTypeOptions(value: unknown): BookingEventTypeOption[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const record = item as Record<string, unknown>;
+      const id = getCleanString(record.id);
+      const name = getCleanString(record.name);
+      const url = getCleanString(record.url);
+      const durationLabel = getCleanString(record.durationLabel);
+
+      return id && name && url ? { id, name, url, durationLabel } : null;
+    })
+    .filter((item): item is BookingEventTypeOption => Boolean(item));
+}
+
+function normalizeAudienceOptions(value: unknown): MailchimpAudienceOption[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const record = item as Record<string, unknown>;
+      const id = getCleanString(record.id);
+      const name = getCleanString(record.name);
+      const memberCount = typeof record.memberCount === "number" ? record.memberCount : null;
+
+      return id && name ? { id, name, memberCount } : null;
+    })
+    .filter((item): item is MailchimpAudienceOption => Boolean(item));
+}
+
+function getCleanString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function isBookingProvider(provider: IntegrationProviderKey) {
+  return provider === "calendly" || provider === "calcom";
 }
 
 function isIntegrationActionType(value: string): value is IntegrationActionType {
@@ -702,8 +1225,8 @@ function getDefaultSuccessMessage(provider: IntegrationProviderKey) {
     return "I added your details so the team can follow up.";
   }
 
-  if (provider === "whatsapp" || provider === "instagram" || provider === "messenger") {
-    return "I sent this to the team so they can follow up.";
+  if (provider === "google_sheets") {
+    return "I saved your details so the team can follow up.";
   }
 
   if (provider === "hubspot") {

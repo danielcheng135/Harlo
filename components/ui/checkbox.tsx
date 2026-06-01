@@ -19,7 +19,7 @@ export const Checkbox = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInp
         )}
         {...props}
       />
-      <Check className="pointer-events-none absolute hidden h-3 w-3 text-white peer-checked:block" strokeWidth={3} />
+      <Check className="pointer-events-none absolute left-1/2 top-1/2 hidden h-3 w-3 -translate-x-1/2 -translate-y-1/2 text-white peer-checked:block" strokeWidth={3} />
     </span>
   )
 );

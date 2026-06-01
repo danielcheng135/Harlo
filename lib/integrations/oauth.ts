@@ -46,23 +46,11 @@ const OAUTH_ENV_KEYS: Record<IntegrationProviderKey, { clientId: string; clientS
     redirectUri: "MAILCHIMP_REDIRECT_URI",
     scopes: "MAILCHIMP_REQUESTED_SCOPES"
   },
-  whatsapp: {
-    clientId: "WHATSAPP_CLIENT_ID",
-    clientSecret: "WHATSAPP_CLIENT_SECRET",
-    redirectUri: "WHATSAPP_REDIRECT_URI",
-    scopes: "WHATSAPP_REQUESTED_SCOPES"
-  },
-  instagram: {
-    clientId: "INSTAGRAM_CLIENT_ID",
-    clientSecret: "INSTAGRAM_CLIENT_SECRET",
-    redirectUri: "INSTAGRAM_REDIRECT_URI",
-    scopes: "INSTAGRAM_REQUESTED_SCOPES"
-  },
-  messenger: {
-    clientId: "MESSENGER_CLIENT_ID",
-    clientSecret: "MESSENGER_CLIENT_SECRET",
-    redirectUri: "MESSENGER_REDIRECT_URI",
-    scopes: "MESSENGER_REQUESTED_SCOPES"
+  google_sheets: {
+    clientId: "GOOGLE_CLIENT_ID",
+    clientSecret: "GOOGLE_CLIENT_SECRET",
+    redirectUri: "GOOGLE_REDIRECT_URI",
+    scopes: "GOOGLE_SHEETS_REQUESTED_SCOPES"
   }
 };
 
@@ -84,6 +72,7 @@ export function getIntegrationOAuthConfig(provider: IntegrationProviderKey, requ
   const keys = OAUTH_ENV_KEYS[provider];
   const clientId = process.env[keys.clientId];
   const clientSecret = process.env[keys.clientSecret];
+  const configuredScopes = parseScopes(process.env[keys.scopes]);
 
   if (!clientId || !clientSecret) {
     return null;
@@ -93,7 +82,7 @@ export function getIntegrationOAuthConfig(provider: IntegrationProviderKey, requ
     clientId,
     clientSecret,
     redirectUri: getIntegrationRedirectUri(provider, requestUrl),
-    scopes: parseScopes(process.env[keys.scopes])
+    scopes: configuredScopes.length > 0 ? configuredScopes : getDefaultScopes(provider)
   };
 }
 
@@ -112,4 +101,19 @@ function parseScopes(value: string | null | undefined) {
     .split(/[,\s]+/)
     .map((scope) => scope.trim())
     .filter(Boolean);
+}
+
+function getDefaultScopes(provider: IntegrationProviderKey) {
+  if (provider === "calcom") {
+    return ["PROFILE_READ", "EVENT_TYPE_READ"];
+  }
+
+  if (provider === "google_sheets") {
+    return [
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/userinfo.email"
+    ];
+  }
+
+  return [];
 }

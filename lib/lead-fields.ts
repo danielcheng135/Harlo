@@ -30,51 +30,19 @@ export const DEFAULT_LEAD_FIELDS: LeadCaptureField[] = [
   },
   {
     key: "phone",
-    label: "Phone",
+    label: "Phone number",
     type: "phone",
-    required: false,
-    enabled: false,
+    required: true,
+    enabled: true,
     prompt: "What phone number should the team use?"
   },
   {
     key: "company",
     label: "Company",
     type: "text",
-    required: false,
-    enabled: false,
+    required: true,
+    enabled: true,
     prompt: "What company are you with?"
-  },
-  {
-    key: "service_needed",
-    label: "Service needed",
-    type: "text",
-    required: false,
-    enabled: false,
-    prompt: "What service are you interested in?"
-  },
-  {
-    key: "property_size",
-    label: "Property size",
-    type: "text",
-    required: true,
-    enabled: true,
-    prompt: "What is the property size?"
-  },
-  {
-    key: "preferred_date",
-    label: "Preferred date",
-    type: "date",
-    required: true,
-    enabled: true,
-    prompt: "What date works best?"
-  },
-  {
-    key: "budget",
-    label: "Budget",
-    type: "text",
-    required: false,
-    enabled: false,
-    prompt: "Do you have a budget range in mind?"
   }
 ];
 
@@ -124,9 +92,7 @@ export function normalizeLeadFields(value: unknown): LeadCaptureField[] {
   });
 
   const normalized = Array.from(unique.values()).slice(0, 8);
-  const enabledRequired = normalized.filter((field) => field.enabled && field.required);
-
-  return enabledRequired.length > 0 ? normalized : DEFAULT_LEAD_FIELDS;
+  return normalized.length > 0 ? normalized : DEFAULT_LEAD_FIELDS;
 }
 
 export function getRequiredLeadFields(fields: LeadCaptureField[]) {
@@ -134,7 +100,7 @@ export function getRequiredLeadFields(fields: LeadCaptureField[]) {
 }
 
 export function getLeadFieldsToCollect(fields: LeadCaptureField[]) {
-  return fields.filter((field) => field.enabled);
+  return getRequiredLeadFields(fields);
 }
 
 export function extractLeadDraftFromMessages(messages: Array<{ role: string; content: string }>, fields: LeadCaptureField[]) {

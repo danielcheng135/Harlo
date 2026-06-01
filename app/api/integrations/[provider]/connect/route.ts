@@ -38,7 +38,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     organizationId: auth.organizationId,
     userId: auth.userId,
     provider,
-    returnTo: "/dashboard/integrations"
+    returnTo: new URL("/dashboard/integrations", request.url).toString()
   });
   const authorizationUrl = getProviderAuthorizationUrl({
     provider,

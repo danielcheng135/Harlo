@@ -69,11 +69,14 @@ export function ConversationHistory({ businessLogoUrl, conversations, initialCon
     return conversations.filter((conversation) => {
       const searchableMessages = conversation.messages.map((message) => message.content).join(" ");
       const leadText = conversation.lead ? `${conversation.lead.name} ${conversation.lead.email}` : "";
+      const externalProfile = getExternalProfileLabel(conversation);
       const queryMatches = !normalizedQuery || [
         formatPageLabel(conversation.page_url),
         searchableMessages,
         conversation.outcome,
         leadText,
+        externalProfile,
+        getChannelLabel(conversation.source_channel),
         conversation.bot_name ?? "",
         conversation.agent_type ?? ""
       ].some((value) => value.toLowerCase().includes(normalizedQuery));
@@ -125,7 +128,7 @@ export function ConversationHistory({ businessLogoUrl, conversations, initialCon
       <div className="grid min-h-0 flex-1 gap-4 xl:gap-0 xl:overflow-hidden xl:rounded-lg xl:border xl:border-harlo-line xl:bg-white xl:shadow-sm xl:grid-cols-[340px_minmax(0,1fr)_330px] 2xl:grid-cols-[380px_minmax(0,1fr)_360px]">
         <aside className="flex min-h-0 max-h-[460px] flex-col overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm xl:max-h-none xl:rounded-none xl:border-0 xl:border-r xl:shadow-none">
           <div className="shrink-0 border-b border-harlo-line p-4">
-            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_170px] xl:grid-cols-1">
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_150px] xl:grid-cols-1">
               <label className="flex h-10 min-w-0 items-center gap-2 rounded-lg border border-harlo-line bg-white px-3 text-sm text-harlo-muted focus-within:border-harlo-teal">
                 <Search size={16} />
                 <input
@@ -289,7 +292,10 @@ function ConversationRow({
             <span className="shrink-0 text-[11px] text-harlo-muted">{formatShortTime(conversation.last_message_at)}</span>
           </div>
           <div className="mt-2 flex items-center justify-between gap-2">
-            <SmallPageBadge label={formatPageLabel(conversation.page_url)} />
+            <div className="flex min-w-0 items-center gap-1.5">
+              <ChannelBadge channel={conversation.source_channel} />
+              <SmallPageBadge label={formatPageLabel(conversation.page_url)} />
+            </div>
             <OutcomeDot outcome={conversation.outcome} />
           </div>
         </div>
@@ -322,6 +328,7 @@ function ConversationTranscript({
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="truncate text-xl font-semibold text-harlo-ink">{displayName}</h2>
+                <ChannelBadge channel={conversation.source_channel} />
                 <OutcomeBadge outcome={conversation.outcome} />
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-harlo-muted">
@@ -338,6 +345,12 @@ function ConversationTranscript({
                       {getLeadPhone(conversation.lead)}
                     </span>
                   ) : null
+                ) : null}
+                {getExternalProfileLabel(conversation) !== "Visitor" ? (
+                  <span className="inline-flex min-w-0 items-center gap-1">
+                    <UserRound size={14} />
+                    <span className="truncate">{getExternalProfileLabel(conversation)}</span>
+                  </span>
                 ) : null}
                 <span>{formatPageLabel(conversation.page_url)}</span>
               </div>
@@ -392,11 +405,22 @@ function ConversationDetails({ conversation }: { conversation: InboxConversation
   return (
     <div className="min-h-0 flex-1 overflow-auto p-5">
       <div className="grid gap-4 md:grid-cols-2">
+        <DetailCard label="Channel" value={getChannelLabel(conversation.source_channel)} icon={<MessageSquare size={16} />} />
         <DetailCard label="Page" value={formatPageLabel(conversation.page_url)} icon={<Globe2 size={16} />} />
         <DetailCard label="Started" value={formatDateTime(conversation.created_at)} icon={<Clock3 size={16} />} />
         <DetailCard label="Last message" value={formatDateTime(conversation.last_message_at)} icon={<MessageSquare size={16} />} />
         <DetailCard label="Messages" value={String(conversation.messages.length)} icon={<Activity size={16} />} />
       </div>
+      {conversation.source_channel !== "website" ? (
+        <div className="mt-5 rounded-lg border border-harlo-line bg-white p-4">
+          <h3 className="text-sm font-semibold text-harlo-ink">External profile</h3>
+          <div className="mt-3 space-y-3">
+            <KeyValue label="Profile" value={getExternalProfileLabel(conversation)} />
+            {conversation.external_sender_id ? <KeyValue label="Sender ID" value={conversation.external_sender_id} /> : null}
+            {conversation.external_thread_id ? <KeyValue label="Thread ID" value={conversation.external_thread_id} /> : null}
+          </div>
+        </div>
+      ) : null}
       {lead ? (
         <div className="mt-5 rounded-lg border border-harlo-line bg-white p-4">
           <h3 className="text-sm font-semibold text-harlo-ink">Lead capture</h3>
@@ -714,8 +738,16 @@ function QualityRing({ score }: { score: number }) {
 
 function SmallPageBadge({ label }: { label: string }) {
   return (
-    <span className="inline-flex max-w-[150px] items-center rounded-md bg-harlo-mist px-2 py-0.5 text-[11px] font-medium text-harlo-teal">
+    <span className="inline-flex max-w-[110px] items-center rounded-md bg-harlo-mist px-2 py-0.5 text-[11px] font-medium text-harlo-teal">
       <span className="truncate">{label}</span>
+    </span>
+  );
+}
+
+function ChannelBadge({ channel }: { channel: InboxConversationRow["source_channel"] }) {
+  return (
+    <span className={cn("inline-flex shrink-0 items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-700")}>
+      {getChannelLabel(channel)}
     </span>
   );
 }
@@ -868,11 +900,40 @@ function getLeadMetadataItems(lead: LeadRow) {
 
 function getConversationDisplayName(conversation: InboxConversationRow) {
   const leadName = conversation.lead?.name?.trim();
-  return leadName && leadName.length > 0 ? leadName : getVisitorLabel();
+  return leadName && leadName.length > 0 ? leadName : getExternalProfileLabel(conversation);
 }
 
 function getVisitorLabel() {
   return "Visitor";
+}
+
+function getExternalProfileLabel(conversation: InboxConversationRow) {
+  const profile = conversation.external_profile ?? {};
+  const name = getProfileString(profile.name);
+  const username = getProfileString(profile.username) ?? getProfileString(profile.handle);
+  const phone = getProfileString(profile.phone);
+
+  if (name) {
+    return name;
+  }
+
+  if (username) {
+    return username.startsWith("@") ? username : `@${username}`;
+  }
+
+  if (phone) {
+    return phone;
+  }
+
+  return getVisitorLabel();
+}
+
+function getProfileString(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function getChannelLabel(channel: InboxConversationRow["source_channel"]) {
+  return "Website";
 }
 
 function getPageKey(value: string | null) {

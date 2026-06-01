@@ -3,14 +3,25 @@
 import type React from "react";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, Bot, Check, ClipboardList, Globe2, Loader2, MessageSquare, Palette, Plus, Route as RouteIcon, Sparkles, Trash2, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, Bot, ClipboardList, Globe2, GripVertical, Loader2, MessageSquare, MoreVertical, Palette, Plus, Route as RouteIcon, Sparkles, Trash2, type LucideIcon } from "lucide-react";
 import { ChatWidgetPreview } from "@/components/chat-widget-preview";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { ToastViewport, useToast } from "@/components/ui/toast";
 import { AGENT_TEMPLATES, getAgentTemplate, type AgentType } from "@/lib/agents";
 import { DEFAULT_LEAD_FIELDS, type LeadCaptureField, type LeadFieldType } from "@/lib/lead-fields";
 
 const MAX_WELCOME_PROMPTS = 4;
+const MAX_LEAD_FIELDS = 8;
+const MAX_CUSTOM_LEAD_FIELDS = 4;
+const BUILT_IN_LEAD_FIELD_KEYS = new Set(DEFAULT_LEAD_FIELDS.map((field) => field.key));
+const LEGACY_DEFAULT_LEAD_FIELD_KEYS = new Set(["service_needed", "property_size", "preferred_date", "budget"]);
+const LEAD_FIELD_TYPE_OPTIONS: Array<{ value: LeadFieldType; label: string }> = [
+  { value: "text", label: "Text" },
+  { value: "email", label: "Email" },
+  { value: "phone", label: "Phone" },
+  { value: "date", label: "Date" }
+];
 
 type BuilderFormProps = {
   initial: {
@@ -131,6 +142,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [agentMutation, setAgentMutation] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<BuilderTab>("role");
+  const [openLeadMenuKey, setOpenLeadMenuKey] = useState<string | null>(null);
   const { toast, showToast, dismissToast } = useToast();
 
   const selectedAgent = agents.find((agent) => agent.id === selectedAgentId) ?? agents[0] ?? firstAgent;
@@ -143,6 +155,8 @@ export function BuilderForm({ initial }: BuilderFormProps) {
   const cleanDomains = useMemo(() => allowedDomains.map((domain) => domain.trim()).filter(Boolean), [allowedDomains]);
   const cleanRoutePatterns = useMemo(() => normalizeRoutePatternsClient(routePatterns), [routePatterns]);
   const cleanExcludedRoutePatterns = useMemo(() => normalizeRoutePatternsClient(excludedRoutePatterns), [excludedRoutePatterns]);
+  const customLeadFieldCount = leadCaptureFields.filter((field) => isCustomLeadField(field.key)).length;
+  const canAddCustomLeadField = customLeadFieldCount < MAX_CUSTOM_LEAD_FIELDS && leadCaptureFields.length < MAX_LEAD_FIELDS;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -211,6 +225,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
   }
 
   function loadAgent(agent: BuilderAgentDraft) {
+    setOpenLeadMenuKey(null);
     setSelectedAgentId(agent.id);
     setBotName(agent.botName);
     setAgentType(agent.agentType);
@@ -346,16 +361,37 @@ export function BuilderForm({ initial }: BuilderFormProps) {
           return field;
         }
 
-        const next = { ...field, ...updates };
-
-        if (isLockedLeadField(next.key)) {
-          next.enabled = true;
-          next.required = true;
-        }
-
-        return next;
+        return { ...field, ...updates };
       })
     );
+  }
+
+  function addCustomLeadField() {
+    if (!canAddCustomLeadField) {
+      return;
+    }
+
+    setLeadCaptureFields((current) => {
+      const nextIndex = getNextCustomLeadFieldIndex(current);
+      const key = `custom_question_${nextIndex}`;
+
+      return [
+        ...current,
+        {
+          key,
+          label: `Custom question ${nextIndex}`,
+          type: "text" as const,
+          required: true,
+          enabled: true,
+          prompt: buildLeadFieldPrompt(`Custom question ${nextIndex}`, key)
+        }
+      ].slice(0, MAX_LEAD_FIELDS);
+    });
+  }
+
+  function removeCustomLeadField(index: number) {
+    setOpenLeadMenuKey(null);
+    setLeadCaptureFields((current) => current.filter((field, fieldIndex) => fieldIndex !== index || !isCustomLeadField(field.key)));
   }
 
   function applyAgentType(nextType: AgentType) {
@@ -647,55 +683,129 @@ export function BuilderForm({ initial }: BuilderFormProps) {
             ) : null}
 
             {activeTab === "leads" ? (
-              <div className="space-y-5">
-                <TabHeader
-                  eyebrow="Leads"
-                  title="Capture the right follow-up details"
-                  description={`Choose what ${botName || "your chatbot"} asks before handing a visitor to the team.`}
-                />
-                <div className="grid gap-3">
-                  {leadCaptureFields.map((field, index) => (
-                    <div key={field.key} className="grid gap-3 rounded-lg border border-harlo-line bg-harlo-canvas p-3 lg:grid-cols-[170px_130px_minmax(0,1fr)]">
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={field.enabled}
-                          disabled={isLockedLeadField(field.key)}
-                          onChange={(event) => updateLeadField(index, { enabled: event.target.checked, required: event.target.checked })}
-                          className="h-4 w-4 accent-harlo-teal"
-                          aria-label={`Enable ${field.label}`}
-                        />
-                        <div>
-                          <p className="text-sm font-semibold text-harlo-ink">{field.label}</p>
-                          <p className="text-xs text-harlo-muted">{field.enabled || isLockedLeadField(field.key) ? "Required" : "Inactive"}</p>
+              <div className="space-y-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-semibold text-harlo-ink">Lead capture questions</h3>
+                    <span className="inline-flex h-6 items-center rounded-full bg-harlo-canvas px-2.5 text-xs font-semibold text-harlo-muted">
+                      {leadCaptureFields.length} / {MAX_LEAD_FIELDS}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={addCustomLeadField}
+                    disabled={!canAddCustomLeadField}
+                    className="border-harlo-teal text-harlo-teal hover:bg-harlo-mist"
+                  >
+                    <Plus size={16} />
+                    Add custom question
+                  </Button>
+                </div>
+
+                <div className="grid gap-2.5">
+                  {leadCaptureFields.map((field, index) => {
+                    const custom = isCustomLeadField(field.key);
+                    const required = field.required;
+                    const isMenuOpen = openLeadMenuKey === field.key;
+
+                    return (
+                      <div key={field.key} className="rounded-lg border border-harlo-line bg-white p-3 shadow-sm transition">
+                        <div className="grid gap-3 sm:grid-cols-[18px_minmax(0,1fr)_minmax(150px,200px)_34px] sm:items-start">
+                          <span className="hidden h-10 items-center justify-center pt-6 text-harlo-muted sm:flex" aria-hidden="true">
+                            <GripVertical size={15} />
+                          </span>
+                          <div className="min-w-0">
+                            <label className="mb-1.5 block text-xs font-semibold text-harlo-muted" htmlFor={`lead-question-${field.key}`}>
+                              Question title
+                            </label>
+                            <input
+                              id={`lead-question-${field.key}`}
+                              value={field.label}
+                              onChange={(event) => updateLeadField(index, { label: event.target.value, prompt: buildLeadFieldPrompt(event.target.value, field.key) })}
+                              maxLength={50}
+                              className="h-10 w-full rounded-md border border-harlo-line bg-white px-3 text-sm font-medium text-harlo-ink outline-none transition placeholder:text-harlo-muted focus:border-harlo-teal"
+                              placeholder="Question name"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-xs font-semibold text-harlo-muted" htmlFor={`lead-field-type-${field.key}`}>
+                              Field type
+                            </label>
+                            <Select
+                              name={`lead-field-type-${field.key}`}
+                              value={field.type}
+                              onValueChange={(value) => updateLeadField(index, { type: value as LeadFieldType })}
+                              options={LEAD_FIELD_TYPE_OPTIONS}
+                              className="w-full"
+                            />
+                          </div>
+                          <div className="relative hidden pt-6 sm:block">
+                            <button
+                              type="button"
+                              className={`flex h-10 w-8 items-center justify-center rounded-md transition ${isMenuOpen ? "bg-harlo-canvas text-harlo-ink" : "text-harlo-muted hover:bg-harlo-canvas hover:text-harlo-ink"}`}
+                              onClick={() => setOpenLeadMenuKey((current) => current === field.key ? null : field.key)}
+                              aria-expanded={isMenuOpen}
+                              aria-label={`${field.label} options`}
+                            >
+                              <MoreVertical size={16} />
+                            </button>
+                            {isMenuOpen ? (
+                              <LeadQuestionMenu
+                                canDelete={custom}
+                                onDelete={() => removeCustomLeadField(index)}
+                              />
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-[18px_minmax(0,1fr)_minmax(150px,200px)_34px]">
+                          <div className="hidden sm:block" />
+                          <div className="flex items-center gap-3 text-xs font-semibold text-harlo-muted sm:col-start-2">
+                            Required
+                            <RequiredSwitch
+                              checked={required}
+                              onChange={(checked) => updateLeadField(index, { required: checked })}
+                              label={`Require ${field.label}`}
+                            />
+                          </div>
+                          <div className="flex items-center justify-end gap-2 sm:hidden">
+                            <div className="relative">
+                              <button
+                                type="button"
+                                className={`flex h-9 w-9 items-center justify-center rounded-md transition ${isMenuOpen ? "bg-harlo-canvas text-harlo-ink" : "text-harlo-muted hover:bg-harlo-canvas hover:text-harlo-ink"}`}
+                                onClick={() => setOpenLeadMenuKey((current) => current === field.key ? null : field.key)}
+                                aria-expanded={isMenuOpen}
+                                aria-label={`${field.label} options`}
+                              >
+                                <MoreVertical size={16} />
+                              </button>
+                              {isMenuOpen ? (
+                                <LeadQuestionMenu
+                                  canDelete={custom}
+                                  onDelete={() => removeCustomLeadField(index)}
+                                />
+                              ) : null}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <select
-                        value={field.type}
-                        disabled={isLockedLeadField(field.key)}
-                        onChange={(event) => updateLeadField(index, { type: event.target.value as LeadFieldType })}
-                        className="h-10 rounded-lg border border-harlo-line bg-white px-3 text-sm text-harlo-ink outline-none focus:border-harlo-teal disabled:text-harlo-muted"
-                      >
-                        <option value="text">Text</option>
-                        <option value="email">Email</option>
-                        <option value="phone">Phone</option>
-                        <option value="date">Date</option>
-                      </select>
-                      <div className="flex gap-2">
-                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-harlo-line bg-white text-harlo-teal">
-                          <ClipboardList size={16} />
-                        </span>
-                        <input
-                          value={field.prompt}
-                          onChange={(event) => updateLeadField(index, { prompt: event.target.value })}
-                          disabled={!field.enabled}
-                          maxLength={120}
-                          className="h-10 w-full rounded-lg border border-harlo-line bg-white px-3 text-sm text-harlo-ink outline-none transition placeholder:text-harlo-muted focus:border-harlo-teal disabled:bg-harlo-canvas disabled:text-harlo-muted"
-                        />
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
+
+                <button
+                  type="button"
+                  onClick={addCustomLeadField}
+                  disabled={!canAddCustomLeadField}
+                  className="flex h-14 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-harlo-line bg-white text-sm font-semibold text-harlo-teal transition hover:border-harlo-teal hover:bg-harlo-mist disabled:cursor-not-allowed disabled:opacity-55"
+                >
+                  <Plus size={16} />
+                  Add custom question (up to 4)
+                </button>
+
+                <p className="text-xs font-medium leading-5 text-harlo-muted">
+                  Built-in questions cannot be deleted. You can add up to {MAX_CUSTOM_LEAD_FIELDS} custom questions.
+                </p>
               </div>
             ) : null}
 
@@ -881,7 +991,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                   <div className="grid content-start gap-3 md:grid-cols-2">
                     <SummaryCard label="Agent" value={botName || "Unnamed agent"} detail={`${getAgentTemplate(agentType).badge}${selectedAgent.isDefault ? " · Default" : ""}`} />
                     <SummaryCard label="Widget title" value={widgetTitle || "Ask Harlo"} detail={`${cleanPrompts.length} prompt${cleanPrompts.length === 1 ? "" : "s"}`} />
-                    <SummaryCard label="Lead fields" value={`${leadCaptureFields.filter((field) => field.enabled).length} enabled`} detail="Name and email stay required" />
+                    <SummaryCard label="Lead fields" value={`${leadCaptureFields.filter((field) => field.enabled).length} enabled`} detail={`${customLeadFieldCount}/${MAX_CUSTOM_LEAD_FIELDS} custom questions`} />
                     <SummaryCard label="Routing" value={cleanRoutePatterns.length > 0 ? `${cleanRoutePatterns.length} route${cleanRoutePatterns.length === 1 ? "" : "s"}` : "Fallback"} detail={cleanExcludedRoutePatterns.length > 0 ? `${cleanExcludedRoutePatterns.length} excluded` : selectedAgent.isDefault ? "Handles unmatched pages" : "Add route rules"} />
                     <SummaryCard label="Domains" value={cleanDomains.length > 0 ? `${cleanDomains.length} allowed` : "Local testing"} detail={cleanDomains[0] ?? "No live domains added"} />
                     <SummaryCard label="Launcher" value={launcherPosition === "bottom-right" ? "Bottom right" : "Bottom left"} detail={accent} />
@@ -893,14 +1003,73 @@ export function BuilderForm({ initial }: BuilderFormProps) {
         </section>
 
         <div className="flex justify-stretch sm:justify-end">
-          <div className="rounded-lg border border-harlo-line bg-white/95 p-2 shadow-soft backdrop-blur">
-            <Button type="submit" disabled={isSaving} className="w-full shadow-soft sm:w-auto">
-              {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
-              Save agent settings
-            </Button>
-          </div>
+          <Button
+            type="submit"
+            disabled={isSaving}
+            aria-busy={isSaving}
+            className="h-11 w-full min-w-28 bg-harlo-teal px-6 text-white shadow-soft hover:bg-harlo-navy disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+          >
+            {isSaving ? <Loader2 className="animate-spin" size={16} /> : null}
+            {isSaving ? "Saving" : "Save"}
+          </Button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function RequiredSwitch({
+  checked,
+  onChange,
+  label
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-12 shrink-0 items-center rounded-md border px-0.5 transition ${
+        checked
+          ? "border-harlo-teal bg-harlo-teal"
+          : "border-harlo-line bg-harlo-canvas"
+      }`}
+    >
+      <span
+        className={`h-[18px] w-5 rounded-[5px] bg-white shadow-sm transition-transform ${
+          checked ? "translate-x-5" : "translate-x-0"
+        }`}
+      />
+    </button>
+  );
+}
+
+function LeadQuestionMenu({
+  canDelete,
+  onDelete
+}: {
+  canDelete: boolean;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="absolute right-0 top-full z-40 mt-2 w-44 rounded-lg border border-harlo-line bg-white p-1.5 shadow-xl shadow-slate-900/10">
+      <button
+        type="button"
+        disabled={!canDelete}
+        onClick={onDelete}
+        className="flex h-9 w-full items-center gap-2 rounded-md px-2.5 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-harlo-muted disabled:hover:bg-transparent"
+      >
+        <Trash2 size={15} />
+        Delete
+      </button>
+      {!canDelete ? (
+        <p className="px-2.5 pb-1 pt-1 text-xs leading-4 text-harlo-muted">Built-in questions cannot be deleted.</p>
+      ) : null}
     </div>
   );
 }
@@ -1093,26 +1262,89 @@ function getExampleRoutePath(pattern: string | undefined) {
 
 function padLeadFields(fields: LeadCaptureField[]) {
   const byKey = new Map(fields.map((field) => [field.key, field]));
+  const builtInFields = DEFAULT_LEAD_FIELDS.map((field) => {
+    const savedField = byKey.get(field.key);
 
-  return DEFAULT_LEAD_FIELDS.map((field) => ({
-    ...field,
-    ...byKey.get(field.key),
-    required: (byKey.get(field.key)?.enabled ?? field.enabled) ? true : false
-  }));
+    return {
+      ...field,
+      ...savedField,
+      enabled: true,
+      required: savedField?.required ?? field.required
+    };
+  });
+  const customFields = fields
+    .filter((field) => isCustomLeadField(field.key))
+    .slice(0, MAX_CUSTOM_LEAD_FIELDS)
+    .map((field) => ({
+      ...field,
+      enabled: true,
+      required: field.required !== false
+    }));
+
+  return [...builtInFields, ...customFields].slice(0, MAX_LEAD_FIELDS);
 }
 
 function getLeadFieldsForSave(fields: LeadCaptureField[]) {
-  return fields
-    .filter((field) => field.enabled || isLockedLeadField(field.key))
-    .map((field) => ({
+  return fields.map((field) => {
+    const label = cleanLeadQuestionLabel(field.label, field.key);
+
+    return {
       ...field,
-      enabled: field.enabled || isLockedLeadField(field.key),
-      required: true
-    }));
+      label,
+      enabled: true,
+      required: field.required,
+      prompt: buildLeadFieldPrompt(label, field.key)
+    };
+  });
 }
 
-function isLockedLeadField(key: string) {
-  return key === "name" || key === "email";
+function isCustomLeadField(key: string) {
+  return !BUILT_IN_LEAD_FIELD_KEYS.has(key) && !LEGACY_DEFAULT_LEAD_FIELD_KEYS.has(key);
+}
+
+function getNextCustomLeadFieldIndex(fields: LeadCaptureField[]) {
+  const usedIndexes = new Set(
+    fields
+      .map((field) => field.key.match(/^custom_question_(\d+)$/)?.[1])
+      .filter((value): value is string => Boolean(value))
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value))
+  );
+
+  for (let index = 1; index <= MAX_CUSTOM_LEAD_FIELDS; index += 1) {
+    if (!usedIndexes.has(index)) {
+      return index;
+    }
+  }
+
+  return Math.min(MAX_CUSTOM_LEAD_FIELDS, usedIndexes.size + 1);
+}
+
+function cleanLeadQuestionLabel(value: string, key: string) {
+  const fallback = DEFAULT_LEAD_FIELDS.find((field) => field.key === key)?.label ?? "Custom question";
+  return value.trim().replace(/\s+/g, " ").slice(0, 50) || fallback;
+}
+
+function buildLeadFieldPrompt(label: string, key?: string) {
+  const cleanLabel = cleanLeadQuestionLabel(label, key ?? "");
+
+  if (key === "name") {
+    return "What is your name?";
+  }
+
+  if (key === "email") {
+    return "What email should the team use to follow up?";
+  }
+
+  if (key === "phone") {
+    return "What phone number should the team use?";
+  }
+
+  if (key === "company") {
+    return "What company are you with?";
+  }
+
+  return `What is your ${cleanLabel.toLowerCase()}?`;
 }
 
 const inputClass = "h-11 w-full rounded-lg border border-harlo-line bg-white px-3 text-sm text-harlo-ink outline-none transition placeholder:text-harlo-muted focus:border-harlo-teal";

@@ -50,8 +50,14 @@ export function getProviderAuthorizationUrl({ provider, requestUrl, state }: Aut
   url.searchParams.set("redirect_uri", config.redirectUri);
   url.searchParams.set("state", state);
 
-  if (provider !== "slack") {
+  if (provider !== "slack" && provider !== "calcom") {
     url.searchParams.set("response_type", "code");
+  }
+
+  if (provider === "google_sheets") {
+    url.searchParams.set("access_type", "offline");
+    url.searchParams.set("prompt", "consent");
+    url.searchParams.set("include_granted_scopes", "true");
   }
 
   if (config.scopes.length > 0) {
@@ -153,6 +159,14 @@ export async function testProviderConnection(provider: IntegrationProviderKey, c
     return response.ok;
   }
 
+  if (provider === "calcom") {
+    const response = await fetch("https://api.cal.com/v2/me", {
+      headers: { authorization: `Bearer ${credentials.accessToken}` }
+    });
+
+    return response.ok;
+  }
+
   if (provider === "slack") {
     const response = await fetch("https://slack.com/api/auth.test", {
       method: "POST",
@@ -182,12 +196,38 @@ export async function testProviderConnection(provider: IntegrationProviderKey, c
     return response.ok;
   }
 
+  if (provider === "mailchimp") {
+    const apiEndpoint = getMailchimpApiEndpoint(credentials);
+
+    if (!apiEndpoint) {
+      return false;
+    }
+
+    const response = await fetch(`${apiEndpoint.replace(/\/3\.0\/?$/, "")}/3.0/`, {
+      headers: { authorization: `Bearer ${credentials.accessToken}`, accept: "application/json" }
+    });
+
+    return response.ok;
+  }
+
+  if (provider === "google_sheets") {
+    const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { authorization: `Bearer ${credentials.accessToken}`, accept: "application/json" }
+    });
+
+    return response.ok;
+  }
+
   return false;
 }
 
 function getAuthorizationEndpoint(provider: IntegrationProviderKey) {
   if (provider === "calendly") {
     return "https://auth.calendly.com/oauth/authorize";
+  }
+
+  if (provider === "calcom") {
+    return "https://app.cal.com/auth/oauth2/authorize";
   }
 
   if (provider === "slack") {
@@ -202,12 +242,24 @@ function getAuthorizationEndpoint(provider: IntegrationProviderKey) {
     return "https://api.getjobber.com/api/oauth/authorize";
   }
 
+  if (provider === "mailchimp") {
+    return "https://login.mailchimp.com/oauth2/authorize";
+  }
+
+  if (provider === "google_sheets") {
+    return "https://accounts.google.com/o/oauth2/v2/auth";
+  }
+
   return null;
 }
 
 function getTokenEndpoint(provider: IntegrationProviderKey) {
   if (provider === "calendly") {
     return "https://auth.calendly.com/oauth/token";
+  }
+
+  if (provider === "calcom") {
+    return "https://api.cal.com/v2/auth/oauth2/token";
   }
 
   if (provider === "slack") {
@@ -220,6 +272,14 @@ function getTokenEndpoint(provider: IntegrationProviderKey) {
 
   if (provider === "jobber") {
     return "https://api.getjobber.com/api/oauth/token";
+  }
+
+  if (provider === "mailchimp") {
+    return "https://login.mailchimp.com/oauth2/token";
+  }
+
+  if (provider === "google_sheets") {
+    return "https://oauth2.googleapis.com/token";
   }
 
   throw new Error("Unsupported OAuth provider.");
@@ -354,6 +414,22 @@ async function hydrateTokenSet(provider: IntegrationProviderKey, tokenSet: OAuth
       };
     }
 
+    if (provider === "calcom") {
+      const response = await fetch("https://api.cal.com/v2/me", {
+        headers: { authorization: `Bearer ${tokenSet.accessToken}` }
+      });
+      const payload = await response.json().catch(() => null) as {
+        data?: { id?: number | string; username?: string; name?: string; email?: string };
+      } | null;
+      const resource = payload?.data;
+
+      return {
+        ...tokenSet,
+        providerAccountId: tokenSet.providerAccountId ?? (resource?.id == null ? null : String(resource.id)),
+        providerAccountName: tokenSet.providerAccountName ?? resource?.name ?? resource?.username ?? resource?.email ?? null
+      };
+    }
+
     if (provider === "hubspot") {
       const response = await fetch(`https://api.hubapi.com/oauth/v1/access-tokens/${encodeURIComponent(tokenSet.accessToken)}`);
       const payload = await response.json().catch(() => null) as { hub_id?: number; hub_domain?: string; user?: string } | null;
@@ -380,6 +456,42 @@ async function hydrateTokenSet(provider: IntegrationProviderKey, tokenSet: OAuth
         providerAccountName: tokenSet.providerAccountName ?? account?.name ?? null
       };
     }
+
+    if (provider === "mailchimp") {
+      const metadata = await fetchMailchimpMetadata(tokenSet.accessToken);
+      const login = metadata.login && typeof metadata.login === "object"
+        ? metadata.login as Record<string, unknown>
+        : null;
+      const dc = typeof metadata.dc === "string" ? metadata.dc : null;
+      const apiEndpoint = typeof metadata.api_endpoint === "string" ? metadata.api_endpoint : null;
+      const accountName = getString(login?.email) ?? getString(login?.login_name) ?? getString(login?.name);
+
+      return {
+        ...tokenSet,
+        providerAccountId: tokenSet.providerAccountId ?? dc,
+        providerAccountName: tokenSet.providerAccountName ?? accountName ?? dc,
+        raw: {
+          ...tokenSet.raw,
+          dc,
+          api_endpoint: apiEndpoint,
+          login
+        }
+      };
+    }
+
+    if (provider === "google_sheets") {
+      const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+        headers: { authorization: `Bearer ${tokenSet.accessToken}`, accept: "application/json" }
+      });
+      const payload = await response.json().catch(() => null) as { id?: string; email?: string; name?: string } | null;
+
+      return {
+        ...tokenSet,
+        providerAccountId: tokenSet.providerAccountId ?? payload?.id ?? payload?.email ?? null,
+        providerAccountName: tokenSet.providerAccountName ?? payload?.email ?? payload?.name ?? null
+      };
+    }
+
   } catch {
     return tokenSet;
   }
@@ -398,4 +510,33 @@ function getJobberHeaders(accessToken: string) {
   headers["X-JOBBER-GRAPHQL-VERSION"] = graphqlVersion;
 
   return headers;
+}
+
+async function fetchMailchimpMetadata(accessToken: string) {
+  const response = await fetch("https://login.mailchimp.com/oauth2/metadata", {
+    headers: { authorization: `Bearer ${accessToken}`, accept: "application/json" }
+  });
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok || !payload || typeof payload !== "object") {
+    throw new Error("Mailchimp metadata lookup failed.");
+  }
+
+  return payload as Record<string, unknown>;
+}
+
+function getMailchimpApiEndpoint(credentials: OAuthTokenSet) {
+  const rawEndpoint = getString(credentials.raw.api_endpoint);
+
+  if (rawEndpoint) {
+    return rawEndpoint.replace(/\/$/, "");
+  }
+
+  const dc = getString(credentials.raw.dc) ?? credentials.providerAccountId ?? process.env.MAILCHIMP_SERVER_PREFIX?.trim();
+
+  return dc ? `https://${dc}.api.mailchimp.com` : null;
+}
+
+function getString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }

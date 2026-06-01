@@ -44,15 +44,16 @@ export function GET(request: NextRequest) {
     ".harlo-nudge-text{border:0;background:transparent;color:#111827;padding:0;text-align:left;font:inherit;font-size:15px;font-weight:400;line-height:1.38;cursor:pointer;letter-spacing:0}.harlo-nudge-text:hover{color:#111827}.harlo-nudge-close{position:absolute;right:-7px;top:-7px;width:24px;height:24px;border:1px solid #d7dde5;border-radius:999px;background:#eef2f5;color:#5f6876;cursor:pointer;font-size:16px;line-height:1;display:grid;place-items:center;box-shadow:0 6px 14px rgba(15,23,42,.1);transition:background .16s ease,color .16s ease,transform .16s ease}.harlo-nudge-close:hover{background:#e2e8ee;color:#111827;transform:scale(1.03)}",
     ".harlo-icon{display:block;width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}.harlo-panel{position:fixed;right:24px;bottom:100px;width:min(410px,calc(100vw - 32px));height:min(650px,calc(100vh - 132px));border:0;border-radius:22px;background:#fff;box-shadow:0 28px 80px rgba(15,23,42,.22);z-index:2147483001;display:none;overflow:hidden;font-family:Inter,system-ui,-apple-system,sans-serif}.harlo-panel[data-open=true]{display:flex;flex-direction:column;animation:harloPanelIn .2s ease-out}@keyframes harloPanelIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}",
     ".harlo-head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:76px;padding:18px 18px;border-bottom:1px solid color-mix(in srgb,var(--harlo-accent-text,#fff) 16%,transparent);background:var(--harlo-accent,#087f95);color:var(--harlo-accent-text,#fff)}.harlo-head-inner{display:flex;align-items:center;gap:10px;min-width:0}.harlo-mark{width:42px;height:42px;display:grid;place-items:center;border-radius:14px;background:color-mix(in srgb,var(--harlo-accent-text,#fff) 16%,transparent);color:var(--harlo-accent-text,#fff);border:1px solid color-mix(in srgb,var(--harlo-accent-text,#fff) 35%,transparent);box-shadow:inset 0 1px 0 color-mix(in srgb,var(--harlo-accent-text,#fff) 22%,transparent),0 10px 24px rgba(15,23,42,.14);font-weight:800}.harlo-mark .harlo-icon{width:20px;height:20px}.harlo-title{font-weight:850;color:var(--harlo-accent-text,#fff);font-size:15px;letter-spacing:0}.harlo-subtitle{font-size:12px;color:color-mix(in srgb,var(--harlo-accent-text,#fff) 82%,transparent);margin-top:2px}.harlo-close{width:34px;height:34px;border:0;border-radius:999px;background:color-mix(in srgb,var(--harlo-accent-text,#fff) 14%,transparent);color:var(--harlo-accent-text,#fff);cursor:pointer;padding:0;display:grid;place-items:center;transition:background .16s ease,transform .16s ease}.harlo-close:hover{background:color-mix(in srgb,var(--harlo-accent-text,#fff) 22%,transparent);transform:scale(1.03)}.harlo-close::before{content:'';width:18px;height:2px;border-radius:999px;background:currentColor;opacity:.95}",
-    ".harlo-body{flex:1;overflow:auto;padding:18px;background:linear-gradient(180deg,#fbfdff,#fff);color:#111827;font-size:14px;scrollbar-width:thin;scrollbar-color:#c8d5dc transparent}.harlo-body::-webkit-scrollbar{width:8px}.harlo-body::-webkit-scrollbar-thumb{background:#c8d5dc;border-radius:999px}.harlo-entry{margin:0 0 13px}.harlo-entry[data-role=user]{display:flex;flex-direction:column;align-items:flex-end}.harlo-entry[data-role=assistant]{display:block}.harlo-entry[data-continued=true]{margin-top:-7px;margin-left:40px}.harlo-assistant-row{display:flex;align-items:flex-start;gap:10px;max-width:94%}.harlo-avatar{width:30px;height:30px;flex:0 0 30px;border-radius:10px;background:var(--harlo-accent,#087f95);color:var(--harlo-accent-text,#fff);display:grid;place-items:center;margin-top:2px;box-shadow:0 6px 14px rgba(15,23,42,.08)}.harlo-avatar .harlo-icon{width:15px;height:15px}.harlo-mark[data-has-logo=true],.harlo-avatar[data-has-logo=true]{background:#f4f4f4;color:var(--harlo-accent,#087f95);border:0;box-shadow:none}.harlo-logo-img{display:block;width:100%;height:100%;object-fit:contain;padding:5px}.harlo-avatar .harlo-logo-img{padding:4px}",
+    ".harlo-body{flex:1;overflow:auto;padding:18px;background:linear-gradient(180deg,#fbfdff,#fff);color:#111827;font-size:14px;scrollbar-width:thin;scrollbar-color:#c8d5dc transparent}.harlo-body::-webkit-scrollbar{width:8px}.harlo-body::-webkit-scrollbar-thumb{background:#c8d5dc;border-radius:999px}.harlo-entry{margin:0 0 13px}.harlo-entry[data-role=user]{display:flex;flex-direction:column;align-items:flex-end}.harlo-entry[data-role=assistant]{display:block}.harlo-entry[data-continued=true]{margin-top:-7px}.harlo-assistant-row{display:flex;align-items:flex-start;max-width:94%}.harlo-logo-img{display:block;width:100%;height:100%;object-fit:contain;padding:5px}",
     ".harlo-message{display:table;width:fit-content;max-width:86%;padding:12px 13px;border-radius:16px;line-height:1.48;white-space:normal;box-shadow:0 1px 0 rgba(15,23,42,.04)}.harlo-message[data-role=assistant]{background:#f4f4f4;color:#111827;border:1px solid #e8edf1;border-top-left-radius:7px}.harlo-message[data-role=user]{margin-left:auto;background:linear-gradient(135deg,var(--harlo-accent,#087f95),color-mix(in srgb,var(--harlo-accent,#087f95) 82%,#111827));color:var(--harlo-accent-text,#fff);border-top-right-radius:7px;box-shadow:0 12px 26px color-mix(in srgb,var(--harlo-accent,#087f95) 18%,transparent)}.harlo-message[data-kind=billing-limit],.harlo-message[data-kind=billing-limit-sent]{display:block;width:auto;max-width:100%;padding:0;background:transparent;color:#111827;border:0;box-shadow:none}",
     ".harlo-limit-card{position:relative;overflow:hidden;border:1px solid color-mix(in srgb,var(--harlo-accent,#087f95) 24%,#e2e8ee);background:#fff;border-radius:16px;padding:14px;box-shadow:0 14px 34px rgba(15,23,42,.07)}.harlo-limit-card:before{content:'';position:absolute;left:0;right:0;top:0;height:4px;background:var(--harlo-accent,#087f95)}.harlo-limit-head{display:flex;align-items:center;gap:10px;margin:2px 0 10px}.harlo-limit-icon{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:var(--harlo-accent,#087f95);color:var(--harlo-accent-text,#fff)}.harlo-limit-icon .harlo-icon{width:15px;height:15px;stroke-width:2.2}.harlo-limit-title{font-weight:800;color:#111827;font-size:14px;letter-spacing:0}.harlo-limit-copy{color:#4b5b68;font-size:13px;line-height:1.5;margin:0}.harlo-limit-note{display:inline-flex;align-items:center;gap:6px;margin-top:12px;border:0;border-radius:999px;background:color-mix(in srgb,var(--harlo-accent,#087f95) 10%,#fff);padding:6px 9px;color:var(--harlo-accent,#087f95);font-size:12px;font-weight:800}.harlo-limit-note:before{content:'';width:6px;height:6px;border-radius:999px;background:var(--harlo-accent,#087f95)}.harlo-message .harlo-limit-copy{margin:0}",
     ".harlo-message[data-kind=lead-form]{display:block;width:100%;max-width:100%;padding:0;background:transparent;border:0;box-shadow:none}.harlo-lead-card{position:relative;overflow:hidden;border:1px solid color-mix(in srgb,var(--harlo-accent,#087f95) 22%,#e2e8ee);border-radius:18px;background:#fff;box-shadow:0 18px 42px rgba(15,23,42,.09)}.harlo-lead-card:before{content:'';position:absolute;inset:0 0 auto;height:4px;background:linear-gradient(90deg,var(--harlo-accent,#087f95),color-mix(in srgb,var(--harlo-accent,#087f95) 58%,#fff));}.harlo-lead-card[data-submitted=true]{opacity:.78}.harlo-lead-head{display:flex;gap:11px;padding:16px 16px 12px}.harlo-lead-icon{width:34px;height:34px;flex:0 0 34px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--harlo-accent,#087f95) 10%,#fff);color:var(--harlo-accent,#087f95)}.harlo-lead-icon .harlo-icon{width:17px;height:17px;stroke-width:2.2}.harlo-lead-title{font-size:14px;font-weight:850;color:#111827;letter-spacing:0}.harlo-lead-copy{margin:3px 0 0;color:#5f6876;font-size:12.5px;line-height:1.45}.harlo-lead-fields{display:grid;gap:10px;padding:0 16px 14px}.harlo-lead-field{display:grid;gap:5px}.harlo-lead-label{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#263445;font-size:12px;font-weight:800}.harlo-lead-required{color:var(--harlo-accent,#087f95);font-size:11px;font-weight:800}.harlo-lead-input{width:100%;min-height:42px;border:1px solid #dbe5ea;border-radius:12px;background:#fbfdff;color:#111827;font:inherit;font-size:14px;padding:10px 11px;outline:none;transition:border-color .16s ease,box-shadow .16s ease,background .16s ease}.harlo-lead-input:focus{border-color:var(--harlo-accent,#087f95);background:#fff;box-shadow:0 0 0 4px color-mix(in srgb,var(--harlo-accent,#087f95) 12%,transparent)}.harlo-lead-input[aria-invalid=true]{border-color:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.1)}.harlo-lead-error{display:none;color:#dc2626;font-size:11px;font-weight:700}.harlo-lead-field[data-error=true] .harlo-lead-error{display:block}.harlo-lead-actions{padding:0 16px 16px}.harlo-lead-submit{width:100%;min-height:44px;border:0;border-radius:14px;background:linear-gradient(135deg,var(--harlo-accent,#087f95),color-mix(in srgb,var(--harlo-accent,#087f95) 82%,#111827));color:var(--harlo-accent-text,#fff);font-size:14px;font-weight:850;cursor:pointer;box-shadow:0 14px 28px color-mix(in srgb,var(--harlo-accent,#087f95) 18%,transparent);transition:transform .16s ease,box-shadow .16s ease}.harlo-lead-submit:hover{transform:translateY(-1px);box-shadow:0 18px 32px color-mix(in srgb,var(--harlo-accent,#087f95) 22%,transparent)}.harlo-lead-submit:disabled{cursor:default;opacity:.7;transform:none;box-shadow:none}.harlo-lead-note{margin:8px 0 0;text-align:center;color:#7c8986;font-size:11px;line-height:1.35}",
-    ".harlo-message[data-kind=integration-actions]{display:block;width:100%;max-width:100%;padding:0;background:transparent;border:0;box-shadow:none}.harlo-action-stack{display:grid;gap:10px}.harlo-action-card{overflow:hidden;border:1px solid color-mix(in srgb,var(--harlo-accent,#087f95) 22%,#dbe5ea);border-radius:18px;background:#fff;box-shadow:0 16px 38px rgba(15,23,42,.08)}.harlo-action-head{display:flex;gap:11px;padding:15px 15px 12px}.harlo-action-icon{width:36px;height:36px;flex:0 0 36px;border-radius:13px;display:grid;place-items:center;background:color-mix(in srgb,var(--harlo-accent,#087f95) 10%,#fff);color:var(--harlo-accent,#087f95)}.harlo-action-icon .harlo-icon{width:18px;height:18px;stroke-width:2.25}.harlo-action-title{font-size:14px;font-weight:850;color:#111827;letter-spacing:0}.harlo-action-copy{margin:3px 0 0;color:#5f6876;font-size:12.5px;line-height:1.45}.harlo-action-footer{display:grid;gap:8px;padding:0 15px 15px}.harlo-action-button{width:100%;min-height:44px;border:0;border-radius:14px;background:linear-gradient(135deg,var(--harlo-accent,#087f95),color-mix(in srgb,var(--harlo-accent,#087f95) 82%,#111827));color:var(--harlo-accent-text,#fff);font-size:14px;font-weight:850;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;box-shadow:0 14px 28px color-mix(in srgb,var(--harlo-accent,#087f95) 18%,transparent);transition:transform .16s ease,box-shadow .16s ease}.harlo-action-button:hover{transform:translateY(-1px);box-shadow:0 18px 32px color-mix(in srgb,var(--harlo-accent,#087f95) 22%,transparent)}.harlo-action-button .harlo-icon{width:16px;height:16px}.harlo-action-button:disabled{cursor:wait;opacity:.7;transform:none}.harlo-action-note{margin:0;text-align:center;color:#7c8986;font-size:11px;line-height:1.35}.harlo-slot-list{display:grid;gap:8px;padding:0 15px 14px}.harlo-slot-button{width:100%;min-height:42px;border:1px solid #dbe5ea;border-radius:13px;background:#fbfdff;color:#111827;text-align:left;padding:9px 11px;font-size:13px;font-weight:800;cursor:pointer;transition:border-color .16s ease,background .16s ease,color .16s ease}.harlo-slot-button:hover,.harlo-slot-button[data-selected=true]{border-color:var(--harlo-accent,#087f95);background:color-mix(in srgb,var(--harlo-accent,#087f95) 8%,#fff);color:var(--harlo-accent,#087f95)}.harlo-book-form{display:none;gap:9px;padding:0 15px 15px}.harlo-action-card[data-selected=true] .harlo-book-form{display:grid}.harlo-book-input{width:100%;min-height:40px;border:1px solid #dbe5ea;border-radius:12px;background:#fbfdff;color:#111827;font:inherit;font-size:13px;padding:9px 10px;outline:none}.harlo-book-input:focus{border-color:var(--harlo-accent,#087f95);box-shadow:0 0 0 3px color-mix(in srgb,var(--harlo-accent,#087f95) 12%,transparent)}.harlo-book-status{min-height:17px;color:#5f6876;font-size:11px;font-weight:700;text-align:center}.harlo-book-status[data-error=true]{color:#dc2626}.harlo-book-links{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}.harlo-book-links a{color:var(--harlo-accent,#087f95);font-size:12px;font-weight:800;text-decoration:none}",
-    ".harlo-message-time{font-size:11px;color:#7c8986;margin-top:5px}.harlo-entry[data-role=assistant] .harlo-message-time{margin-left:40px}.harlo-entry[data-kind=integration-actions] .harlo-message-time{margin-left:0}.harlo-entry[data-role=user] .harlo-message-time{text-align:right;margin-right:2px}.harlo-typing{display:flex;align-items:center;gap:4px;min-width:34px;height:20px}.harlo-typing span{width:6px;height:6px;border-radius:999px;background:var(--harlo-accent,#087f95);opacity:.35;animation:harloTyping 1s infinite ease-in-out}.harlo-typing span:nth-child(2){animation-delay:.14s}.harlo-typing span:nth-child(3){animation-delay:.28s}@keyframes harloTyping{0%,80%,100%{transform:translateY(0);opacity:.35}40%{transform:translateY(-3px);opacity:1}}.harlo-message p{margin:0 0 8px}.harlo-message p:last-child{margin-bottom:0}.harlo-message ul{display:block;list-style-type:disc!important;list-style-position:outside!important;margin:7px 0 0 0!important;padding-left:22px!important}.harlo-message li{display:list-item!important;list-style-type:disc!important;margin:3px 0;padding-left:2px}",
+    ".harlo-message[data-kind=integration-actions]{display:block;width:100%;max-width:100%;padding:0;background:transparent;border:0;box-shadow:none}.harlo-action-stack{display:grid;gap:10px}.harlo-action-card{overflow:hidden;border:1px solid color-mix(in srgb,var(--harlo-accent,#087f95) 22%,#dbe5ea);border-radius:18px;background:#fff;box-shadow:0 16px 38px rgba(15,23,42,.08)}.harlo-action-head{display:flex;gap:11px;padding:15px 15px 12px}.harlo-action-icon{width:36px;height:36px;flex:0 0 36px;border-radius:13px;display:grid;place-items:center;background:color-mix(in srgb,var(--harlo-accent,#087f95) 10%,#fff);color:var(--harlo-accent,#087f95)}.harlo-action-icon .harlo-icon{width:18px;height:18px;stroke-width:2.25}.harlo-action-title{font-size:14px;font-weight:850;color:#111827;letter-spacing:0}.harlo-action-copy{margin:3px 0 0;color:#5f6876;font-size:12.5px;line-height:1.45}.harlo-action-footer{display:grid;gap:8px;padding:0 15px 15px}.harlo-action-button{width:100%;min-height:44px;border:0;border-radius:14px;background:linear-gradient(135deg,var(--harlo-accent,#087f95),color-mix(in srgb,var(--harlo-accent,#087f95) 82%,#111827));color:var(--harlo-accent-text,#fff);font-size:14px;font-weight:850;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;box-shadow:0 14px 28px color-mix(in srgb,var(--harlo-accent,#087f95) 18%,transparent);transition:transform .16s ease,box-shadow .16s ease}.harlo-action-button:hover{transform:translateY(-1px);box-shadow:0 18px 32px color-mix(in srgb,var(--harlo-accent,#087f95) 22%,transparent)}.harlo-action-button .harlo-icon{width:16px;height:16px}.harlo-action-button:disabled{cursor:wait;opacity:.7;transform:none}.harlo-action-note{margin:0;text-align:center;color:#7c8986;font-size:11px;line-height:1.35}.harlo-booking-options{display:grid;gap:8px;padding:0 14px 10px}.harlo-booking-option{width:100%;min-height:58px;border:1px solid #dbe5ea;border-radius:14px;background:#fff;color:#111827;padding:10px 11px;display:flex;align-items:center;gap:10px;text-align:left;cursor:pointer;transition:border-color .16s ease,background .16s ease,transform .16s ease,box-shadow .16s ease}.harlo-booking-option:hover{border-color:var(--harlo-accent,#087f95);background:color-mix(in srgb,var(--harlo-accent,#087f95) 5%,#fff);box-shadow:0 8px 20px rgba(15,23,42,.06);transform:translateY(-1px)}.harlo-booking-option:disabled{cursor:wait;opacity:.7;transform:none}.harlo-booking-logo{width:28px;height:28px;flex:0 0 28px;display:grid;place-items:center}.harlo-booking-logo img{max-width:100%;max-height:100%;object-fit:contain}.harlo-booking-copy{min-width:0;flex:1}.harlo-booking-name{display:block;font-size:13px;font-weight:850;color:#111827;line-height:1.25;letter-spacing:0;white-space:normal}.harlo-booking-meta{display:block;margin-top:5px;color:#657386;font-size:11.5px;font-weight:700;line-height:1.25}.harlo-booking-chevron{width:18px;height:18px;flex:0 0 18px;color:#7c8986}.harlo-slot-list{display:grid;gap:8px;padding:0 15px 14px}.harlo-slot-button{width:100%;min-height:42px;border:1px solid #dbe5ea;border-radius:13px;background:#fbfdff;color:#111827;text-align:left;padding:9px 11px;font-size:13px;font-weight:800;cursor:pointer;transition:border-color .16s ease,background .16s ease,color .16s ease}.harlo-slot-button:hover,.harlo-slot-button[data-selected=true]{border-color:var(--harlo-accent,#087f95);background:color-mix(in srgb,var(--harlo-accent,#087f95) 8%,#fff);color:var(--harlo-accent,#087f95)}.harlo-book-form{display:none;gap:9px;padding:0 15px 15px}.harlo-action-card[data-selected=true] .harlo-book-form{display:grid}.harlo-book-input{width:100%;min-height:40px;border:1px solid #dbe5ea;border-radius:12px;background:#fbfdff;color:#111827;font:inherit;font-size:13px;padding:9px 10px;outline:none}.harlo-book-input:focus{border-color:var(--harlo-accent,#087f95);box-shadow:0 0 0 3px color-mix(in srgb,var(--harlo-accent,#087f95) 12%,transparent)}.harlo-book-status{min-height:17px;color:#5f6876;font-size:11px;font-weight:700;text-align:center}.harlo-book-status[data-error=true]{color:#dc2626}.harlo-book-links{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}.harlo-book-links a{color:var(--harlo-accent,#087f95);font-size:12px;font-weight:800;text-decoration:none}",
+    ".harlo-scheduler-modal{position:fixed;inset:0;z-index:2147483646;background:rgba(15,23,42,.56);display:grid;place-items:center;padding:24px;font-family:Inter,system-ui,-apple-system,sans-serif}.harlo-scheduler-dialog{position:relative;width:min(1060px,calc(100vw - 48px));height:min(760px,calc(100vh - 48px));border-radius:20px;overflow:hidden;background:#fff;box-shadow:0 32px 90px rgba(15,23,42,.35)}.harlo-scheduler-frame{width:100%;height:100%;border:0;background:#fff}.harlo-scheduler-close{position:absolute;right:12px;top:12px;width:38px;height:38px;border:0;border-radius:999px;background:rgba(17,24,39,.82);color:#fff;display:grid;place-items:center;cursor:pointer;z-index:2}.harlo-scheduler-close .harlo-icon{width:19px;height:19px}@media(max-width:768px){.harlo-scheduler-modal{padding:0}.harlo-scheduler-dialog{width:100vw;height:100vh;height:100dvh;border-radius:0}}",
+    ".harlo-message-time{font-size:11px;color:#7c8986;margin-top:5px}.harlo-entry[data-role=assistant] .harlo-message-time{margin-left:0}.harlo-entry[data-kind=integration-actions] .harlo-message-time{margin-left:0}.harlo-entry[data-role=user] .harlo-message-time{text-align:right;margin-right:2px}.harlo-typing{display:flex;align-items:center;gap:4px;min-width:34px;height:20px}.harlo-typing span{width:6px;height:6px;border-radius:999px;background:var(--harlo-accent,#087f95);opacity:.35;animation:harloTyping 1s infinite ease-in-out}.harlo-typing span:nth-child(2){animation-delay:.14s}.harlo-typing span:nth-child(3){animation-delay:.28s}@keyframes harloTyping{0%,80%,100%{transform:translateY(0);opacity:.35}40%{transform:translateY(-3px);opacity:1}}.harlo-message p{margin:0 0 8px}.harlo-message p:last-child{margin-bottom:0}.harlo-message ul{display:block;list-style-type:disc!important;list-style-position:outside!important;margin:7px 0 0 0!important;padding-left:22px!important}.harlo-message li{display:list-item!important;list-style-type:disc!important;margin:3px 0;padding-left:2px}",
     ".harlo-suggestions{display:none;width:100%;background:#fff;padding:0 13px 5px}.harlo-suggestions[data-visible=true]{display:block}.harlo-suggestion-stack{display:flex;flex-direction:column;align-items:stretch;gap:8px;width:100%;margin:0;padding:9px 0 8px}.harlo-suggestion-row{display:flex;justify-content:flex-end;align-items:center;gap:8px;width:100%;min-width:0}.harlo-prompt{display:inline-flex;align-items:center;justify-content:center;flex:0 1 auto;width:auto;max-width:100%;min-height:34px;border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:8px 13px;font-size:12.5px;font-weight:650;line-height:1.25;color:#1f2937;text-align:center;white-space:normal;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.04);transition:border-color .16s ease,color .16s ease,background .16s ease,box-shadow .16s ease,transform .16s ease}.harlo-prompt:hover{border-color:#cbd5e1;background:#fafafa;color:#111827;box-shadow:0 3px 8px rgba(15,23,42,.06);transform:translateY(-1px)}.harlo-meta{font-size:11px;color:#5f6876;margin-top:8px}",
     ".harlo-input{display:flex;gap:9px;padding:12px 13px 9px;border-top:1px solid #edf2f5;background:#fff}.harlo-input input{flex:1;min-width:0;border:1px solid #dbe5ea;border-radius:14px;padding:12px 13px;font-size:14px;outline:none;background:#fbfdff;transition:border-color .16s ease,box-shadow .16s ease,background .16s ease}.harlo-input input:focus{border-color:var(--harlo-accent,#087f95);background:#fff;box-shadow:0 0 0 4px color-mix(in srgb,var(--harlo-accent,#087f95) 14%,transparent)}.harlo-input button{width:46px;height:44px;display:grid;place-items:center;border:0;border-radius:14px;background:linear-gradient(135deg,var(--harlo-accent,#087f95),color-mix(in srgb,var(--harlo-accent,#087f95) 82%,#111827));color:white;padding:0;cursor:pointer;box-shadow:0 12px 22px color-mix(in srgb,var(--harlo-accent,#087f95) 18%,transparent);transition:transform .16s ease,box-shadow .16s ease}.harlo-input button:hover{transform:translateY(-1px);box-shadow:0 16px 26px color-mix(in srgb,var(--harlo-accent,#087f95) 22%,transparent)}.harlo-input button .harlo-icon{width:18px;height:18px}.harlo-input button:disabled{opacity:.6;cursor:wait;transform:none}.harlo-powered{padding:0 13px 13px;background:#fff;text-align:center;font-size:11px;color:#7c8986}.harlo-powered strong{font-weight:850;color:#5f6876}",
-    "@media(max-width:768px){.harlo-launcher{right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));width:56px;height:56px}.harlo-launcher .harlo-icon{width:30px;height:30px}.harlo-nudge{left:16px;right:16px;bottom:88px;width:auto;max-width:none;padding:14px 38px 14px 14px;border-radius:16px}.harlo-nudge-text{font-size:14px;line-height:1.4}.harlo-nudge-close{right:8px;top:8px}.harlo-nudge[data-side=right]:after{right:42px}.harlo-nudge[data-side=left]:after{left:42px}.harlo-panel{inset:0;width:100vw;height:100vh;height:100dvh;max-height:none;border:0;border-radius:0;box-shadow:none}.harlo-panel[data-open=true]{animation:harloPanelSheetIn .2s ease-out}.harlo-panel[data-open=true]~.harlo-launcher{display:none}.harlo-head{min-height:68px;padding:calc(14px + env(safe-area-inset-top)) 14px 14px}.harlo-mark{width:38px;height:38px;border-radius:13px}.harlo-close{width:36px;height:36px}.harlo-body{padding:14px;font-size:14px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}.harlo-entry[data-continued=true]{margin-left:38px}.harlo-assistant-row{max-width:100%;gap:8px}.harlo-message{max-width:90%;padding:11px 12px;border-radius:15px}.harlo-entry[data-role=assistant] .harlo-message-time{margin-left:38px}.harlo-entry[data-kind=integration-actions] .harlo-message-time{margin-left:0}.harlo-suggestions{padding:0 10px 2px}.harlo-input{gap:8px;padding:10px 10px max(10px,env(safe-area-inset-bottom))}.harlo-input input{font-size:16px;padding:11px 12px}.harlo-input button{width:44px;height:44px}.harlo-powered{padding-bottom:max(13px,env(safe-area-inset-bottom))}}@keyframes harloPanelSheetIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}"
+    "@media(max-width:768px){.harlo-launcher{right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));width:56px;height:56px}.harlo-launcher .harlo-icon{width:30px;height:30px}.harlo-nudge{left:16px;right:16px;bottom:88px;width:auto;max-width:none;padding:14px 38px 14px 14px;border-radius:16px}.harlo-nudge-text{font-size:14px;line-height:1.4}.harlo-nudge-close{right:8px;top:8px}.harlo-nudge[data-side=right]:after{right:42px}.harlo-nudge[data-side=left]:after{left:42px}.harlo-panel{inset:0;width:100vw;height:100vh;height:100dvh;max-height:none;border:0;border-radius:0;box-shadow:none}.harlo-panel[data-open=true]{animation:harloPanelSheetIn .2s ease-out}.harlo-panel[data-open=true]~.harlo-launcher{display:none}.harlo-head{min-height:68px;padding:calc(14px + env(safe-area-inset-top)) 14px 14px}.harlo-mark{width:38px;height:38px;border-radius:13px}.harlo-close{width:36px;height:36px}.harlo-body{padding:14px;font-size:14px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}.harlo-entry[data-continued=true]{margin-left:0}.harlo-assistant-row{max-width:100%}.harlo-message{max-width:90%;padding:11px 12px;border-radius:15px}.harlo-entry[data-role=assistant] .harlo-message-time{margin-left:0}.harlo-entry[data-kind=integration-actions] .harlo-message-time{margin-left:0}.harlo-suggestions{padding:0 10px 2px}.harlo-input{gap:8px;padding:10px 10px max(10px,env(safe-area-inset-bottom))}.harlo-input input{font-size:16px;padding:11px 12px}.harlo-input button{width:44px;height:44px}.harlo-powered{padding-bottom:max(13px,env(safe-area-inset-bottom))}}@keyframes harloPanelSheetIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}"
   ].join("");
   document.head.appendChild(style);
 
@@ -64,6 +65,8 @@ export function GET(request: NextRequest) {
   var mailIcon = '<svg class="harlo-icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a2 2 0 0 1-2.06 0L2 7"></path></svg>';
   var calendarIcon = '<svg class="harlo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg>';
   var externalLinkIcon = '<svg class="harlo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg>';
+  var chevronRightIcon = '<svg class="harlo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>';
+  var xIcon = '<svg class="harlo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>';
   root.innerHTML = '<section class="harlo-panel" aria-label="Harlo chat"><div class="harlo-head"><div class="harlo-head-inner"><div class="harlo-mark">' + brandIcon + '</div><div><div class="harlo-title">Ask Harlo</div><div class="harlo-subtitle">Usually replies instantly</div></div></div><button class="harlo-close" aria-label="Minimize chat"></button></div><div class="harlo-body"></div><div class="harlo-suggestions"></div><form class="harlo-input"><input aria-label="Message" placeholder="Ask a question..." autocomplete="off" /><button aria-label="Send message">' + sendIcon + '</button></form><div class="harlo-powered">Powered by <strong>Harlo</strong></div></section><div class="harlo-nudge" data-visible="false" data-side="right"><button class="harlo-nudge-text" type="button"></button><button class="harlo-nudge-close" type="button" aria-label="Dismiss greeting">&times;</button></div><button class="harlo-launcher" aria-label="Open Harlo chat">' + messageIcon + '</button>';
 
   var panel = root.querySelector(".harlo-panel");
@@ -266,10 +269,6 @@ export function GET(request: NextRequest) {
       if (message.role === "assistant" && !continuesAssistantGroup) {
         var row = document.createElement("div");
         row.className = "harlo-assistant-row";
-        var avatar = document.createElement("div");
-        avatar.className = "harlo-avatar";
-        renderBrandMark(avatar);
-        row.appendChild(avatar);
         row.appendChild(bubble);
         entry.appendChild(row);
       } else if (message.role === "assistant") {
@@ -539,9 +538,16 @@ export function GET(request: NextRequest) {
     var actions = payload && Array.isArray(payload.actions) ? payload.actions : [];
     var stack = document.createElement("div");
     stack.className = "harlo-action-stack";
+    var bookingActions = actions.filter(function (action) {
+      return action && action.type === "booking" && action.url;
+    });
 
-    actions.forEach(function (action) {
-      if (!action || action.type !== "booking") return;
+    if (bookingActions.length > 1) {
+      stack.appendChild(formatBookingOptionsCard(bookingActions));
+      return stack;
+    }
+
+    bookingActions.forEach(function (action) {
       var card = document.createElement("div");
       card.className = "harlo-action-card";
       var head = document.createElement("div");
@@ -563,7 +569,7 @@ export function GET(request: NextRequest) {
       card.appendChild(head);
 
       if (action.url) {
-        attachCalendlyPopupButton(card, action);
+        attachSchedulerButton(card, action);
       }
 
       stack.appendChild(card);
@@ -576,7 +582,106 @@ export function GET(request: NextRequest) {
     return stack;
   }
 
-  function attachCalendlyPopupButton(card, action) {
+  function formatBookingOptionsCard(actions) {
+    var provider = actions[0] && actions[0].provider;
+    var card = document.createElement("div");
+    card.className = "harlo-action-card";
+    var head = document.createElement("div");
+    head.className = "harlo-action-head";
+    var icon = document.createElement("div");
+    icon.className = "harlo-action-icon";
+    icon.innerHTML = calendarIcon;
+    var copyWrap = document.createElement("div");
+    var heading = document.createElement("div");
+    heading.className = "harlo-action-title";
+    heading.textContent = "Book a time";
+    var copy = document.createElement("p");
+    copy.className = "harlo-action-copy";
+    copy.textContent = "Choose a meeting type.";
+    copyWrap.appendChild(heading);
+    copyWrap.appendChild(copy);
+    head.appendChild(icon);
+    head.appendChild(copyWrap);
+    card.appendChild(head);
+
+    var list = document.createElement("div");
+    list.className = "harlo-booking-options";
+    actions.forEach(function (action) {
+      list.appendChild(createBookingOptionButton(action));
+    });
+    card.appendChild(list);
+    appendBookingProviderNote(card, provider);
+
+    return card;
+  }
+
+  function createBookingOptionButton(action) {
+    var button = document.createElement("button");
+    button.className = "harlo-booking-option";
+    button.type = "button";
+    var logo = document.createElement("span");
+    logo.className = "harlo-booking-logo";
+    logo.appendChild(createProviderLogo(action.provider));
+    var copy = document.createElement("span");
+    copy.className = "harlo-booking-copy";
+    var name = document.createElement("span");
+    name.className = "harlo-booking-name";
+    name.textContent = action.title || "Book a time";
+    var meta = document.createElement("span");
+    meta.className = "harlo-booking-meta";
+    meta.textContent = getBookingMeta(action);
+    copy.appendChild(name);
+    copy.appendChild(meta);
+    var chevron = document.createElement("span");
+    chevron.className = "harlo-booking-chevron";
+    chevron.innerHTML = chevronRightIcon;
+    button.appendChild(logo);
+    button.appendChild(copy);
+    button.appendChild(chevron.firstChild);
+    button.addEventListener("click", function () {
+      button.disabled = true;
+      openSchedulerPopup(action).catch(function () {
+        window.open(action.url, "_blank", "noopener,noreferrer");
+      }).finally(function () {
+        button.disabled = false;
+      });
+    });
+
+    return button;
+  }
+
+  function getBookingMeta(action) {
+    var description = typeof action.description === "string" ? action.description : "";
+    var duration = description.match(/\\b\\d+\\s*min\\b/i);
+
+    return duration ? duration[0] : getBookingProviderName(action.provider);
+  }
+
+  function createProviderLogo(provider) {
+    var img = document.createElement("img");
+    img.alt = "";
+    img.src = provider === "calcom"
+      ? "https://www.google.com/s2/favicons?domain=cal.com&sz=128"
+      : "https://www.google.com/s2/favicons?domain=calendly.com&sz=128";
+
+    return img;
+  }
+
+  function getBookingProviderName(provider) {
+    return provider === "calcom" ? "Cal.com" : "Calendly";
+  }
+
+  function appendBookingProviderNote(card, provider) {
+    var footer = document.createElement("div");
+    footer.className = "harlo-action-footer";
+    var note = document.createElement("p");
+    note.className = "harlo-action-note";
+    note.textContent = "Powered by " + getBookingProviderName(provider);
+    footer.appendChild(note);
+    card.appendChild(footer);
+  }
+
+  function attachSchedulerButton(card, action) {
     var footer = document.createElement("div");
     footer.className = "harlo-action-footer";
     var button = document.createElement("button");
@@ -588,19 +693,27 @@ export function GET(request: NextRequest) {
     button.appendChild(buttonIcon.firstChild);
     var note = document.createElement("p");
     note.className = "harlo-action-note";
-    note.textContent = action.provider === "calendly" ? "Powered by Calendly" : "Opens secure scheduling";
+    note.textContent = action.provider === "calcom" ? "Powered by Cal.com" : "Powered by Calendly";
     footer.appendChild(button);
     footer.appendChild(note);
     card.appendChild(footer);
 
     button.addEventListener("click", function () {
       button.disabled = true;
-      openCalendlyPopup(action.url).catch(function () {
+      openSchedulerPopup(action).catch(function () {
         window.open(action.url, "_blank", "noopener,noreferrer");
       }).finally(function () {
         button.disabled = false;
       });
     });
+  }
+
+  function openSchedulerPopup(action) {
+    if (action.provider === "calcom") {
+      return openCalcomModal(action.url);
+    }
+
+    return openCalendlyPopup(action.url);
   }
 
   function openCalendlyPopup(url) {
@@ -648,6 +761,56 @@ export function GET(request: NextRequest) {
     });
 
     return calendlyLoadPromise;
+  }
+
+  function openCalcomModal(url) {
+    return new Promise(function (resolve, reject) {
+      if (!url) {
+        reject(new Error("Cal.com scheduler URL is missing."));
+        return;
+      }
+
+      var existing = document.querySelector(".harlo-scheduler-modal");
+      if (existing) existing.remove();
+
+      var modal = document.createElement("div");
+      modal.className = "harlo-scheduler-modal";
+      modal.setAttribute("role", "dialog");
+      modal.setAttribute("aria-modal", "true");
+      var dialog = document.createElement("div");
+      dialog.className = "harlo-scheduler-dialog";
+      var close = document.createElement("button");
+      close.className = "harlo-scheduler-close";
+      close.type = "button";
+      close.setAttribute("aria-label", "Close scheduler");
+      close.innerHTML = xIcon;
+      var frame = document.createElement("iframe");
+      frame.className = "harlo-scheduler-frame";
+      frame.title = "Cal.com scheduler";
+      frame.src = url;
+      frame.loading = "eager";
+      dialog.appendChild(close);
+      dialog.appendChild(frame);
+      modal.appendChild(dialog);
+      document.body.appendChild(modal);
+      panel.setAttribute("data-open", "false");
+      updateLauncherIcon();
+
+      var closeModal = function () {
+        modal.remove();
+        document.removeEventListener("keydown", handleKeydown);
+      };
+      var handleKeydown = function (event) {
+        if (event.key === "Escape") closeModal();
+      };
+
+      close.addEventListener("click", closeModal);
+      modal.addEventListener("click", function (event) {
+        if (event.target === modal) closeModal();
+      });
+      document.addEventListener("keydown", handleKeydown);
+      resolve();
+    });
   }
 
   function formatLeadCaptureForm(payload) {
@@ -698,7 +861,7 @@ export function GET(request: NextRequest) {
       input.name = field.key;
       input.type = field.type === "email" ? "email" : field.type === "phone" ? "tel" : field.type === "date" ? "date" : "text";
       input.placeholder = field.prompt || field.label || "";
-      input.required = true;
+      input.required = field.required === true;
       input.autocomplete = getLeadAutocomplete(field);
       input.value = payload.values[field.key] || "";
 
@@ -752,7 +915,7 @@ export function GET(request: NextRequest) {
         var value = input ? input.value.trim() : "";
         payload.values[field.key] = value;
         var invalidEmail = field.type === "email" && value && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value);
-        var missingRequired = !value;
+        var missingRequired = field.required === true && !value;
 
         if (missingRequired || invalidEmail) {
           isValid = false;
