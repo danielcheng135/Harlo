@@ -11,6 +11,7 @@ const footerSections = [
       { label: "Features", href: "/#features" },
       { label: "How it works", href: "/#workflow" },
       { label: "Pricing", href: "/#pricing" },
+      { label: "Support", href: "/support" },
       { label: "Docs", href: "/docs" },
       { label: "Add-ons", href: "/#add-ons" },
       { label: "Compare", href: "/#compare" },

@@ -21,6 +21,8 @@ export const siteConfig = {
 
 export const publicRoutes = [
   { path: "/", priority: 1, changeFrequency: "weekly" },
+  { path: "/slack", priority: 0.8, changeFrequency: "weekly" },
+  { path: "/support", priority: 0.7, changeFrequency: "weekly" },
   { path: "/docs", priority: 0.75, changeFrequency: "weekly" },
   { path: "/docs/widget-install", priority: 0.8, changeFrequency: "weekly" },
   { path: "/docs/builder", priority: 0.75, changeFrequency: "weekly" },
@@ -28,6 +30,14 @@ export const publicRoutes = [
   { path: "/docs/conversations", priority: 0.75, changeFrequency: "weekly" },
   { path: "/docs/leads", priority: 0.75, changeFrequency: "weekly" },
   { path: "/docs/analytics", priority: 0.75, changeFrequency: "weekly" },
+  { path: "/docs/integrations", priority: 0.75, changeFrequency: "weekly" },
+  { path: "/docs/integrations/calendly", priority: 0.7, changeFrequency: "weekly" },
+  { path: "/docs/integrations/calcom", priority: 0.7, changeFrequency: "weekly" },
+  { path: "/docs/integrations/jobber", priority: 0.7, changeFrequency: "weekly" },
+  { path: "/docs/integrations/slack", priority: 0.7, changeFrequency: "weekly" },
+  { path: "/docs/integrations/hubspot", priority: 0.7, changeFrequency: "weekly" },
+  { path: "/docs/integrations/mailchimp", priority: 0.7, changeFrequency: "weekly" },
+  { path: "/docs/integrations/google-sheets", priority: 0.7, changeFrequency: "weekly" },
   { path: "/docs/team", priority: 0.7, changeFrequency: "weekly" },
   { path: "/privacy", priority: 0.35, changeFrequency: "yearly" },
   { path: "/cookie-policy", priority: 0.35, changeFrequency: "yearly" },

@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, BookOpen, CheckCircle2, ChevronRight, Route, Search, Sparkles } from "lucide-react";
 import { useMemo } from "react";
-import { docs, isDocId, workspaceSnippet, type DocId, type DocSection } from "@/lib/docs";
+import { docs, integrationDocs, isDocId, workspaceSnippet, type DocId, type DocSection } from "@/lib/docs";
 
 const navGroups = [
   { title: "Setup", ids: ["widget", "builder", "knowledge"] as DocId[] },
-  { title: "Operations", ids: ["conversations", "leads", "analytics", "team"] as DocId[] }
+  { title: "Operations", ids: ["conversations", "leads", "analytics", "team"] as DocId[] },
+  { title: "Connected actions", ids: ["integrations"] as DocId[] }
 ];
 
 export function DocsWorkspace({ initialDocId = "widget" }: { initialDocId?: DocId }) {
@@ -135,6 +136,7 @@ function DocPanel({ doc }: { doc: DocSection }) {
           </div>
 
           {doc.id === "widget" ? <WidgetSnippets /> : null}
+          {doc.id === "integrations" ? <IntegrationDocsGrid /> : null}
 
           <div className="mt-8">
             <SectionHeading eyebrow="Workflow" title="How to use this page" />
@@ -192,6 +194,60 @@ function DocPanel({ doc }: { doc: DocSection }) {
         </aside>
       </div>
     </section>
+  );
+}
+
+function IntegrationDocsGrid() {
+  return (
+    <div className="mt-8">
+      <SectionHeading eyebrow="Provider guides" title="Choose the integration you want to configure" />
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        {integrationDocs.map((integration) => {
+          const Icon = integration.icon;
+
+          return (
+            <Link
+              key={integration.id}
+              href={integration.path as NextRoute}
+              className="group overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-harlo-teal/60 hover:shadow-soft"
+            >
+              <div className={`h-2 bg-gradient-to-r ${integration.accentClass}`} />
+              <div className="p-4">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-harlo-canvas ring-1 ring-harlo-line">
+                    {integration.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={integration.logoUrl} alt="" className="h-7 w-7 object-contain" />
+                    ) : (
+                      <Icon size={21} className="text-harlo-teal" />
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-harlo-teal">{integration.eyebrow}</p>
+                    <h3 className="mt-1 text-xl font-semibold tracking-tight text-harlo-ink">{integration.name}</h3>
+                  </div>
+                </div>
+                <p className="mt-4 text-sm leading-6 text-harlo-muted">{integration.description}</p>
+                <div className="mt-4 grid gap-2 rounded-lg bg-harlo-canvas p-3 text-xs font-semibold text-harlo-muted">
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Trigger</span>
+                    <span className="text-harlo-ink">{integration.triggerLabel}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Action</span>
+                    <span className="text-harlo-ink">{integration.actionLabel}</span>
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center justify-between border-t border-harlo-line pt-4 text-sm font-semibold text-harlo-teal">
+                  Open {integration.name} guide
+                  <ArrowRight size={16} className="transition group-hover:translate-x-0.5" />
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
