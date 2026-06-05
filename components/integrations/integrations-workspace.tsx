@@ -766,7 +766,7 @@ function ConfigurePanel({
                   Add a spreadsheet and tab before saving Google Sheets.
                 </span>
               ) : null}
-              <span className="mt-2 block text-xs font-medium leading-5 text-harlo-muted">Share the sheet with the connected Google account so Harlo can append rows.</span>
+              <span className="mt-2 block text-xs font-medium leading-5 text-harlo-muted">Share the sheet with the connected Google account so Harlo can create the tab and append rows.</span>
             </label>
 
             <label className="block text-sm font-semibold text-harlo-ink">
@@ -779,7 +779,7 @@ function ConfigurePanel({
                 required
                 className="mt-2 h-11 w-full rounded-lg border border-harlo-line px-3 text-sm font-medium text-harlo-ink outline-none transition focus:border-harlo-teal focus:ring-2 focus:ring-harlo-teal/20 disabled:bg-slate-50 disabled:text-harlo-muted"
               />
-              <span className="mt-2 block text-xs font-medium leading-5 text-harlo-muted">Rows append to columns A-H in this tab.</span>
+              <span className="mt-2 block text-xs font-medium leading-5 text-harlo-muted">Harlo creates this tab if needed and adds columns for each selected agent's lead capture fields.</span>
             </label>
           </div>
         ) : null}

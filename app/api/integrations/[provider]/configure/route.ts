@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { canUseIntegrationProvider, type BillingPlanKey } from "@/lib/billing/plans";
 import { getIntegrationAdminAuth } from "@/lib/integrations/auth";
-import { normalizeSelectedEventTypes } from "@/lib/integrations/event-types";
+import { getFreshIntegrationCredentials, normalizeSelectedEventTypes } from "@/lib/integrations/event-types";
+import {
+  buildGoogleSheetsLeadHeaders,
+  ensureGoogleSheetsLeadSheet,
+  mergeGoogleSheetsLeadFields,
+  normalizeGoogleSpreadsheetId,
+  type GoogleSheetsLeadFieldColumn
+} from "@/lib/integrations/google-sheets";
 import { parseIntegrationProviderParam } from "@/lib/integrations/oauth";
 import { getIntegrationProvider } from "@/lib/integrations/registry";
 import type { IntegrationActionType, IntegrationTriggerType } from "@/lib/integrations/types";
+import { normalizeLeadFields } from "@/lib/lead-fields";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
+
+type SupabaseServiceClient = ReturnType<typeof createSupabaseServiceClient>;
 
 type RouteContext = {
   params: Promise<{ provider: string }>;
@@ -93,11 +103,39 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const { data: bots } = await service
     .from("bots")
-    .select("id")
+    .select("id, lead_capture_fields")
     .eq("organization_id", auth.organizationId)
     .eq("status", "active")
     .in("id", selectedBotIds.length > 0 ? selectedBotIds : ["00000000-0000-0000-0000-000000000000"]);
-  const validBotIds = new Set((bots ?? []).map((bot) => bot.id as string));
+  const botRows = (bots ?? []) as Array<{ id: string; lead_capture_fields: unknown }>;
+  const validBotIds = new Set(botRows.map((bot) => bot.id));
+  const googleSheetsLeadFieldsByBotId = new Map(
+    botRows.map((bot) => [bot.id, getGoogleSheetsLeadFieldsForBot(bot.lead_capture_fields)])
+  );
+  const googleSheetsLeadFields = mergeGoogleSheetsLeadFields(
+    botRows.flatMap((bot) => googleSheetsLeadFieldsByBotId.get(bot.id) ?? [])
+  );
+  const providerConfigurationError = await prepareProviderTargetConfiguration({
+    provider,
+    service,
+    integration: {
+      id: integration.id,
+      credentialsEncrypted: integration.credentials_encrypted
+    },
+    requestUrl: request.url,
+    actionConfig,
+    leadFields: googleSheetsLeadFields
+  });
+
+  if (providerConfigurationError) {
+    redirectUrl.searchParams.set("status", "configure_failed");
+    if (wantsJson(request)) {
+      return NextResponse.json({ ok: false, error: providerConfigurationError }, { status: 400 });
+    }
+
+    return NextResponse.redirect(redirectUrl, { status: 303 });
+  }
+
   const rows = selectedBotIds
     .filter((botId) => validBotIds.has(botId))
     .map((botId) => ({
@@ -111,7 +149,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       field_mapping: {},
       success_message: successMessage,
       fallback_message: fallbackMessage,
-      config: actionConfig,
+      config: getBotActionConfig(provider, actionConfig, googleSheetsLeadFieldsByBotId.get(botId)),
       updated_at: new Date().toISOString()
     }));
 
@@ -225,7 +263,7 @@ function getActionConfig(provider: NonNullable<ReturnType<typeof parseIntegratio
   if (provider === "google_sheets") {
     return {
       provider,
-      spreadsheetId: normalizeSpreadsheetId(formData.get("spreadsheetId")),
+      spreadsheetId: normalizeGoogleSpreadsheetId(formData.get("spreadsheetId")),
       sheetName: normalizeMessage(formData.get("sheetName")) ?? "Leads"
     };
   }
@@ -275,16 +313,28 @@ function getRequiredFields(provider: NonNullable<ReturnType<typeof parseIntegrat
   return actionType === "create_crm_contact" ? ["email"] : [];
 }
 
-function normalizeSpreadsheetId(value: FormDataEntryValue | null) {
-  const text = normalizeMessage(value);
-
-  if (!text) {
-    return null;
+function getBotActionConfig(
+  provider: NonNullable<ReturnType<typeof parseIntegrationProviderParam>>,
+  actionConfig: Record<string, unknown>,
+  leadFields: GoogleSheetsLeadFieldColumn[] | undefined
+) {
+  if (provider !== "google_sheets") {
+    return actionConfig;
   }
 
-  const match = text.match(/\/spreadsheets\/d\/([^/?#]+)/);
+  return {
+    ...actionConfig,
+    leadFields: leadFields ?? []
+  };
+}
 
-  return match?.[1] ?? text;
+function getGoogleSheetsLeadFieldsForBot(value: unknown) {
+  return normalizeLeadFields(value)
+    .filter((field) => field.enabled)
+    .map((field) => ({
+      key: field.key,
+      label: field.label
+    }));
 }
 
 function getSelectedEventTypesFromForm(formData: FormData) {
@@ -334,4 +384,51 @@ function getDefaultTriggerType(
 
 function wantsJson(request: NextRequest) {
   return request.headers.get("accept")?.includes("application/json") || request.headers.get("x-requested-with") === "fetch";
+}
+
+async function prepareProviderTargetConfiguration({
+  provider,
+  service,
+  integration,
+  requestUrl,
+  actionConfig,
+  leadFields
+}: {
+  provider: NonNullable<ReturnType<typeof parseIntegrationProviderParam>>;
+  service: SupabaseServiceClient;
+  integration: {
+    id: string;
+    credentialsEncrypted: string | null;
+  };
+  requestUrl: string;
+  actionConfig: Record<string, unknown>;
+  leadFields: GoogleSheetsLeadFieldColumn[];
+}) {
+  if (provider !== "google_sheets") {
+    return null;
+  }
+
+  if (!integration.credentialsEncrypted) {
+    return "Reconnect Google Sheets before saving this configuration.";
+  }
+
+  try {
+    const credentials = await getFreshIntegrationCredentials({
+      supabase: service,
+      integrationId: integration.id,
+      provider,
+      encryptedCredentials: integration.credentialsEncrypted,
+      requestUrl
+    });
+    await ensureGoogleSheetsLeadSheet({
+      accessToken: credentials.accessToken,
+      spreadsheetId: normalizeGoogleSpreadsheetId(actionConfig.spreadsheetId),
+      sheetName: normalizeMessage(actionConfig.sheetName as FormDataEntryValue | null) ?? "Leads",
+      headers: buildGoogleSheetsLeadHeaders(leadFields)
+    });
+
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : "Google Sheets could not validate this spreadsheet.";
+  }
 }

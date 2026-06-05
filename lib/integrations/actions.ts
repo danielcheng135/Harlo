@@ -1,6 +1,15 @@
 import { createHash } from "crypto";
 import { encryptIntegrationCredentials } from "@/lib/integrations/credentials";
 import { getFreshIntegrationCredentials, normalizeSelectedEventTypes } from "@/lib/integrations/event-types";
+import {
+  appendGoogleSheetsRow,
+  buildGoogleSheetsLeadHeaders,
+  getGoogleSheetsErrorMessage,
+  getGoogleSpreadsheetUrl,
+  mergeGoogleSheetsLeadFields,
+  normalizeGoogleSheetsLeadFields,
+  normalizeGoogleSpreadsheetId
+} from "@/lib/integrations/google-sheets";
 import { getMailchimpErrorMessage, getMailchimpMarketingApiBase } from "@/lib/integrations/mailchimp";
 import { refreshProviderTokenIfNeeded, type OAuthTokenSet } from "@/lib/integrations/providers";
 import type {
@@ -868,8 +877,10 @@ async function runGoogleSheetsAppendAction(
   action: EnabledIntegrationAction,
   payload: IntegrationActionPayload
 ): Promise<IntegrationActionResult> {
-  const spreadsheetId = getString(action.config.spreadsheetId);
+  const spreadsheetId = normalizeGoogleSpreadsheetId(action.config.spreadsheetId);
   const sheetName = getString(action.config.sheetName) ?? "Leads";
+  const leadFields = getGoogleSheetsLeadFields(action.config, payload);
+  const headers = buildGoogleSheetsLeadHeaders(leadFields);
 
   if (!spreadsheetId) {
     return {
@@ -882,23 +893,13 @@ async function runGoogleSheetsAppendAction(
     };
   }
 
-  const range = `${quoteGoogleSheetName(sheetName)}!A:Z`;
-  const appendUrl = new URL(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}:append`);
-  appendUrl.searchParams.set("valueInputOption", "USER_ENTERED");
-  appendUrl.searchParams.set("insertDataOption", "INSERT_ROWS");
-  const response = await fetch(appendUrl, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${action.credentials.accessToken}`,
-      "content-type": "application/json",
-      accept: "application/json"
-    },
-    body: JSON.stringify({
-      majorDimension: "ROWS",
-      values: [buildGoogleSheetsLeadRow(payload)]
-    })
+  const appendPayload = await appendGoogleSheetsRow({
+    accessToken: action.credentials.accessToken,
+    spreadsheetId,
+    sheetName,
+    headers,
+    row: buildGoogleSheetsLeadRow(payload, leadFields)
   });
-  const appendPayload = await parseProviderResponse(response, "Google Sheets row append failed.");
   const updates = appendPayload.updates && typeof appendPayload.updates === "object"
     ? appendPayload.updates as Record<string, unknown>
     : {};
@@ -909,7 +910,7 @@ async function runGoogleSheetsAppendAction(
     status: "success",
     message: action.successMessage ?? "The lead was added to Google Sheets.",
     externalRecordId: updatedRange,
-    externalUrl: `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/edit`,
+    externalUrl: getGoogleSpreadsheetUrl(spreadsheetId),
     error: null,
     metadata: {
       spreadsheetId,
@@ -919,43 +920,98 @@ async function runGoogleSheetsAppendAction(
   };
 }
 
-function buildGoogleSheetsLeadRow(payload: IntegrationActionPayload) {
-  return [
-    new Date().toISOString(),
-    cleanString(payload.lead.name) ?? "",
-    cleanString(payload.lead.email) ?? "",
-    cleanString(payload.lead.phone) ?? "",
-    cleanString(payload.lead.question) ?? cleanString(payload.visitorMessage) ?? "",
-    cleanString(payload.sourcePageUrl) ?? "",
-    cleanString(payload.conversationSummary) ?? "",
-    formatLeadMetadataForSheet(payload.lead.metadata)
-  ];
+function getGoogleSheetsLeadFields(
+  config: Record<string, unknown>,
+  payload: IntegrationActionPayload
+) {
+  const configuredFields = normalizeGoogleSheetsLeadFields(config.leadFields);
+  const fallbackFields = configuredFields.length > 0
+    ? []
+    : [
+      { key: "name", label: "Name" },
+      { key: "email", label: "Email" },
+      { key: "phone", label: "Phone" }
+    ];
+
+  return mergeGoogleSheetsLeadFields([
+    ...configuredFields,
+    ...fallbackFields,
+    ...getGoogleSheetsMetadataFields(payload.lead.metadata)
+  ]);
 }
 
-function formatLeadMetadataForSheet(metadata: Record<string, unknown> | undefined) {
+function getGoogleSheetsMetadataFields(metadata: Record<string, unknown> | undefined) {
   if (!metadata) {
-    return "";
+    return [];
   }
 
   return Object.entries(metadata)
     .filter(([key]) => !key.endsWith("_label") && !key.endsWith("_type"))
-    .map(([key, value]) => {
-      const formattedValue = formatMetadataValue(value);
-
-      if (!formattedValue) {
+    .map(([key]) => {
+      if (!formatMetadataValue(metadata[key])) {
         return null;
       }
 
       const label = cleanString(metadata[`${key}_label`] as string | null | undefined) ?? titleizeKey(key);
 
-      return `${label}: ${formattedValue}`;
+      return { key, label };
     })
-    .filter((line): line is string => Boolean(line))
-    .join("; ");
+    .filter((field): field is { key: string; label: string } => Boolean(field));
 }
 
-function quoteGoogleSheetName(sheetName: string) {
-  return `'${sheetName.replace(/'/g, "''")}'`;
+function buildGoogleSheetsLeadRow(
+  payload: IntegrationActionPayload,
+  fields: ReturnType<typeof getGoogleSheetsLeadFields>
+) {
+  const row: Record<string, unknown> = {
+    Timestamp: new Date().toISOString(),
+    Question: cleanString(payload.lead.question) ?? cleanString(payload.visitorMessage) ?? "",
+    "Source Page": cleanString(payload.sourcePageUrl) ?? ""
+  };
+  const fieldHeaders = getGoogleSheetsFieldHeaders(fields);
+
+  fields.forEach((field, index) => {
+    const header = fieldHeaders[index];
+
+    if (!header) {
+      return;
+    }
+
+    row[header] = getGoogleSheetsLeadFieldValue(payload, field.key);
+  });
+
+  return row;
+}
+
+function getGoogleSheetsFieldHeaders(fields: ReturnType<typeof getGoogleSheetsLeadFields>) {
+  const seen = new Map<string, number>();
+
+  return fields.map((field) => {
+    const count = seen.get(field.label) ?? 0;
+    seen.set(field.label, count + 1);
+
+    return count === 0 ? field.label : `${field.label} ${count + 1}`;
+  });
+}
+
+function getGoogleSheetsLeadFieldValue(payload: IntegrationActionPayload, key: string) {
+  if (key === "name") {
+    return cleanString(payload.lead.name) ?? "";
+  }
+
+  if (key === "email") {
+    return cleanString(payload.lead.email) ?? "";
+  }
+
+  if (key === "phone") {
+    return cleanString(payload.lead.phone) ?? "";
+  }
+
+  if (key === "question") {
+    return cleanString(payload.lead.question) ?? cleanString(payload.visitorMessage) ?? "";
+  }
+
+  return formatMetadataValue(payload.lead.metadata?.[key]) ?? "";
 }
 
 async function upsertMailchimpMember({
@@ -1902,7 +1958,7 @@ function getProviderResponseMessage(payload: unknown) {
 
   const record = payload as Record<string, unknown>;
 
-  return getString(record.message) ?? getString(record.error_description) ?? getString(record.error);
+  return getGoogleSheetsErrorMessage(payload) ?? getString(record.message) ?? getString(record.error_description) ?? getString(record.error);
 }
 
 function escapeSlackText(value: string) {
