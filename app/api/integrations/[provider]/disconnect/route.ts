@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIntegrationAdminAuth } from "@/lib/integrations/auth";
+import { getFreshIntegrationCredentials } from "@/lib/integrations/event-types";
+import { disconnectJobberApp } from "@/lib/integrations/jobber";
 import { parseIntegrationProviderParam } from "@/lib/integrations/oauth";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 
@@ -28,6 +30,35 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const service = createSupabaseServiceClient();
+  const { data: integration, error: integrationError } = await service
+    .from("integrations")
+    .select("id, credentials_encrypted")
+    .eq("organization_id", auth.organizationId)
+    .eq("provider", provider)
+    .maybeSingle();
+
+  if (integrationError) {
+    return respondWithDisconnectError(request, redirectUrl, provider, integrationError.message);
+  }
+
+  if (provider === "jobber" && integration?.credentials_encrypted) {
+    try {
+      const credentials = await getFreshIntegrationCredentials({
+        supabase: service,
+        integrationId: integration.id,
+        provider,
+        encryptedCredentials: integration.credentials_encrypted,
+        requestUrl: request.url
+      });
+
+      await disconnectJobberApp(credentials.accessToken);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Jobber app disconnect failed.";
+
+      return respondWithDisconnectError(request, redirectUrl, provider, message);
+    }
+  }
+
   const { error } = await service.from("integrations").upsert({
     organization_id: auth.organizationId,
     provider,
@@ -53,4 +84,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
 function wantsJson(request: NextRequest) {
   return request.headers.get("accept")?.includes("application/json") || request.headers.get("x-requested-with") === "fetch";
+}
+
+function respondWithDisconnectError(
+  request: NextRequest,
+  redirectUrl: URL,
+  provider: string,
+  message: string
+) {
+  redirectUrl.searchParams.set("integration", provider);
+  redirectUrl.searchParams.set("status", "disconnect_failed");
+
+  if (wantsJson(request)) {
+    return NextResponse.json({ ok: false, error: message }, { status: 502 });
+  }
+
+  return NextResponse.redirect(redirectUrl, { status: 303 });
 }
