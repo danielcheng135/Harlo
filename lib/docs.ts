@@ -64,7 +64,7 @@ export type IntegrationDoc = {
   troubleshooting: { title: string; body: string }[];
 };
 
-const appOrigin = normalizeWidgetOrigin(process.env.NEXT_PUBLIC_WIDGET_ORIGIN ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://www.harloai.co");
+const appOrigin = normalizeWidgetOrigin(process.env.NEXT_PUBLIC_WIDGET_ORIGIN ?? "https://www.harloai.co");
 
 export const workspaceSnippet = `<script src="${appOrigin}/widget.js" data-harlo-organization="YOUR_ORGANIZATION_ID" async></script>`;
 
