@@ -55,6 +55,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Jobber app disconnect failed.";
 
+      console.error("Could not disconnect Jobber integration", {
+        organizationId: auth.organizationId,
+        integrationId: integration.id,
+        error: message
+      });
       return respondWithDisconnectError(request, redirectUrl, provider, message);
     }
   }
@@ -94,6 +99,7 @@ function respondWithDisconnectError(
 ) {
   redirectUrl.searchParams.set("integration", provider);
   redirectUrl.searchParams.set("status", "disconnect_failed");
+  redirectUrl.searchParams.set("reason", message.slice(0, 160));
 
   if (wantsJson(request)) {
     return NextResponse.json({ ok: false, error: message }, { status: 502 });

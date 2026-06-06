@@ -104,20 +104,27 @@ export async function refreshProviderTokenIfNeeded({
   requestUrl,
   tokenSet
 }: RefreshTokenInput): Promise<OAuthTokenSet> {
-  if (!tokenSet.refreshToken || !shouldRefreshToken(tokenSet.expiresAt)) {
-    return tokenSet;
+  const tokenSetWithExpiry = tokenSet.expiresAt
+    ? tokenSet
+    : {
+      ...tokenSet,
+      expiresAt: getAccessTokenExpiresAt(tokenSet.accessToken)
+    };
+
+  if (!tokenSetWithExpiry.refreshToken || !shouldRefreshToken(tokenSetWithExpiry.expiresAt)) {
+    return tokenSetWithExpiry;
   }
 
   const config = getIntegrationOAuthConfig(provider, requestUrl);
 
   if (!config) {
-    return tokenSet;
+    return tokenSetWithExpiry;
   }
 
   const endpoint = getTokenEndpoint(provider);
   const body = new URLSearchParams({
     grant_type: "refresh_token",
-    refresh_token: tokenSet.refreshToken,
+    refresh_token: tokenSetWithExpiry.refreshToken,
     client_id: config.clientId,
     client_secret: config.clientSecret
   });
@@ -138,13 +145,13 @@ export async function refreshProviderTokenIfNeeded({
   const refreshedTokenSet = normalizeTokenSet(provider, token);
 
   return hydrateTokenSet(provider, {
-    ...tokenSet,
+    ...tokenSetWithExpiry,
     ...refreshedTokenSet,
-    refreshToken: refreshedTokenSet.refreshToken ?? tokenSet.refreshToken,
-    providerAccountId: refreshedTokenSet.providerAccountId ?? tokenSet.providerAccountId,
-    providerAccountName: refreshedTokenSet.providerAccountName ?? tokenSet.providerAccountName,
+    refreshToken: refreshedTokenSet.refreshToken ?? tokenSetWithExpiry.refreshToken,
+    providerAccountId: refreshedTokenSet.providerAccountId ?? tokenSetWithExpiry.providerAccountId,
+    providerAccountName: refreshedTokenSet.providerAccountName ?? tokenSetWithExpiry.providerAccountName,
     raw: {
-      ...tokenSet.raw,
+      ...tokenSetWithExpiry.raw,
       ...refreshedTokenSet.raw
     }
   });
@@ -353,11 +360,23 @@ function normalizeTokenSet(provider: IntegrationProviderKey, token: Record<strin
 function getExpiresAt(token: Record<string, unknown>) {
   const expiresIn = typeof token.expires_in === "number" ? token.expires_in : null;
 
-  if (!expiresIn) {
-    return null;
+  if (expiresIn) {
+    return new Date(Date.now() + expiresIn * 1000).toISOString();
   }
 
-  return new Date(Date.now() + expiresIn * 1000).toISOString();
+  return getAccessTokenExpiresAt(typeof token.access_token === "string" ? token.access_token : null);
+}
+
+function getAccessTokenExpiresAt(accessToken: string | null | undefined) {
+  try {
+    const payload = JSON.parse(Buffer.from(accessToken?.split(".")[1] ?? "", "base64url").toString("utf8")) as {
+      exp?: number;
+    };
+
+    return typeof payload.exp === "number" ? new Date(payload.exp * 1000).toISOString() : null;
+  } catch {
+    return null;
+  }
 }
 
 function shouldRefreshToken(expiresAt: string | null | undefined) {

@@ -3,11 +3,14 @@ const DEFAULT_JOBBER_GRAPHQL_VERSION = "2025-04-16";
 
 type JobberUserError = {
   message?: string;
-  path?: Array<string | number>;
 };
 
 type AppDisconnectResponse = {
   appDisconnect?: {
+    app?: {
+      name?: string;
+      author?: string;
+    } | null;
     userErrors?: JobberUserError[] | null;
   } | null;
 };
@@ -20,9 +23,12 @@ export async function disconnectJobberApp(accessToken: string) {
       query: `
         mutation HarloAppDisconnect {
           appDisconnect {
+            app {
+              name
+              author
+            }
             userErrors {
               message
-              path
             }
           }
         }
@@ -74,11 +80,7 @@ function formatUserErrors(errors: JobberUserError[] | null | undefined) {
   }
 
   return errors
-    .map((error) => {
-      const path = error.path?.length ? `${error.path.join(".")}: ` : "";
-
-      return `${path}${error.message ?? "Jobber validation error."}`;
-    })
+    .map((error) => error.message ?? "Jobber validation error.")
     .join("; ");
 }
 
