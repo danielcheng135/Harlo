@@ -22,8 +22,14 @@ export async function POST(request: NextRequest) {
   }
 
   const rawBody = await request.text();
+  const contentType = request.headers.get("content-type");
 
-  if (!verifyJobberWebhookSignature(rawBody, signature, secret)) {
+  if (!verifyJobberWebhookSignature(rawBody, signature, secret, contentType)) {
+    console.warn("Rejected Jobber webhook signature", {
+      contentType,
+      bodyFormat: getJobberWebhookBodyFormat(rawBody),
+      signatureLength: signature.length
+    });
     return NextResponse.json({ error: "Invalid Jobber webhook signature." }, { status: 401 });
   }
 
@@ -63,11 +69,19 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ received: true });
 }
 
-export function verifyJobberWebhookSignature(rawBody: string, signature: string, secret: string) {
-  const expected = createHmac("sha256", secret).update(rawBody).digest();
-  const received = Buffer.from(signature.trim(), "base64");
+export function verifyJobberWebhookSignature(
+  rawBody: string,
+  signature: string,
+  secret: string,
+  contentType?: string | null
+) {
+  const received = decodeJobberSignature(signature);
 
-  return received.length === expected.length && timingSafeEqual(received, expected);
+  return getJobberSignedPayloadCandidates(rawBody, contentType).some((payload) => {
+    const expected = createHmac("sha256", secret).update(payload).digest();
+
+    return received.length === expected.length && timingSafeEqual(received, expected);
+  });
 }
 
 function parseJobberWebhookPayload(rawBody: string): JobberWebhookPayload | null {
@@ -86,6 +100,38 @@ function parseJobberWebhookPayload(rawBody: string): JobberWebhookPayload | null
       return null;
     }
   }
+}
+
+function getJobberSignedPayloadCandidates(rawBody: string, contentType?: string | null) {
+  const candidates = [rawBody];
+
+  if (contentType?.includes("application/x-www-form-urlencoded") || rawBody.startsWith("data=")) {
+    const encodedPayload = new URLSearchParams(rawBody).get("data");
+
+    if (encodedPayload && encodedPayload !== rawBody) {
+      candidates.push(encodedPayload);
+    }
+  }
+
+  return candidates;
+}
+
+function decodeJobberSignature(signature: string) {
+  const normalized = signature.trim().replace(/^sha256=/i, "");
+
+  return Buffer.from(normalized, "base64");
+}
+
+function getJobberWebhookBodyFormat(rawBody: string) {
+  if (rawBody.trimStart().startsWith("{")) {
+    return "json";
+  }
+
+  if (rawBody.startsWith("data=")) {
+    return "form";
+  }
+
+  return "unknown";
 }
 
 function cleanString(value: unknown) {
