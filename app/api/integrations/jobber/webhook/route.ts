@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 
@@ -23,14 +23,22 @@ export async function POST(request: NextRequest) {
 
   const rawBody = await request.text();
   const contentType = request.headers.get("content-type");
+  const verification = verifyJobberWebhookSignature(rawBody, signature, secret, contentType);
 
-  if (!verifyJobberWebhookSignature(rawBody, signature, secret, contentType)) {
-    console.warn("Rejected Jobber webhook signature", {
+  if (!verification.valid) {
+    const diagnostic = {
       contentType,
       bodyFormat: getJobberWebhookBodyFormat(rawBody),
-      signatureLength: signature.length
-    });
-    return NextResponse.json({ error: "Invalid Jobber webhook signature." }, { status: 401 });
+      signatureLength: signature.length,
+      signatureEncoding: verification.signatureEncoding,
+      secretFingerprint: createHash("sha256").update(secret).digest("hex").slice(0, 12)
+    };
+
+    console.error("Rejected Jobber webhook signature", diagnostic);
+    return NextResponse.json({
+      error: "Invalid Jobber webhook signature.",
+      diagnostic
+    }, { status: 401 });
   }
 
   const payload = parseJobberWebhookPayload(rawBody);
@@ -75,13 +83,27 @@ export function verifyJobberWebhookSignature(
   secret: string,
   contentType?: string | null
 ) {
-  const received = decodeJobberSignature(signature);
+  const receivedSignatures = decodeJobberSignatures(signature);
+  let signatureEncoding = "unknown";
 
-  return getJobberSignedPayloadCandidates(rawBody, contentType).some((payload) => {
+  const valid = getJobberSignedPayloadCandidates(rawBody, contentType).some((payload) => {
     const expected = createHmac("sha256", secret).update(payload).digest();
 
-    return received.length === expected.length && timingSafeEqual(received, expected);
+    return receivedSignatures.some(({ encoding, value }) => {
+      const matches = value.length === expected.length && timingSafeEqual(value, expected);
+
+      if (matches) {
+        signatureEncoding = encoding;
+      }
+
+      return matches;
+    });
   });
+
+  return {
+    valid,
+    signatureEncoding: valid ? signatureEncoding : receivedSignatures.map(({ encoding }) => encoding).join(",") || "unknown"
+  };
 }
 
 function parseJobberWebhookPayload(rawBody: string): JobberWebhookPayload | null {
@@ -116,10 +138,21 @@ function getJobberSignedPayloadCandidates(rawBody: string, contentType?: string 
   return candidates;
 }
 
-function decodeJobberSignature(signature: string) {
+function decodeJobberSignatures(signature: string) {
   const normalized = signature.trim().replace(/^sha256=/i, "");
+  const candidates: Array<{ encoding: string; value: Buffer }> = [];
 
-  return Buffer.from(normalized, "base64");
+  if (/^[a-f0-9]{64}$/i.test(normalized)) {
+    candidates.push({ encoding: "hex", value: Buffer.from(normalized, "hex") });
+  }
+
+  candidates.push({ encoding: "base64", value: Buffer.from(normalized, "base64") });
+
+  if (/^[A-Za-z0-9_-]+={0,2}$/.test(normalized)) {
+    candidates.push({ encoding: "base64url", value: Buffer.from(normalized, "base64url") });
+  }
+
+  return candidates;
 }
 
 function getJobberWebhookBodyFormat(rawBody: string) {
