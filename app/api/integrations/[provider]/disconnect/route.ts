@@ -55,12 +55,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Jobber app disconnect failed.";
 
-      console.error("Could not disconnect Jobber integration", {
-        organizationId: auth.organizationId,
-        integrationId: integration.id,
-        error: message
-      });
-      return respondWithDisconnectError(request, redirectUrl, provider, message);
+      if (isStaleJobberConnectionError(message)) {
+        console.warn("Clearing stale Jobber integration after provider-side disconnect", {
+          organizationId: auth.organizationId,
+          integrationId: integration.id,
+          error: message
+        });
+      } else {
+        console.error("Could not disconnect Jobber integration", {
+          organizationId: auth.organizationId,
+          integrationId: integration.id,
+          error: message
+        });
+        return respondWithDisconnectError(request, redirectUrl, provider, message);
+      }
     }
   }
 
@@ -89,6 +97,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
 function wantsJson(request: NextRequest) {
   return request.headers.get("accept")?.includes("application/json") || request.headers.get("x-requested-with") === "fetch";
+}
+
+function isStaleJobberConnectionError(message: string) {
+  return /unsupported state|unable to authenticate data|invalid token|invalid_request|disconnected this app|delete this token|refresh token.*(invalid|expired|revoked)/i.test(message);
 }
 
 function respondWithDisconnectError(
