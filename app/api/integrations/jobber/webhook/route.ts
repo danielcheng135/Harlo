@@ -31,10 +31,14 @@ export async function POST(request: NextRequest) {
       bodyFormat: getJobberWebhookBodyFormat(rawBody),
       signatureLength: signature.length,
       signatureEncoding: verification.signatureEncoding,
-      secretFingerprint: createHash("sha256").update(secret).digest("hex").slice(0, 12)
+      secretFingerprint: createHash("sha256").update(secret).digest("hex").slice(0, 12),
+      bodyFingerprint: createHash("sha256").update(rawBody).digest("hex").slice(0, 12),
+      receivedFingerprint: createHash("sha256").update(signature.trim()).digest("hex").slice(0, 12),
+      expectedFingerprint: verification.expectedFingerprint
     };
 
     console.error("Rejected Jobber webhook signature", diagnostic);
+    await persistSignatureDiagnostic(diagnostic);
     return NextResponse.json({
       error: "Invalid Jobber webhook signature.",
       diagnostic
@@ -85,9 +89,11 @@ export function verifyJobberWebhookSignature(
 ) {
   const receivedSignatures = decodeJobberSignatures(signature);
   let signatureEncoding = "unknown";
+  let expectedFingerprint = "";
 
   const valid = getJobberSignedPayloadCandidates(rawBody, contentType).some((payload) => {
     const expected = createHmac("sha256", secret).update(payload).digest();
+    expectedFingerprint ||= createHash("sha256").update(expected).digest("hex").slice(0, 12);
 
     return receivedSignatures.some(({ encoding, value }) => {
       const matches = value.length === expected.length && timingSafeEqual(value, expected);
@@ -102,7 +108,8 @@ export function verifyJobberWebhookSignature(
 
   return {
     valid,
-    signatureEncoding: valid ? signatureEncoding : receivedSignatures.map(({ encoding }) => encoding).join(",") || "unknown"
+    signatureEncoding: valid ? signatureEncoding : receivedSignatures.map(({ encoding }) => encoding).join(",") || "unknown",
+    expectedFingerprint
   };
 }
 
@@ -165,6 +172,25 @@ function getJobberWebhookBodyFormat(rawBody: string) {
   }
 
   return "unknown";
+}
+
+async function persistSignatureDiagnostic(diagnostic: Record<string, unknown>) {
+  try {
+    const supabase = createSupabaseServiceClient();
+    const { error } = await supabase
+      .from("integrations")
+      .update({
+        last_error: `Jobber webhook signature mismatch: ${JSON.stringify(diagnostic)}`,
+        updated_at: new Date().toISOString()
+      })
+      .eq("provider", "jobber");
+
+    if (error) {
+      console.error("Could not persist Jobber webhook signature diagnostic", error);
+    }
+  } catch (error) {
+    console.error("Could not initialize Jobber webhook diagnostic storage", error);
+  }
 }
 
 function cleanString(value: unknown) {
