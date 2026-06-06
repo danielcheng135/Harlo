@@ -42,6 +42,10 @@ export async function disconnectJobberApp(accessToken: string) {
     error_description?: string;
   } | null;
 
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("Invalid token: Jobber access was revoked or expired.");
+  }
+
   if (!response.ok || !payload) {
     throw new Error(getResponseError(payload) ?? "Jobber app disconnect failed.");
   }
