@@ -44,6 +44,7 @@ type RunIntegrationActionInput = {
   action: EnabledIntegrationAction;
   payload: IntegrationActionPayload;
   requestUrl?: string;
+  actionLimit: number;
 };
 
 type ActionRow = {
@@ -449,8 +450,63 @@ export async function runIntegrationAction({
   supabase,
   action,
   payload,
-  requestUrl
+  requestUrl,
+  actionLimit
 }: RunIntegrationActionInput): Promise<IntegrationActionResult> {
+  const startedAt = Date.now();
+  const inputSummary = buildIntegrationInputSummary(payload);
+  const reservation = await reserveIntegrationRun({
+    supabase,
+    action,
+    payload,
+    inputSummary,
+    actionLimit
+  });
+
+  if (reservation.error) {
+    const result: IntegrationActionResult = {
+      ok: false,
+      status: "failed",
+      message: action.fallbackMessage ?? "This connected action could not be started.",
+      externalRecordId: null,
+      externalUrl: null,
+      error: "Harlo could not verify the action limit."
+    };
+    await logIntegrationRun({
+      supabase,
+      action,
+      payload,
+      result,
+      durationMs: Date.now() - startedAt,
+      reason: "limit_check_failed"
+    });
+    return result;
+  }
+
+  if (!reservation.runId) {
+    const result: IntegrationActionResult = {
+      ok: false,
+      status: "skipped",
+      message: `This conversation has reached the plan limit of ${actionLimit} connected ${actionLimit === 1 ? "action" : "actions"}.`,
+      externalRecordId: null,
+      externalUrl: null,
+      error: null,
+      metadata: {
+        reason: "plan_action_limit",
+        actionLimit
+      }
+    };
+    await logIntegrationRun({
+      supabase,
+      action,
+      payload,
+      result,
+      durationMs: Date.now() - startedAt,
+      reason: "plan_action_limit"
+    });
+    return result;
+  }
+
   let result: IntegrationActionResult;
 
   try {
@@ -472,7 +528,12 @@ export async function runIntegrationAction({
     }
   }
 
-  await logIntegrationRun({ supabase, action, payload, result });
+  await completeIntegrationRun({
+    supabase,
+    runId: reservation.runId,
+    result,
+    durationMs: Date.now() - startedAt
+  });
   await updateIntegrationStatus({ supabase, action, result });
 
   return result;
@@ -1863,8 +1924,14 @@ async function logIntegrationRun({
   supabase,
   action,
   payload,
-  result
-}: RunIntegrationActionInput & { result: IntegrationActionResult }) {
+  result,
+  durationMs,
+  reason
+}: Omit<RunIntegrationActionInput, "actionLimit"> & {
+  result: IntegrationActionResult;
+  durationMs: number;
+  reason: string;
+}) {
   const { error } = await supabase.from("integration_action_runs").insert({
     organization_id: payload.organizationId,
     bot_id: payload.botId,
@@ -1873,24 +1940,106 @@ async function logIntegrationRun({
     integration_id: action.integrationId,
     provider: action.provider,
     action_type: action.actionType,
+    action_key: action.id,
+    trigger_type: action.triggerType,
     status: result.status,
     external_record_id: result.externalRecordId ?? null,
     external_url: result.externalUrl ?? null,
-    input_summary: {
-      visitorMessage: payload.visitorMessage.slice(0, 500),
-      lead: {
-        hasName: Boolean(payload.lead.name),
-        hasEmail: Boolean(payload.lead.email),
-        hasPhone: Boolean(payload.lead.phone)
-      },
-      sourcePageUrl: payload.sourcePageUrl ?? null
-    },
-    error_message: result.error ?? null
+    input_summary: buildIntegrationInputSummary(payload),
+    result_message: result.message ?? null,
+    result_metadata: result.metadata ?? {},
+    error_message: result.error ?? null,
+    duration_ms: durationMs,
+    completed_at: new Date().toISOString(),
+    reason
   });
 
   if (error) {
     console.error("Could not log integration action run", error);
   }
+}
+
+async function reserveIntegrationRun({
+  supabase,
+  action,
+  payload,
+  inputSummary,
+  actionLimit
+}: {
+  supabase: SupabaseServiceClient;
+  action: EnabledIntegrationAction;
+  payload: IntegrationActionPayload;
+  inputSummary: Record<string, unknown>;
+  actionLimit: number;
+}) {
+  const { data, error } = await supabase.rpc("reserve_integration_action_run", {
+    p_organization_id: payload.organizationId,
+    p_bot_id: payload.botId,
+    p_conversation_id: payload.conversationId ?? null,
+    p_lead_id: payload.leadId ?? null,
+    p_integration_id: action.integrationId,
+    p_provider: action.provider,
+    p_action_type: action.actionType,
+    p_action_key: action.id,
+    p_trigger_type: action.triggerType,
+    p_input_summary: inputSummary,
+    p_action_limit: actionLimit
+  });
+
+  if (error) {
+    console.error("Could not reserve integration action run", error);
+    return {
+      runId: null,
+      error
+    };
+  }
+
+  return {
+    runId: typeof data === "string" ? data : null,
+    error: null
+  };
+}
+
+async function completeIntegrationRun({
+  supabase,
+  runId,
+  result,
+  durationMs
+}: {
+  supabase: SupabaseServiceClient;
+  runId: string;
+  result: IntegrationActionResult;
+  durationMs: number;
+}) {
+  const { error } = await supabase
+    .from("integration_action_runs")
+    .update({
+      status: result.status,
+      external_record_id: result.externalRecordId ?? null,
+      external_url: result.externalUrl ?? null,
+      result_message: result.message ?? null,
+      result_metadata: result.metadata ?? {},
+      error_message: result.error ?? null,
+      duration_ms: durationMs,
+      completed_at: new Date().toISOString()
+    })
+    .eq("id", runId);
+
+  if (error) {
+    console.error("Could not complete integration action run", error);
+  }
+}
+
+function buildIntegrationInputSummary(payload: IntegrationActionPayload) {
+  return {
+    visitorMessage: payload.visitorMessage.slice(0, 500),
+    lead: {
+      hasName: Boolean(payload.lead.name),
+      hasEmail: Boolean(payload.lead.email),
+      hasPhone: Boolean(payload.lead.phone)
+    },
+    sourcePageUrl: payload.sourcePageUrl ?? null
+  };
 }
 
 async function updateIntegrationStatus({

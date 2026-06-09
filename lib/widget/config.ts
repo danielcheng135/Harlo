@@ -134,12 +134,27 @@ async function buildBotConfig(bot: Record<string, unknown>): Promise<BotConfig> 
     theme: {
       accent: typeof themeRecord.accent === "string" ? themeRecord.accent : "#087f95",
       launcherPosition: themeRecord.launcher_position === "bottom-left" ? "bottom-left" : "bottom-right",
-      title: typeof themeRecord.title === "string" ? themeRecord.title : "Ask Harlo",
+      title: getCustomerFacingWidgetTitle(
+        typeof themeRecord.title === "string" ? themeRecord.title : "",
+        businessName
+      ),
       welcomePrompts: Array.isArray(themeRecord.welcome_prompts)
         ? themeRecord.welcome_prompts.filter((prompt): prompt is string => typeof prompt === "string")
-        : ["What services do you offer?", "How much does it cost?", "Can I book a consultation?"]
+        : ["What services do you offer?", "How much does it cost?", "Can I book a demo?"]
     }
   };
+}
+
+function getCustomerFacingWidgetTitle(title: string, businessName: string) {
+  const trimmed = title.trim();
+  const legacyDefault = [
+    "Ask Harlo",
+    `Ask ${businessName}`,
+    "Ask Harlo AI Agent",
+    `Ask ${businessName} AI Agent`,
+  ].includes(trimmed);
+
+  return !trimmed || legacyDefault ? `${businessName} AI Agent` : trimmed;
 }
 
 function getCustomerFacingGreeting(greeting: string, businessName: string) {

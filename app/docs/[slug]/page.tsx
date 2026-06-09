@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { DocsNav } from "@/components/docs/docs-nav";
 import { DocsWorkspace } from "@/components/docs/docs-workspace";
 import { MarketingFooter } from "@/components/marketing-footer";
-import { MarketingNav } from "@/components/marketing-nav";
 import { docs, getDocBySlug } from "@/lib/docs";
-import { getSignupHref } from "@/lib/onboarding/signup-url";
 import { siteConfig } from "@/lib/seo";
 
 type DocsSectionPageProps = {
@@ -60,18 +59,8 @@ export default async function DocsSectionPage({ params }: DocsSectionPageProps) 
   }
 
   return (
-    <main className="min-h-screen bg-[#f7faf8] text-harlo-ink">
-      <MarketingNav
-        links={[
-          { label: "Docs", href: "/docs" },
-          { label: "Pricing", href: "/#pricing" },
-          { label: "Dashboard", href: "/dashboard" },
-          { label: "Sign in", href: "/auth/sign-in" }
-        ]}
-        ctaLabel="Start free trial"
-        ctaHref={getSignupHref()}
-        ctaVariant="dark"
-      />
+    <main className="min-h-screen bg-harlo-canvas text-harlo-ink">
+      <DocsNav />
       <DocsWorkspace initialDocId={doc.id} />
       <MarketingFooter />
     </main>

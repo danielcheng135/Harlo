@@ -2,6 +2,10 @@ import {
   getInvalidEmailReply,
   leadQuestionFromMessages
 } from "@/lib/ai/lead-capture";
+import {
+  resolveContextualFollowUp,
+  type ContextualFollowUpType
+} from "@/lib/ai/follow-up";
 import { classifyVisitorIntent, type VisitorIntent } from "@/lib/ai/intent";
 import { extractLeadDraftWithModel } from "@/lib/ai/lead-field-extraction";
 import {
@@ -14,6 +18,7 @@ import { generateAnswer, retrieveKnowledgeChunks } from "@/lib/ai/rag";
 import { normalizeAgentType, type AgentType } from "@/lib/agents";
 import { attemptAutoRecharge, isAutoRechargeFailureReason } from "@/lib/billing/auto-recharge";
 import { sendAutoRechargeFailedEmail, sendCreditLimitEmail } from "@/lib/billing/notifications";
+import { getIntegrationEntitlements } from "@/lib/billing/plans";
 import { getCreditUsageStatus, recordAssistantMessageUsage } from "@/lib/billing/usage";
 import {
   getConnectedCalcomBookingAction,
@@ -184,6 +189,7 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
   }
 
   let creditUsage = await getCreditUsageStatus(supabase, organizationId);
+  let integrationActionLimit = getIntegrationEntitlements(creditUsage.planKey).actionsPerVisitorFlow;
   let autoRechargeSkipped: string | null = null;
   let autoRechargePaymentIntentId: string | null = null;
 
@@ -194,6 +200,7 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
 
     if (autoRecharge.recharged) {
       creditUsage = await getCreditUsageStatus(supabase, organizationId);
+      integrationActionLimit = getIntegrationEntitlements(creditUsage.planKey).actionsPerVisitorFlow;
     }
   }
 
@@ -252,23 +259,29 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: false })
     .limit(8);
-  const conversationContext = (recentMessages ?? [])
-    .reverse()
-    .map((message) => `${message.role}: ${message.content}`)
-    .join("\n");
-  const conversationMessages = (recentMessages ?? [])
+  const conversationMessages = [...(recentMessages ?? [])]
     .reverse()
     .map((message) => ({
       role: message.role,
       content: message.content
     }));
-  const effectiveVisitorMessage = resolveAcceptedFollowUpMessage(input.message, conversationMessages);
+  const conversationContext = conversationMessages
+    .map((message) => `${message.role}: ${message.content}`)
+    .join("\n");
+  const contextualFollowUp = await resolveContextualFollowUp({
+    latestMessage: input.message,
+    conversationMessages
+  }).catch((error) => {
+    console.error("Contextual follow-up resolution failed", error);
+    return null;
+  });
+  const effectiveVisitorMessage = contextualFollowUp?.resolvedMessage ?? input.message;
   const retrievalQuery = conversationContext
     ? `${conversationContext}\nvisitor latest: ${effectiveVisitorMessage}`
     : effectiveVisitorMessage;
   const [intent, loadedIntegrationActions] = await Promise.all([
     classifyVisitorIntent({
-      message: input.message,
+      message: effectiveVisitorMessage,
       conversationContext
     }),
     getEnabledIntegrationActionsForBot({
@@ -279,7 +292,9 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
     })
   ]);
   let integrationActions = loadedIntegrationActions;
-  const bookingRequested = hasBookingLanguage(effectiveVisitorMessage);
+  const bookingRequested =
+    contextualFollowUp?.type === "booking" ||
+    hasBookingLanguage(effectiveVisitorMessage);
 
   if (bookingRequested && !hasBookingAction(integrationActions)) {
     const calendlyFallbackAction = await getConnectedCalendlyBookingAction({
@@ -369,7 +384,8 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
     leadFields,
     plannerResult,
     actions: integrationActions,
-    bookingRequested
+    bookingRequested,
+    acceptedFollowUpType: contextualFollowUp?.type ?? "none"
   });
   let answer = generatedAnswer;
   const integrationResults: WidgetIntegrationResult[] = [];
@@ -394,7 +410,8 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
         visitorMessage: effectiveVisitorMessage,
         lead: {},
         sourcePageUrl: input.visitor?.pageUrl ?? null
-      })
+      }),
+      actionLimit: integrationActionLimit
     });
     integrationResults.push({
       provider: bookingAction.provider,
@@ -407,7 +424,7 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
     });
 
     if (bookingResult.ok && bookingResult.externalUrl) {
-      answer = buildBookingActionAnswer(plannerResult);
+      answer = buildBookingActionAnswer();
       const bookingOptions = normalizeBookingOptions(bookingResult.metadata?.bookingOptions);
 
       if (bookingOptions.length > 0) {
@@ -431,9 +448,11 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
           url: bookingResult.externalUrl
         });
       }
+    } else {
+      answer = buildBookingFailureAnswer(bookingAction, bookingResult);
     }
   } else if (decision.step === "show_booking") {
-    answer = buildMissingBookingActionAnswer(plannerResult);
+    answer = buildMissingBookingActionAnswer();
   }
 
   if (widgetActions.length === 0 && leadCaptureEnabled && shouldRunLeadCaptureDecision(decision)) {
@@ -529,7 +548,8 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
             metadata: configuredLeadMetadata(draft, leadFields)
           },
           sourcePageUrl: input.visitor?.pageUrl ?? null
-        })
+        }),
+        actionLimit: integrationActionLimit
       });
 
       await saveAssistantReply(configuredLeadReply, {
@@ -576,6 +596,8 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
     answer = plannerResult.messageToVisitor;
   }
 
+  answer = normalizeAssistantPunctuation(answer);
+
   await saveAssistantReply(answer, {
     fallback: chunks.length === 0,
     intent,
@@ -588,7 +610,8 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
     decision,
     integration_results: integrationResults,
     widget_actions: widgetActions,
-    effective_visitor_message: effectiveVisitorMessage === input.message ? null : effectiveVisitorMessage
+    effective_visitor_message: effectiveVisitorMessage === input.message ? null : effectiveVisitorMessage,
+    contextual_follow_up: contextualFollowUp
   });
 
   return {
@@ -604,6 +627,12 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
       similarity: chunk.similarity
     }))
   };
+}
+
+function normalizeAssistantPunctuation(value: string) {
+  return value
+    .replace(/\s*—\s*/g, ", ")
+    .replace(/[ \t]+,\s*,/g, ",");
 }
 
 type WidgetIntegrationResult = {
@@ -798,7 +827,8 @@ function decideChatNextStep({
   leadFields,
   plannerResult,
   actions,
-  bookingRequested
+  bookingRequested,
+  acceptedFollowUpType
 }: {
   agentType: AgentType;
   intent: VisitorIntent;
@@ -808,13 +838,12 @@ function decideChatNextStep({
   plannerResult: AgentPlannerResult | null;
   actions: EnabledIntegrationAction[];
   bookingRequested: boolean;
+  acceptedFollowUpType: ContextualFollowUpType;
 }): ChatRoutingDecision {
   const normalizedMessage = message.toLowerCase();
   const hasAvailableBookingAction = hasBookingAction(actions);
   const generalInformationQuestion = isGeneralInformationQuestion(normalizedMessage);
   const recentAssistantAskedConfiguredField = isAnsweringConfiguredLeadPrompt(conversationMessages, leadFields);
-  const lastAssistant = findLastAssistantBeforeLatestVisitor(conversationMessages);
-  const recentAssistantOfferedLead = lastAssistant ? assistantOfferedLeadCapture(lastAssistant.content) : false;
   const visitorProvidesLeadLike = visitorProvidesLeadDetails(normalizedMessage, leadFields);
 
   if (/^\s*lead capture details\s*:/i.test(message)) {
@@ -823,6 +852,24 @@ function decideChatNextStep({
       confidence: 1,
       source: "rule",
       reason: "widget submitted lead capture details"
+    };
+  }
+
+  if (acceptedFollowUpType === "informational") {
+    return {
+      step: "answer_question",
+      confidence: 0.9,
+      source: "planner",
+      reason: "context model resolved an accepted informational offer"
+    };
+  }
+
+  if (acceptedFollowUpType === "lead_capture") {
+    return {
+      step: "start_lead_capture",
+      confidence: 0.9,
+      source: "planner",
+      reason: "context model resolved an accepted lead follow-up"
     };
   }
 
@@ -845,6 +892,7 @@ function decideChatNextStep({
   }
 
   if (
+    bookingRequested &&
     plannerResult?.nextStep === "show_booking" &&
     hasAvailableBookingAction &&
     plannerResult.confidence >= 0.45
@@ -872,15 +920,6 @@ function decideChatNextStep({
       confidence: 0.88,
       source: "rule",
       reason: "visitor provided contact or project details"
-    };
-  }
-
-  if (intent === "accept_follow_up" && recentAssistantOfferedLead) {
-    return {
-      step: "start_lead_capture",
-      confidence: 0.82,
-      source: "rule",
-      reason: "visitor accepted an explicit follow-up offer"
     };
   }
 
@@ -1060,12 +1099,14 @@ async function runLeadCapturedIntegrationActions({
   supabase,
   actions,
   requestUrl,
-  payload
+  payload,
+  actionLimit
 }: {
   supabase: SupabaseServiceClient;
   actions: EnabledIntegrationAction[];
   requestUrl: string;
   payload: IntegrationActionPayload;
+  actionLimit: number;
 }) {
   const leadActions = actions.filter(
     (action) => action.triggerType === "lead_captured" ||
@@ -1074,18 +1115,20 @@ async function runLeadCapturedIntegrationActions({
       (action.provider === "mailchimp" && action.actionType === "create_crm_contact")
   );
 
-  return Promise.all(
-    leadActions.map(async (action) => {
-      const result = await runIntegrationAction({
-        supabase,
-        action,
-        requestUrl,
-        payload
-      });
+  const results: WidgetIntegrationResult[] = [];
 
-      return toWidgetIntegrationResult(action, result);
-    })
-  );
+  for (const action of leadActions) {
+    const result = await runIntegrationAction({
+      supabase,
+      action,
+      requestUrl,
+      payload,
+      actionLimit
+    });
+    results.push(toWidgetIntegrationResult(action, result));
+  }
+
+  return results;
 }
 
 function buildIntegrationActionPayload(payload: IntegrationActionPayload): IntegrationActionPayload {
@@ -1120,24 +1163,23 @@ function toWidgetIntegrationResult(
   };
 }
 
-function buildBookingActionAnswer(plannerResult: AgentPlannerResult | null) {
-  const plannedMessage = plannerResult?.messageToVisitor?.trim();
-
-  if (plannedMessage && (plannerResult?.confidence ?? 0) >= 0.45) {
-    return plannedMessage;
-  }
-
+function buildBookingActionAnswer() {
   return "Absolutely. You can choose an available time below.";
 }
 
-function buildMissingBookingActionAnswer(plannerResult: AgentPlannerResult | null) {
-  const plannedMessage = plannerResult?.messageToVisitor?.trim();
-
-  if (plannedMessage && (plannerResult?.confidence ?? 0) >= 0.6) {
-    return plannedMessage;
+function buildBookingFailureAnswer(
+  action: BookingIntegrationAction,
+  result: IntegrationActionResult
+) {
+  if (result.metadata?.reason === "plan_action_limit") {
+    return "This conversation has reached its connected-action limit, so I cannot open another scheduler here. The team can still help arrange a time directly.";
   }
 
-  return "I can help with scheduling, but online booking is not connected right now.";
+  return `I could not open the ${getBookingProviderName(action.provider)} scheduler right now. Please try again in a moment or contact the team directly.`;
+}
+
+function buildMissingBookingActionAnswer() {
+  return "Online booking is not connected right now. Please contact the team directly to arrange a time.";
 }
 
 function buildLeadCaptureIntro(plannerResult: AgentPlannerResult | null) {
@@ -1172,67 +1214,6 @@ function getLeadCaptureFormPayload(fields: LeadCaptureField[]) {
 
 function getCreditLimitReply(_reason: "past_due" | "inactive" | "limit_reached" | "ok") {
   return "I cannot answer messages right now. Please contact the business directly for help.";
-}
-
-function resolveAcceptedFollowUpMessage(
-  message: string,
-  conversationMessages: Array<{ role: string; content: string }>
-) {
-  if (!isShortAcceptance(message)) {
-    return message;
-  }
-
-  const lastAssistant = findLastAssistantBeforeLatestVisitor(conversationMessages);
-  const offeredTopic = lastAssistant ? extractOfferedFollowUpTopic(lastAssistant.content) : null;
-
-  return offeredTopic ?? message;
-}
-
-function isShortAcceptance(message: string) {
-  return /^(?:yes|yeah|yep|sure|ok|okay|please|yes please|yeah please|sure please|do that|yes do that|yes please do that|please do that|that sounds good|sounds good|go ahead|show me|show me that|tell me|tell me more)$/i.test(
-    message.trim()
-  );
-}
-
-function extractOfferedFollowUpTopic(message: string) {
-  const normalized = message.replace(/[\u2019]/g, "'").replace(/\s+/g, " ").trim();
-  const specificTopic = getSpecificOfferedTopic(normalized);
-
-  if (specificTopic) {
-    return specificTopic;
-  }
-
-  const offerMatch = normalized.match(
-    /\b(?:if you want,\s*)?(?:i can also|i can|i can help|would you like me to|do you want me to)\s+(.+?)(?:[.!?]|$)/i
-  );
-  const rawTopic = offerMatch?.[1]?.trim();
-
-  if (!rawTopic || isGenericOffer(rawTopic)) {
-    return null;
-  }
-
-  return `Please ${rawTopic}.`;
-}
-
-function getSpecificOfferedTopic(message: string) {
-  if (/\b(?:explain|show|share|tell you about)\b[\s\S]{0,80}\b(?:demo|booking|scheduling)\b[\s\S]{0,60}\b(?:works?|process)\b/i.test(message)) {
-    return "Please explain how demo booking works.";
-  }
-
-  if (/\b(?:outline|explain|show|share|tell you about)\b[\s\S]{0,80}\b(?:what's|what is) included in each plan\b/i.test(message)) {
-    return "Please outline what is included in each plan.";
-  }
-
-  if (/\b(?:outline|explain|show|share|tell you about)\b[\s\S]{0,80}\bwhat each plan includes\b/i.test(message)) {
-    return "Please outline what each plan includes.";
-  }
-
-  return null;
-}
-
-function isGenericOffer(topic: string) {
-  return /\b(?:help|help with|answer|questions?|anything else|other questions?|what you need)\b/i.test(topic) &&
-    !/\b(?:pricing|price|cost|plans?|included|includes|services?|hours|booking|demo|availability)\b/i.test(topic);
 }
 
 function isGeneralInformationQuestion(message: string) {
@@ -1278,12 +1259,6 @@ function mentionsConfiguredLeadField(message: string, fields: LeadCaptureField[]
           (key && new RegExp(`\\b${escapeRegExp(key)}\\b`, "i").test(message))
       );
     });
-}
-
-function assistantOfferedLeadCapture(message: string) {
-  return /\b(?:quote|estimate|callback|call you|follow up|reach out|send this to|share your details|best email|contact details|pass this along|connect you|someone can help|someone who can help|team can follow up|team follow up)\b/i.test(
-    message
-  );
 }
 
 function isAnsweringConfiguredLeadPrompt(messages: Array<{ role: string; content: string }>, fields: LeadCaptureField[]) {

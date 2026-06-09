@@ -31,6 +31,7 @@ import type { LucideIcon } from "lucide-react";
 import { CalendlyDemoButton } from "@/components/calendly-demo-button";
 import { CtaPhoneGraphic } from "@/components/cta-phone-graphic";
 import { HeroVideo } from "@/components/hero-video";
+import { IntegrationsShowcase } from "@/components/landing/integrations-showcase";
 import { MarketingFooter } from "@/components/marketing-footer";
 import {
   BILLING_PLANS,
@@ -88,12 +89,6 @@ const planIcons: Record<BillingPlanKey, { shape: string; gradient: string; inner
     gradient: "from-rose-100 to-amber-50",
     inner: "rounded-[0.2rem] bg-rose-400"
   }
-};
-
-const landingPlanDescriptions: Record<BillingPlanKey, string> = {
-  starter: "For small teams launching one chatbot.",
-  growth: "For steady traffic and automation.",
-  pro: "For higher volume and priority support."
 };
 
 const defaultContent: LandingContent = {
@@ -317,6 +312,15 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
   const primaryCtaHref = page.primaryCta.toLowerCase().includes("trial") || page.primaryCta.toLowerCase().includes("start")
     ? getSignupHref("starter", interval)
     : "#pricing";
+  const comparisonRows = [
+    ...page.comparison,
+    {
+      label: "Integrations",
+      harlo: "Built-in scheduling, CRM, team alert, service, audience, and spreadsheet actions",
+      alternative: "Manual exports or a separate automation tool to connect follow-up"
+    }
+  ];
+
   return (
     <main className="min-h-screen bg-white text-harlo-ink">
       <style>{`
@@ -450,6 +454,8 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
         </div>
       </section>
 
+      <IntegrationsShowcase />
+
       <section id="pricing" className="bg-harlo-canvas">
         <div className="mx-auto max-w-7xl px-6 py-20">
           <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
@@ -459,7 +465,7 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
                 {pricingHeadline(content.visualKind)}
               </h2>
               <p className="mt-5 text-lg leading-8 text-harlo-muted">
-                Start with a {TRIAL_CONFIG.days}-day Starter trial and {TRIAL_CONFIG.credits} trial credits, then choose the plan that matches your website traffic.
+                Start with a {TRIAL_CONFIG.days}-day Starter trial, then use connected integrations on Growth or Pro as your follow-up workflows grow.
               </p>
             </div>
             <div className="w-full shrink-0 self-start lg:w-auto lg:self-end">
@@ -486,7 +492,7 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
             </p>
           </div>
           <div className="overflow-hidden rounded-xl border border-harlo-line bg-white shadow-sm">
-            {page.comparison.map((row, index) => (
+            {comparisonRows.map((row, index) => (
               <div key={row.label} className="grid gap-3 border-b border-harlo-line p-5 last:border-b-0 md:grid-cols-[0.42fr_1fr_1fr]">
                 <p className="text-sm font-semibold uppercase tracking-[0.16em] text-harlo-teal">{row.label}</p>
                 <div className="rounded-lg bg-harlo-mist p-4">
@@ -578,8 +584,8 @@ function LandingNav({ signupHref }: { signupHref: string }) {
   const links = [
     { label: "Features", href: "#features" },
     { label: "Workflow", href: "#how-it-works" },
+    { label: "Integrations", href: "#integrations" },
     { label: "Pricing", href: "#pricing" },
-    { label: "FAQ", href: "#faq" }
   ];
 
   return (
@@ -1064,7 +1070,7 @@ function PricingCard({ plan, interval }: { plan: (typeof BILLING_PLANS)[number];
           {interval === "annual" ? <span className="text-harlo-teal">{formatPrice(annualTotal)} billed annually</span> : null}
         </p>
       </div>
-      <p className="mt-5 min-h-14 text-base leading-7 text-harlo-muted">{landingPlanDescriptions[plan.key]}</p>
+      <p className="mt-5 min-h-14 text-base leading-7 text-harlo-muted">{plan.description}</p>
       <Link
         href={getSignupHref(plan.key, interval)}
         className={`mt-6 inline-flex h-11 w-full items-center justify-center rounded-lg text-sm font-semibold transition ${

@@ -123,6 +123,7 @@ function buildPlannerInstructions() {
     "Use answer_question for informational questions about services, pricing, hours, locations, policies, features, or what the business does.",
     "Never start lead capture for general questions such as 'what services do you offer?' or 'how much does it cost?' unless the visitor explicitly asks for a quote, callback, human follow-up, or gives contact details.",
     "Use show_booking when the visitor asks to book, schedule, see availability, set an appointment, or book a demo and a show_booking_link action is available.",
+    "A context-dependent reply only continues the latest assistant offer. Never choose show_booking when that latest offer was informational, such as comparing plans, explaining pricing, or describing services.",
     "Use start_lead_capture only when the visitor explicitly wants a quote, estimate, callback, contact, sales follow-up, human handoff, or asks the team to reach out.",
     "Use continue_lead_capture only when the assistant recently asked for lead details or the visitor is clearly providing requested contact/project details.",
     "Use create_crm_contact only after required lead fields are present and an available action directly creates a contact.",
@@ -135,6 +136,7 @@ function buildPlannerInstructions() {
     "visitorGoal must be one of: book_appointment, request_quote, service_request, ask_question, human_follow_up, unknown.",
     "missingFields must contain lead field keys, not labels.",
     "messageToVisitor must be concise and ready to show in the widget.",
+    "Do not use em dashes in messageToVisitor. Use a period, comma, colon, or parentheses instead.",
     "Do not invent field values, provider names, prices, or availability."
   ].join("\n");
 }

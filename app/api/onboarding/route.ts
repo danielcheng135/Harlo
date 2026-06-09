@@ -517,7 +517,7 @@ function getWelcomePrompts(goal: string) {
   }
 
   if (goal === "lead_capture") {
-    return ["Can someone follow up?", "Which plan is right for me?", "Can I book a consultation?"];
+    return ["Can someone follow up?", "Which plan is right for me?", "Can I book a demo?"];
   }
 
   return ["What services do you offer?", "How much does it cost?", "Can someone follow up?"];

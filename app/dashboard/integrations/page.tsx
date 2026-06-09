@@ -15,15 +15,22 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
   const workspace = await getWorkspaceOrRedirect();
   requireWorkspaceAdmin(workspace);
   const billing = await getBillingOverview(workspace);
-  const overview = await getIntegrationOverview(workspace, billing);
   const params = await searchParams;
   const rawTab = firstParam(params?.tab);
   const rawStatus = firstParam(params?.status);
   const rawIntegration = firstParam(params?.integration);
+  const initialTab = rawTab === "connected" || rawTab === "disconnected" || rawTab === "history"
+    ? rawTab
+    : "all";
+  const historyPage = parsePage(firstParam(params?.page));
+  const overview = await getIntegrationOverview(workspace, billing, {
+    includeHistory: initialTab === "history",
+    historyPage
+  });
 
   return (
     <IntegrationsWorkspace
-      initialTab={rawTab === "connected" || rawTab === "disconnected" ? rawTab : "all"}
+      initialTab={initialTab}
       integrationStatus={rawStatus ?? null}
       statusProvider={parseIntegrationProviderParam(rawIntegration)}
       overview={overview}
@@ -33,4 +40,10 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
 
 function firstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function parsePage(value: string | undefined) {
+  const page = Number.parseInt(value ?? "1", 10);
+
+  return Number.isFinite(page) && page > 0 ? page : 1;
 }

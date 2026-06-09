@@ -31,8 +31,10 @@ import type { LucideIcon } from "lucide-react";
 import { CalendlyDemoButton } from "@/components/calendly-demo-button";
 import { CtaPhoneGraphic } from "@/components/cta-phone-graphic";
 import { HeroVideo } from "@/components/hero-video";
+import { IntegrationsShowcase } from "@/components/landing/integrations-showcase";
 import {
   BILLING_ADD_ONS,
+  BILLING_PLAN_COMPARISON_ROWS,
   BILLING_PLANS,
   TRIAL_CONFIG,
   formatPrice,
@@ -109,50 +111,6 @@ const faqItems = [
   }
 ];
 
-const compareRows = [
-  {
-    label: "Message credits",
-    detail: "Included assistant replies each billing period.",
-    values: { starter: "500", growth: "4,000", pro: "15,000" }
-  },
-  {
-    label: "Included agents",
-    detail: "Separate assistants for sites, brands, or workflows.",
-    values: { starter: "1", growth: "1", pro: "1" }
-  },
-  {
-    label: "Included seats",
-    detail: "Team members who can manage Harlo.",
-    values: { starter: "1", growth: "3", pro: "5" }
-  },
-  {
-    label: "Knowledge updates",
-    detail: "How Harlo keeps approved answers current.",
-    values: { starter: "Manual", growth: "Auto-retrain", pro: "Auto-retrain" }
-  },
-  {
-    label: "Support",
-    detail: "Help level included with the workspace.",
-    values: { starter: "Standard", growth: "Standard", pro: "Priority" }
-  },
-  {
-    label: "Lead capture",
-    detail: "Capture intent, contact details, and conversation context.",
-    values: { starter: "Included", growth: "Included", pro: "Included" }
-  },
-  {
-    label: "Analytics",
-    detail: "Conversation trends, top intents, and knowledge gaps.",
-    values: { starter: "Basic", growth: "Advanced", pro: "Advanced" }
-  }
-] satisfies Array<{ label: string; detail: string; values: Record<BillingPlanKey, string> }>;
-
-const planDescriptions: Record<BillingPlanKey, string> = {
-  starter: "For small teams launching one assistant.",
-  growth: "For steady traffic and automation.",
-  pro: "For higher volume and priority support."
-};
-
 const addOnMeta = {
   auto_recharge_credits: { label: "Usage", icon: Zap, accent: "bg-sky-50 text-sky-600" },
   extra_agent: { label: "Agents", icon: Bot, accent: "bg-emerald-50 text-emerald-600" },
@@ -166,6 +124,7 @@ const footerColumns = [
     links: [
       { label: "Overview", href: "#hero" },
       { label: "Features", href: "#product" },
+      { label: "Integrations", href: "#integrations" },
       { label: "Pricing", href: "#pricing" },
       { label: "Compare", href: "#compare" }
     ]
@@ -199,13 +158,13 @@ const footerColumns = [
   }
 ];
 
-export function RootHomepage() {
+export function RootHomepage({ isAuthenticated = false }: { isAuthenticated?: boolean }) {
   const [interval, setInterval] = useState<BillingInterval>("monthly");
   const [openFaq, setOpenFaq] = useState(0);
 
   return (
     <main className="min-h-screen bg-white text-harlo-ink">
-      <StickyNav />
+      <StickyNav isAuthenticated={isAuthenticated} />
       <HeroSection />
       <ResultsPanel />
       <BeforeAfterSection />
@@ -214,6 +173,7 @@ export function RootHomepage() {
       <LaunchSessionSection />
       <WorkflowSection />
       <FormsComparisonSection />
+      <IntegrationsShowcase />
       <PricingSection interval={interval} onIntervalChange={setInterval} />
       <AddOnsSection />
       <ComparePlansSection interval={interval} onIntervalChange={setInterval} />
@@ -224,12 +184,14 @@ export function RootHomepage() {
   );
 }
 
-function StickyNav() {
+function StickyNav({ isAuthenticated }: { isAuthenticated: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
+  const accountHref = isAuthenticated ? "/dashboard" : "/auth/sign-in";
+  const accountLabel = isAuthenticated ? "Dashboard" : "Sign in";
   const navItems = [
     { label: "Product", href: "#product" },
     { label: "Solutions", href: "#leverage" },
-    { label: "Resources", href: "#faq" },
+    { label: "Integrations", href: "#integrations" },
     { label: "Pricing", href: "#pricing" }
   ];
 
@@ -254,8 +216,8 @@ function StickyNav() {
           </nav>
 
           <div className="hidden items-center gap-3 lg:flex">
-            <Link href="/auth/sign-in" className="rounded-full px-4 py-2 text-sm font-semibold text-white/76 transition hover:bg-white/10 hover:text-white">
-              Sign in
+            <Link href={accountHref} className="rounded-full px-4 py-2 text-sm font-semibold text-white/76 transition hover:bg-white/10 hover:text-white">
+              {accountLabel}
             </Link>
             <Link
               href={getSignupHref()}
@@ -292,8 +254,8 @@ function StickyNav() {
               </Link>
             ))}
             <div className="mt-2 grid gap-2 border-t border-white/10 pt-2">
-              <Link href="/auth/sign-in" onClick={() => setIsOpen(false)} className="rounded-2xl px-4 py-3 text-sm font-semibold text-white/80">
-                Sign in
+              <Link href={accountHref} onClick={() => setIsOpen(false)} className="rounded-2xl px-4 py-3 text-sm font-semibold text-white/80">
+                {accountLabel}
               </Link>
               <Link href={getSignupHref()} onClick={() => setIsOpen(false)} className="inline-flex h-11 items-center justify-center rounded-lg bg-harlo-blue px-5 text-sm font-semibold text-white">
                 Start free trial
@@ -980,7 +942,7 @@ function PricingSection({
           <SectionHeader
             eyebrow="Pricing"
             title="Simple plans that scale with your conversations."
-            body="Start with trial credits, then choose the monthly or annual plan that matches your website traffic."
+            body="Start with trial credits, then add connected integrations on Growth or Pro as your follow-up workflows grow."
           />
           <div className="flex w-full flex-col items-start gap-3 lg:w-auto lg:items-end">
             <BillingIntervalToggle interval={interval} onChange={onIntervalChange} />
@@ -1070,7 +1032,7 @@ function ComparePlansSection({
               </div>
 
               <div className="mt-3 space-y-2">
-                {compareRows.map((row) => (
+                {BILLING_PLAN_COMPARISON_ROWS.map((row) => (
                   <div key={row.label} className="grid grid-cols-[1.02fr_repeat(3,1fr)] gap-3 rounded-lg border border-harlo-line bg-white p-2">
                     <div className="rounded-md bg-harlo-canvas p-3">
                       <p className="text-base font-semibold text-harlo-ink">{row.label}</p>
@@ -1194,36 +1156,36 @@ function HomeFooter() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-white px-4 py-12 sm:px-6">
+    <footer className="border-t border-white/10 bg-[#07111a] px-4 py-14 text-white sm:px-6">
       <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.2fr_repeat(4,0.7fr)]">
         <div>
-          <LogoMark tone="light" />
-          <p className="mt-5 max-w-xs text-sm leading-6 text-harlo-muted">
+          <LogoMark tone="dark" />
+          <p className="mt-5 max-w-xs text-sm leading-6 text-slate-300">
             AI agent for websites. Answer questions, capture leads, and hand off with full context.
           </p>
           <div className="mt-5 flex items-center gap-3">
             <Link
               href="mailto:support@harloai.co"
               aria-label="Email Harlo support"
-              className="grid h-9 w-9 place-items-center rounded-full border border-harlo-line text-harlo-muted transition hover:border-harlo-teal hover:text-harlo-teal"
+              className="grid h-9 w-9 place-items-center rounded-full border border-white/15 text-slate-300 transition hover:border-harlo-blue hover:text-harlo-blue"
             >
               <Mail size={16} />
             </Link>
             <div>
-              <p className="text-sm font-semibold text-harlo-ink">Customer Support</p>
-              <Link href="mailto:support@harloai.co" className="text-sm font-medium text-harlo-muted transition hover:text-harlo-teal">
+              <p className="text-sm font-semibold text-white">Customer Support</p>
+              <Link href="mailto:support@harloai.co" className="text-sm font-medium text-slate-400 transition hover:text-harlo-blue">
                 support@harloai.co
               </Link>
             </div>
           </div>
-          <p className="mt-6 text-xs font-medium text-harlo-muted">© {currentYear} Harlo AI LLC. All rights reserved.</p>
+          <p className="mt-6 text-xs font-medium text-slate-500">© {currentYear} Harlo AI LLC. All rights reserved.</p>
         </div>
         {footerColumns.map((column) => (
           <div key={column.title}>
-            <h2 className="text-sm font-semibold text-harlo-ink">{column.title}</h2>
-            <div className="mt-4 grid gap-3 text-sm text-harlo-muted">
+            <h2 className="text-sm font-semibold text-white">{column.title}</h2>
+            <div className="mt-4 grid gap-3 text-sm text-slate-400">
               {column.links.map((link) => (
-                <Link key={link.label} href={link.href as Route} className="transition hover:text-harlo-teal">
+                <Link key={link.label} href={link.href as Route} className="transition hover:text-harlo-blue">
                   {link.label}
                 </Link>
               ))}
@@ -1248,7 +1210,7 @@ function PlanCard({ plan, interval }: { plan: BillingPlan; interval: BillingInte
           <PlanMark planKey={plan.key} />
           <div>
             <h3 className="text-2xl font-semibold tracking-tight text-harlo-ink">{plan.name}</h3>
-            <p className="mt-2 text-sm leading-6 text-harlo-muted">{planDescriptions[plan.key]}</p>
+            <p className="mt-2 text-sm leading-6 text-harlo-muted">{plan.description}</p>
           </div>
         </div>
         {isGrowth ? <Badge>Popular</Badge> : null}

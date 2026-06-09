@@ -9,12 +9,12 @@ import { CurvedLineBackdrop } from "@/components/curved-line-backdrop";
 import { Badge } from "@/components/ui/badge";
 import {
   BILLING_ADD_ONS,
+  BILLING_PLAN_COMPARISON_ROWS,
   BILLING_PLANS,
   TRIAL_CONFIG,
   formatPrice,
   type AddOnKey,
-  type BillingInterval,
-  type BillingPlanKey
+  type BillingInterval
 } from "@/lib/billing/plans";
 import { getSignupHref } from "@/lib/onboarding/signup-url";
 
@@ -42,12 +42,6 @@ const landingPlanCtas: Record<string, string> = {
   pro: "Subscribe"
 };
 
-const landingPlanDescriptions: Record<string, string> = {
-  starter: "For small teams launching one chatbot.",
-  growth: "For steady traffic and automation.",
-  pro: "For higher volume and priority support."
-};
-
 const addOnIcons: Record<AddOnKey, typeof Zap> = {
   auto_recharge_credits: Zap,
   extra_agent: Bot,
@@ -61,54 +55,6 @@ const addOnLabels: Record<AddOnKey, string> = {
   extra_seat: "Seats",
   remove_branding: "Brand"
 };
-
-const compareRows = [
-  {
-    label: "Message credits",
-    detail: "Included assistant replies each billing period.",
-    values: {
-      starter: "500",
-      growth: "4,000",
-      pro: "15,000"
-    }
-  },
-  {
-    label: "Included agents",
-    detail: "Separate assistants for sites, brands, or workflows.",
-    values: {
-      starter: "1",
-      growth: "1",
-      pro: "1"
-    }
-  },
-  {
-    label: "Included seats",
-    detail: "Team members who can manage Harlo.",
-    values: {
-      starter: "2",
-      growth: "3",
-      pro: "5"
-    }
-  },
-  {
-    label: "Knowledge updates",
-    detail: "How Harlo keeps approved answers current.",
-    values: {
-      starter: "Manual",
-      growth: "Auto-retrain",
-      pro: "Auto-retrain"
-    }
-  },
-  {
-    label: "Support",
-    detail: "Help level included with the workspace.",
-    values: {
-      starter: "Standard",
-      growth: "Standard",
-      pro: "Priority"
-    }
-  }
-] satisfies Array<{ label: string; detail: string; values: Record<BillingPlanKey, string> }>;
 
 const faqItems = [
   {
@@ -212,7 +158,7 @@ export function PricingLandingSections({
                     {interval === "annual" ? <span className="text-harlo-teal">{formatPrice(annualTotal)} billed annually</span> : null}
                   </p>
                 </div>
-                <p className="mt-3 text-base leading-7 text-harlo-muted">{landingPlanDescriptions[plan.key]}</p>
+                <p className="mt-3 text-base leading-7 text-harlo-muted">{plan.description}</p>
                 <Link
                   href={getSignupHref(plan.key, interval)}
                   className={`mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-base font-semibold transition focus:outline-none focus:ring-2 focus:ring-harlo-teal focus:ring-offset-2 ${
@@ -342,7 +288,7 @@ export function PricingLandingSections({
               </div>
 
               <div className="mt-3 space-y-2">
-                {compareRows.map((row) => (
+                {BILLING_PLAN_COMPARISON_ROWS.map((row) => (
                   <div key={row.label} className="grid grid-cols-[1.05fr_repeat(3,1fr)] gap-3 rounded-lg border border-harlo-line bg-white p-2">
                     <div className="rounded-md bg-harlo-canvas p-3">
                       <p className="text-base font-semibold text-harlo-ink">{row.label}</p>

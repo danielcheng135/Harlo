@@ -29,6 +29,7 @@ export default async function BuilderPage() {
           launcherPosition: workspace.bot.widget_theme.launcher_position,
           welcomePrompts: workspace.bot.widget_theme.welcome_prompts,
           brandLogoUrl: workspace.organization.brand_logo_url ?? null,
+          businessName: workspace.organization.name,
           allowedDomains: workspace.bot.allowed_domains,
           routePatterns: workspace.bot.route_patterns,
           excludedRoutePatterns: workspace.bot.excluded_route_patterns,

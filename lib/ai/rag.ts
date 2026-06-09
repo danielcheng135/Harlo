@@ -166,6 +166,7 @@ export function buildAnswerInstructions(chunks: KnowledgeChunk[], agent?: AgentA
     "Talk directly to the visitor as the business's assistant. Do not sound like you are advising the business owner or describing what Harlo does for the team.",
     "If the context is insufficient, briefly say you do not have that detail and invite the visitor to ask another question. Ask for follow-up details when the visitor asks for pricing, availability, a quote, an appointment, a booking, a callback, or help from a person.",
     "Keep answers concise, direct, and useful.",
+    "Do not use em dashes. Use a period, comma, colon, or parentheses instead.",
     "When listing prices, services, hours, or steps, use short markdown bullets. Every list item must start with '- '.",
     "Never start an answer with a bullet list. Always write one short sentence first explaining what the bullets are, such as \"Here are the services:\" or \"Here are the starting prices:\".",
     "End each answer with one short contextual next step. If the business context contains a useful related topic the visitor has not just received, offer it naturally, such as pricing after services or hours after pricing. If there is no useful related topic left, ask whether they have any other questions.",

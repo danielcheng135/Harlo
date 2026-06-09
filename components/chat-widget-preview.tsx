@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
-import { Mail, Send, Sparkles } from "lucide-react";
+import { ArrowUp, Mail, Sparkles } from "lucide-react";
 import type { LeadCaptureField } from "@/lib/lead-fields";
 
 type ChatWidgetPreviewProps = {
   title?: string;
+  businessName?: string;
   greeting?: string;
   accent?: string;
   launcherPosition?: "bottom-right" | "bottom-left";
@@ -13,7 +14,8 @@ type ChatWidgetPreviewProps = {
 };
 
 export function ChatWidgetPreview({
-  title = "Harlo Assistant",
+  title = "",
+  businessName = "Harlo",
   greeting = "Hi, I can help answer questions and get you to the right next step.",
   accent = "#087f95",
   launcherPosition = "bottom-right",
@@ -25,29 +27,31 @@ export function ChatWidgetPreview({
   const isLeft = launcherPosition === "bottom-left";
   const gradient = `linear-gradient(135deg, ${accent}, color-mix(in srgb, ${accent} 82%, #111827))`;
   const enabledLeadFields = leadCaptureFields.filter((field) => field.enabled);
+  const displayTitle = getDisplayWidgetTitle(title, businessName);
 
   return (
     <div className="relative min-h-[500px] overflow-hidden rounded-lg border border-harlo-line bg-[#f5f8fa] p-4 sm:min-h-[560px] sm:p-5">
       <div className="absolute inset-x-3 bottom-[86px] top-4 flex items-end justify-center sm:inset-x-5 sm:bottom-[92px] sm:top-5">
         <div className="flex h-full w-full max-w-[410px] flex-col overflow-hidden rounded-[22px] bg-white shadow-[0_28px_80px_rgba(15,23,42,.18)]">
-          <div className="flex min-h-[68px] items-center justify-between gap-3 px-4 py-4 sm:min-h-[76px] sm:px-[18px] sm:py-[18px]" style={{ background: accent, color: accentText }}>
-            <div className="flex min-w-0 items-center gap-3">
+          <div
+            className="flex min-h-16 items-center justify-between gap-2.5 px-[19px] py-3.5"
+            style={{
+              background: `linear-gradient(180deg, color-mix(in srgb, ${accent} 88%, #fff) 0%, ${accent} 34%, ${accent} 100%)`,
+              color: accentText
+            }}
+          >
+            <div className="flex min-w-0 items-center gap-2.5">
               <BrandMark brandLogoUrl={brandLogoUrl} accent={accent} accentText={accentText} />
-              <div className="min-w-0">
-                <p className="truncate text-[15px] font-extrabold tracking-normal" style={{ color: accentText }}>
-                  {title || "Ask Harlo"}
-                </p>
-                <p className="mt-0.5 text-xs" style={{ color: `color-mix(in srgb, ${accentText} 82%, transparent)` }}>
-                  Usually replies instantly
-                </p>
-              </div>
+              <p className="truncate text-[15px] font-medium tracking-normal" style={{ color: accentText }}>
+                {displayTitle}
+              </p>
             </div>
             <span
-              className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full"
+              className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full"
               style={{ background: `color-mix(in srgb, ${accentText} 14%, transparent)`, color: accentText }}
               aria-hidden="true"
             >
-              <span className="h-0.5 w-[18px] rounded-full" style={{ background: accentText }} />
+              <span className="h-0.5 w-[15px] rounded-full" style={{ background: accentText }} />
             </span>
           </div>
 
@@ -59,7 +63,7 @@ export function ChatWidgetPreview({
 
               <div className="flex flex-col items-end">
                 <div
-                  className="max-w-[86%] rounded-2xl rounded-tr-md px-[13px] py-3 text-sm leading-relaxed shadow-[0_12px_26px_rgba(15,23,42,.10)]"
+                  className="max-w-[86%] rounded-2xl rounded-tr-md bg-[#F4F4F5] px-[13px] py-3 text-sm leading-relaxed"
                   style={{ background: gradient, color: accentText }}
                 >
                   {welcomePrompts[0] ?? "What services do you offer?"}
@@ -82,20 +86,32 @@ export function ChatWidgetPreview({
             </div>
           </div>
 
-          <div className="flex gap-2 border-t border-[#edf2f5] bg-white px-[13px] py-3">
-            <div className="flex min-h-11 flex-1 items-center rounded-[14px] border border-[#dbe5ea] bg-[#fbfdff] px-[13px] text-sm text-harlo-muted">
+          <div className="flex justify-center bg-white px-[18px] pt-2 pb-1">
+            <a
+              href="https://harloai.co/"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-normal text-[#A1A1A1]"
+            >
+              <span className="grid h-[17px] w-[17px] place-items-center rounded-[4px] bg-[#A1A1A1] text-white">
+                <Sparkles size={10} />
+              </span>
+              <span>
+                Powered by <strong className="font-medium">Harlo</strong>
+              </span>
+            </a>
+          </div>
+          <div className="relative bg-white px-[18px] pt-1.5 pb-4">
+            <div className="flex min-h-[45px] w-full items-center rounded-full border border-[#e4e4e7] bg-white px-[15px] pr-11 text-[13.5px] text-harlo-muted shadow-[0_4px_14px_rgba(15,23,42,.09)]">
               Ask a question...
             </div>
             <span
-              className="grid h-11 w-[46px] shrink-0 place-items-center rounded-[14px] shadow-[0_12px_22px_rgba(15,23,42,.10)]"
+              className="absolute top-[14.5px] right-7 grid h-7 w-7 place-items-center rounded-full"
               style={{ background: gradient, color: "#fff" }}
               aria-hidden="true"
             >
-              <Send size={18} />
+              <ArrowUp size={14} />
             </span>
-          </div>
-          <div className="bg-white pb-[13px] text-center text-[11px] text-[#7c8986]">
-            Powered by <span className="font-extrabold text-[#5f6876]">Harlo</span>
           </div>
         </div>
       </div>
@@ -114,6 +130,18 @@ export function ChatWidgetPreview({
   );
 }
 
+function getDisplayWidgetTitle(title: string, businessName: string) {
+  const trimmed = title.trim();
+  const legacyDefault = [
+    "Ask Harlo",
+    `Ask ${businessName}`,
+    "Ask Harlo AI Agent",
+    `Ask ${businessName} AI Agent`,
+  ].includes(trimmed);
+
+  return !trimmed || legacyDefault ? `${businessName} AI Agent` : trimmed;
+}
+
 function LeadCapturePreview({
   fields,
   accent,
@@ -124,7 +152,7 @@ function LeadCapturePreview({
   accentText: string;
 }) {
   return (
-    <div className="w-full overflow-hidden rounded-[18px] border bg-white shadow-[0_18px_42px_rgba(15,23,42,.09)]" style={{ borderColor: `color-mix(in srgb, ${accent} 22%, #e2e8ee)` }}>
+    <div className="w-full overflow-hidden rounded-[18px] border bg-white" style={{ borderColor: `color-mix(in srgb, ${accent} 22%, #e2e8ee)` }}>
       <div className="h-1" style={{ background: `linear-gradient(90deg, ${accent}, color-mix(in srgb, ${accent} 58%, #fff))` }} />
       <div className="flex gap-3 px-4 py-3">
         <span className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-xl" style={{ background: `color-mix(in srgb, ${accent} 10%, #fff)`, color: accent }}>
@@ -169,7 +197,7 @@ function BrandMark({
 }) {
   if (brandLogoUrl) {
     return (
-      <span className="grid h-[42px] w-[42px] shrink-0 place-items-center overflow-hidden rounded-[14px] bg-[#f4f4f4]">
+      <span className="grid h-[34px] w-[34px] shrink-0 place-items-center overflow-hidden rounded-full bg-[#f4f4f4]">
         <img
           src={brandLogoUrl}
           alt=""
@@ -183,14 +211,14 @@ function BrandMark({
 
   return (
     <span
-      className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[14px] border shadow-[inset_0_1px_0_rgba(255,255,255,.18),0_10px_24px_rgba(15,23,42,.14)]"
+      className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full border"
       style={{
         background: `color-mix(in srgb, ${accentText} 16%, transparent)`,
         borderColor: `color-mix(in srgb, ${accentText} 35%, transparent)`,
         color: accentText
       }}
     >
-      <Sparkles size={20} />
+      <Sparkles size={17} />
     </span>
   );
 }
@@ -219,7 +247,7 @@ function AssistantMessage({
             <Sparkles size={15} />
           )}
         </span>
-        <div className="max-w-[86%] rounded-2xl rounded-tl-md border border-[#e8edf1] bg-[#f4f4f4] px-[13px] py-3 text-sm leading-relaxed text-[#111827] shadow-[0_1px_0_rgba(15,23,42,.04)]">
+        <div className="max-w-[86%] rounded-2xl rounded-tl-md bg-[#F4F4F5] px-[13px] py-3 text-sm leading-relaxed text-[#111827]">
           {children}
         </div>
       </div>

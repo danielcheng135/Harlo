@@ -5,6 +5,7 @@ import {
   ArrowRight,
   BookOpen,
   Bug,
+  CheckCircle2,
   CreditCard,
   LifeBuoy,
   Mail,
@@ -13,9 +14,8 @@ import {
   Sparkles,
   UsersRound
 } from "lucide-react";
+import { DocsNav } from "@/components/docs/docs-nav";
 import { MarketingFooter } from "@/components/marketing-footer";
-import { MarketingNav } from "@/components/marketing-nav";
-import { getSignupHref } from "@/lib/onboarding/signup-url";
 import { siteConfig } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -105,137 +105,165 @@ const issueChecklist = [
 
 export default function SupportPage() {
   return (
-    <main className="min-h-screen bg-[#f7faf8] text-harlo-ink">
-      <MarketingNav
-        links={[
-          { label: "Contact", href: "#contact" },
-          { label: "Topics", href: "#topics" },
-          { label: "Troubleshooting", href: "#troubleshooting" },
-          { label: "Docs", href: "/docs" }
-        ]}
-        ctaLabel="Start free trial"
-        ctaHref={getSignupHref()}
-        ctaVariant="dark"
-      />
+    <main className="min-h-screen bg-white text-harlo-ink">
+      <DocsNav />
 
-      <section className="mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-6 lg:pt-14">
-        <div className="overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm">
-          <div className="grid gap-8 p-5 sm:p-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(300px,0.55fr)] lg:items-end">
-            <div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-harlo-line bg-harlo-canvas px-3 py-1.5 text-sm font-semibold text-harlo-teal">
-                <LifeBuoy size={15} />
-                Harlo support
-              </span>
-              <h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-[1.04] tracking-tight text-harlo-ink sm:text-5xl">
-                Get help launching, managing, and troubleshooting Harlo.
-              </h1>
-              <p className="mt-4 max-w-3xl text-lg leading-8 text-harlo-muted">
-                Find setup guides, contact support, and get unstuck with website widget installation, AI answers, lead capture, integrations, billing, and account settings.
-              </p>
-            </div>
-            <div className="rounded-lg border border-harlo-line bg-harlo-canvas p-5">
-              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-harlo-teal">Need a person?</p>
-              <p className="mt-3 text-2xl font-semibold tracking-tight text-harlo-ink">Email support@harloai.co</p>
-              <p className="mt-3 text-sm leading-6 text-harlo-muted">
-                Include your workspace email, what you were trying to do, and any screenshots or error text.
-              </p>
-              <Link
+      <section className="relative overflow-hidden bg-[#07111a] px-4 py-16 text-white sm:px-6 sm:py-20 lg:px-8 lg:py-24">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_20%,rgba(13,143,170,0.3),transparent_32%),linear-gradient(135deg,#07111a_0%,#081621_62%,#073c47_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.045)_1px,transparent_1px)] bg-[size:64px_64px] opacity-40" />
+        <div className="relative mx-auto grid max-w-[1536px] gap-10 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-center">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-bold uppercase text-harlo-blue">
+              <LifeBuoy size={14} />
+              Harlo support
+            </span>
+            <h1 className="mt-7 max-w-4xl text-4xl font-semibold leading-[1.04] sm:text-5xl lg:text-6xl">
+              Get clear answers and get back to work.
+            </h1>
+            <p className="mt-5 max-w-3xl text-base leading-7 text-slate-300 sm:text-lg sm:leading-8">
+              Find the right guide, manage your workspace, or contact the Harlo team for help with setup, billing, integrations, and technical issues.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <a
                 href="mailto:support@harloai.co?subject=Harlo%20support%20request"
-                className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-harlo-ink px-5 text-sm font-semibold text-white transition hover:bg-harlo-navy"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-harlo-blue px-6 text-sm font-semibold text-white transition hover:bg-harlo-teal"
               >
-                Contact support
+                Email support
                 <ArrowRight size={16} />
+              </a>
+              <Link href="/docs" className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/5 px-6 text-sm font-semibold text-white transition hover:bg-white/10">
+                Browse documentation
+                <BookOpen size={16} />
               </Link>
             </div>
           </div>
-        </div>
 
-        <section id="contact" className="mt-6 grid gap-4 md:grid-cols-3">
-          {supportOptions.map((option) => {
-            const Icon = option.icon;
-            const cardContent = (
-              <>
-                <span className="grid h-11 w-11 place-items-center rounded-lg bg-harlo-mist text-harlo-teal">
-                  <Icon size={20} />
-                </span>
-                <h2 className="mt-5 text-xl font-semibold tracking-tight text-harlo-ink">{option.title}</h2>
-                <p className="mt-3 flex-1 text-sm leading-6 text-harlo-muted">{option.body}</p>
-                <div className="mt-5 flex items-center justify-between border-t border-harlo-line pt-4 text-sm font-semibold text-harlo-teal">
-                  {option.cta}
-                  <ArrowRight size={16} className="transition group-hover:translate-x-0.5" />
-                </div>
-              </>
-            );
-
-            if (option.href.startsWith("mailto:")) {
-              return (
-                <a
-                  key={option.title}
-                  href={option.href}
-                  className="group flex min-h-full flex-col rounded-lg border border-harlo-line bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-harlo-teal hover:shadow-soft"
-                >
-                  {cardContent}
-                </a>
-              );
-            }
-
-            return (
-              <Link
-                key={option.title}
-                href={option.href as NextRoute}
-                className="group flex min-h-full flex-col rounded-lg border border-harlo-line bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-harlo-teal hover:shadow-soft"
-              >
-                {cardContent}
-              </Link>
-            );
-          })}
-        </section>
-
-        <section id="topics" className="mt-12">
-          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-            <div>
-              <p className="text-sm font-bold uppercase tracking-[0.18em] text-harlo-teal">Common topics</p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-harlo-ink sm:text-4xl">Start with the guide closest to your issue.</h2>
+          <div className="rounded-lg border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
+            <p className="text-sm font-bold uppercase text-harlo-blue">Contact support</p>
+            <a href="mailto:support@harloai.co?subject=Harlo%20support%20request" className="mt-3 block text-2xl font-semibold transition hover:text-harlo-blue">
+              support@harloai.co
+            </a>
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              Include your workspace email, what you were trying to do, and any screenshots or error text.
+            </p>
+            <div className="mt-6 grid gap-3 border-t border-white/10 pt-5 text-sm text-slate-300">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 size={16} className="shrink-0 text-harlo-blue" />
+                Setup and account help
+              </div>
+              <div className="flex items-center gap-3">
+                <CheckCircle2 size={16} className="shrink-0 text-harlo-blue" />
+                Billing and integration questions
+              </div>
+              <div className="flex items-center gap-3">
+                <CheckCircle2 size={16} className="shrink-0 text-harlo-blue" />
+                Bug reports and technical issues
+              </div>
             </div>
-            <Link href="/docs" className="inline-flex h-11 w-fit items-center justify-center gap-2 rounded-full border border-harlo-line bg-white px-5 text-sm font-semibold text-harlo-ink transition hover:border-harlo-teal hover:text-harlo-teal">
+          </div>
+        </div>
+      </section>
+
+      <section id="contact" className="px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
+        <div className="mx-auto max-w-[1536px]">
+          <div className="border-b border-harlo-line pb-8">
+            <p className="text-sm font-bold uppercase text-harlo-teal">Choose a path</p>
+            <h2 className="mt-2 text-3xl font-semibold sm:text-4xl">Start with the fastest route to an answer.</h2>
+          </div>
+
+          <div className="grid divide-y divide-harlo-line md:grid-cols-3 md:divide-x md:divide-y-0">
+            {supportOptions.map((option) => {
+              const Icon = option.icon;
+              const content = (
+                <>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#0a2633] text-harlo-blue">
+                      <Icon size={20} />
+                    </span>
+                    <ArrowRight size={17} className="text-harlo-muted transition group-hover:translate-x-0.5 group-hover:text-harlo-teal" />
+                  </div>
+                  <h3 className="mt-6 text-xl font-semibold">{option.title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-harlo-muted">{option.body}</p>
+                  <p className="mt-5 text-sm font-semibold text-harlo-teal">{option.cta}</p>
+                </>
+              );
+
+              const className = "group block px-0 py-8 transition md:px-8 md:first:pl-0 md:last:pr-0";
+
+              return option.href.startsWith("mailto:") ? (
+                <a key={option.title} href={option.href} className={className}>
+                  {content}
+                </a>
+              ) : (
+                <Link key={option.title} href={option.href as NextRoute} className={className}>
+                  {content}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section id="topics" className="border-y border-harlo-line bg-harlo-canvas px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
+        <div className="mx-auto max-w-[1536px]">
+          <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+            <div>
+              <p className="text-sm font-bold uppercase text-harlo-teal">Common topics</p>
+              <h2 className="mt-2 text-3xl font-semibold text-harlo-ink sm:text-4xl">Find the guide closest to your issue.</h2>
+            </div>
+            <Link href="/docs" className="inline-flex h-11 w-fit items-center justify-center gap-2 rounded-lg border border-harlo-line bg-white px-5 text-sm font-semibold text-harlo-ink transition hover:border-harlo-teal hover:text-harlo-teal">
               View all docs
               <ArrowRight size={16} />
             </Link>
           </div>
+
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {helpTopics.map((topic) => {
               const Icon = topic.icon;
 
               return (
-                <Link key={topic.title} href={topic.href as NextRoute} className="rounded-lg border border-harlo-line bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-harlo-teal hover:shadow-soft">
-                  <Icon size={22} className="text-harlo-teal" />
+                <Link key={topic.title} href={topic.href as NextRoute} className="group rounded-lg border border-harlo-line bg-white p-5 transition hover:-translate-y-0.5 hover:border-harlo-teal hover:shadow-soft">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-harlo-mist text-harlo-teal">
+                      <Icon size={19} />
+                    </span>
+                    <ArrowRight size={16} className="text-harlo-muted transition group-hover:translate-x-0.5 group-hover:text-harlo-teal" />
+                  </div>
                   <h3 className="mt-5 text-lg font-semibold text-harlo-ink">{topic.title}</h3>
                   <p className="mt-3 text-sm leading-6 text-harlo-muted">{topic.body}</p>
                 </Link>
               );
             })}
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section id="troubleshooting" className="mt-12 grid gap-6 rounded-lg border border-harlo-line bg-white p-5 shadow-sm sm:p-8 lg:grid-cols-[0.85fr_1.15fr]">
+      <section id="troubleshooting" className="px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
+        <div className="mx-auto grid max-w-[1536px] gap-10 lg:grid-cols-[minmax(0,0.65fr)_minmax(0,1fr)] lg:gap-16">
           <div>
-            <span className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-rose-50 text-rose-500">
+            <span className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-[#0a2633] text-harlo-blue">
               <Bug size={21} />
             </span>
-            <h2 className="mt-5 text-3xl font-semibold tracking-tight text-harlo-ink">Reporting a bug or broken setup?</h2>
-            <p className="mt-4 text-sm leading-6 text-harlo-muted">
+            <p className="mt-6 text-sm font-bold uppercase text-harlo-teal">Troubleshooting</p>
+            <h2 className="mt-2 text-3xl font-semibold text-harlo-ink sm:text-4xl">Reporting a bug or broken setup?</h2>
+            <p className="mt-4 max-w-xl text-base leading-7 text-harlo-muted">
               A little context helps us find the issue faster. Send the details below to support when something is not working as expected.
             </p>
+            <a href="mailto:support@harloai.co?subject=Harlo%20bug%20report" className="mt-7 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#0a2633] px-5 text-sm font-semibold text-white transition hover:bg-harlo-navy">
+              Report an issue
+              <ArrowRight size={16} />
+            </a>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+
+          <div className="divide-y divide-harlo-line border-y border-harlo-line">
             {issueChecklist.map((item) => (
-              <div key={item} className="flex items-start gap-3 rounded-lg border border-harlo-line bg-harlo-canvas p-4">
-                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-harlo-teal" />
+              <div key={item} className="flex items-center gap-4 py-4">
+                <CheckCircle2 size={18} className="shrink-0 text-harlo-teal" />
                 <p className="text-sm font-semibold leading-6 text-harlo-ink">{item}</p>
               </div>
             ))}
           </div>
-        </section>
+        </div>
       </section>
 
       <MarketingFooter />

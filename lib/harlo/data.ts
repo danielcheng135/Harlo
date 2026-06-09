@@ -248,6 +248,12 @@ export type IntegrationOverview = {
   bots: IntegrationBotOverview[];
   providers: IntegrationProviderOverview[];
   recentRuns: IntegrationRunOverview[];
+  runPagination: {
+    page: number;
+    pageSize: number;
+    hasPrevious: boolean;
+    hasNext: boolean;
+  };
 };
 
 export type IntegrationBotOverview = {
@@ -285,11 +291,16 @@ export type IntegrationConfiguredAction = {
 export type IntegrationRunOverview = {
   id: string;
   provider: IntegrationProviderKey;
-  actionType: string;
+  actionType: IntegrationActionType;
+  triggerType: IntegrationTriggerType | null;
   status: string;
   externalRecordId: string | null;
   externalUrl: string | null;
+  resultMessage: string | null;
   errorMessage: string | null;
+  durationMs: number | null;
+  completedAt: string | null;
+  reason: string | null;
   createdAt: string;
 };
 
@@ -478,7 +489,7 @@ function normalizeWidgetTheme(theme: unknown): WorkspaceBot["widget_theme"] {
     title: typeof themeRecord.title === "string" ? themeRecord.title : "Ask Harlo",
     welcome_prompts: welcomePrompts.length > 0
       ? welcomePrompts
-      : ["What services do you offer?", "How much does it cost?", "Can I book a consultation?"]
+      : ["What services do you offer?", "How much does it cost?", "Can I book a demo?"]
   };
 }
 
@@ -658,9 +669,18 @@ export async function getBillingOverview(workspace: Workspace): Promise<BillingO
   };
 }
 
-export async function getIntegrationOverview(workspace: Workspace, billing: BillingOverview): Promise<IntegrationOverview> {
+export async function getIntegrationOverview(
+  workspace: Workspace,
+  billing: BillingOverview,
+  options: {
+    includeHistory?: boolean;
+    historyPage?: number;
+  } = {}
+): Promise<IntegrationOverview> {
   const supabase = await createSupabaseServerClient();
   const entitlements = getIntegrationEntitlements(billing.planKey);
+  const historyPageSize = 10;
+  const historyPage = Math.max(1, options.historyPage ?? 1);
   const integrationResult = await supabase
     .from("integrations")
     .select("id, provider, status, display_name, last_success_at, last_error, config")
@@ -743,35 +763,71 @@ export async function getIntegrationOverview(workspace: Workspace, billing: Bill
       entitlements,
       bots,
       providers,
-      recentRuns: []
+      recentRuns: [],
+      runPagination: {
+        page: historyPage,
+        pageSize: historyPageSize,
+        hasPrevious: historyPage > 1,
+        hasNext: false
+      }
     };
   }
 
+  if (!options.includeHistory) {
+    return {
+      migrationReady,
+      entitlements,
+      bots,
+      providers,
+      recentRuns: [],
+      runPagination: {
+        page: 1,
+        pageSize: historyPageSize,
+        hasPrevious: false,
+        hasNext: false
+      }
+    };
+  }
+
+  const historyOffset = (historyPage - 1) * historyPageSize;
   const runsResult = await supabase
     .from("integration_action_runs")
-    .select("id, provider, action_type, status, external_record_id, external_url, error_message, created_at")
+    .select("id, provider, action_type, trigger_type, status, external_record_id, external_url, result_message, error_message, duration_ms, completed_at, reason, created_at")
     .eq("organization_id", workspace.organization.id)
+    .in("provider", INTEGRATION_PROVIDERS.map((provider) => provider.key))
     .order("created_at", { ascending: false })
-    .limit(8);
-  const recentRuns = ((runsResult.data ?? []) as Array<{
+    .range(historyOffset, historyOffset + historyPageSize);
+  const runRows = (runsResult.data ?? []) as Array<{
     id: string;
     provider: string;
     action_type: string;
+    trigger_type: string | null;
     status: string;
     external_record_id: string | null;
     external_url: string | null;
+    result_message: string | null;
     error_message: string | null;
+    duration_ms: number | null;
+    completed_at: string | null;
+    reason: string | null;
     created_at: string;
-  }>)
-    .filter((run) => isIntegrationProviderKey(run.provider))
+  }>;
+  const recentRuns = runRows
+    .slice(0, historyPageSize)
+    .filter((run) => isIntegrationProviderKey(run.provider) && isIntegrationActionType(run.action_type))
     .map((run) => ({
       id: run.id,
       provider: run.provider as IntegrationProviderKey,
-      actionType: run.action_type,
+      actionType: run.action_type as IntegrationActionType,
+      triggerType: isIntegrationTriggerType(run.trigger_type) ? run.trigger_type : null,
       status: run.status,
       externalRecordId: run.external_record_id,
       externalUrl: run.external_url,
+      resultMessage: run.result_message,
       errorMessage: run.error_message,
+      durationMs: run.duration_ms,
+      completedAt: run.completed_at,
+      reason: run.reason,
       createdAt: run.created_at
     }));
 
@@ -780,12 +836,34 @@ export async function getIntegrationOverview(workspace: Workspace, billing: Bill
     entitlements,
     bots,
     providers,
-    recentRuns
+    recentRuns,
+    runPagination: {
+      page: historyPage,
+      pageSize: historyPageSize,
+      hasPrevious: historyPage > 1,
+      hasNext: runRows.length > historyPageSize
+    }
   };
 }
 
 function getEnabledAddOnQuantity(row: { enabled: boolean; quantity: number } | undefined) {
   return row?.enabled ? Math.max(0, row.quantity ?? 0) : 0;
+}
+
+function isIntegrationActionType(value: string): value is IntegrationActionType {
+  return value === "show_booking_link" ||
+    value === "submit_service_request" ||
+    value === "send_webhook" ||
+    value === "send_notification" ||
+    value === "create_crm_contact";
+}
+
+function isIntegrationTriggerType(value: string | null): value is IntegrationTriggerType {
+  return value === "booking_requested" ||
+    value === "service_request_completed" ||
+    value === "lead_captured" ||
+    value === "human_follow_up_requested" ||
+    value === "integration_failed";
 }
 
 export async function getTeamOverview(workspace: Workspace, billing: BillingOverview): Promise<TeamOverview> {

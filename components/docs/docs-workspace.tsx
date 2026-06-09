@@ -3,8 +3,7 @@
 import type { Route as NextRoute } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, BookOpen, CheckCircle2, ChevronRight, Route, Search, Sparkles } from "lucide-react";
-import { useMemo } from "react";
+import { ArrowRight, BookOpen, CheckCircle2, ChevronRight, Route, Sparkles } from "lucide-react";
 import { docs, integrationDocs, isDocId, workspaceSnippet, type DocId, type DocSection } from "@/lib/docs";
 
 const navGroups = [
@@ -16,7 +15,7 @@ const navGroups = [
 export function DocsWorkspace({ initialDocId = "widget" }: { initialDocId?: DocId }) {
   const router = useRouter();
   const selectedId = isDocId(initialDocId) ? initialDocId : "widget";
-  const selectedDoc = useMemo(() => docs.find((doc) => doc.id === selectedId) ?? docs[0], [selectedId]);
+  const selectedDoc = docs.find((doc) => doc.id === selectedId) ?? docs[0];
 
   function selectSection(id: DocId) {
     const doc = docs.find((item) => item.id === id);
@@ -26,20 +25,20 @@ export function DocsWorkspace({ initialDocId = "widget" }: { initialDocId?: DocI
   }
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-8 px-4 pb-16 pt-10 sm:px-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:pt-14">
-      <aside className="min-w-0">
-        <div className="sticky top-28 rounded-lg border border-harlo-line bg-white/90 p-3 shadow-sm backdrop-blur">
+    <div className="mx-auto grid max-w-[1536px] gap-8 px-4 pb-20 pt-8 sm:px-6 lg:grid-cols-[248px_minmax(0,1fr)] lg:gap-12 lg:px-8 lg:pt-12">
+      <aside className="min-w-0 lg:border-r lg:border-harlo-line lg:pr-6">
+        <div className="sticky top-24">
           <Link
             href="/docs"
-            className="flex items-center gap-3 rounded-lg border border-transparent px-2 py-2 text-left transition hover:border-harlo-line hover:bg-harlo-canvas focus:outline-none focus:ring-2 focus:ring-harlo-teal/20"
+            className="flex items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-harlo-teal/20"
             aria-label="Go to documentation home"
           >
-            <span className="grid h-10 w-10 place-items-center rounded-lg bg-harlo-mist text-harlo-teal">
+            <span className="grid h-10 w-10 place-items-center rounded-lg bg-[#0a2633] text-harlo-blue">
               <BookOpen size={18} />
             </span>
             <div className="min-w-0">
               <p className="font-semibold text-harlo-ink">Documentation</p>
-              <p className="text-sm text-harlo-muted">Business setup guides</p>
+              <p className="text-xs text-harlo-muted">Harlo product guides</p>
             </div>
           </Link>
 
@@ -58,10 +57,10 @@ export function DocsWorkspace({ initialDocId = "widget" }: { initialDocId?: DocI
             </select>
           </label>
 
-          <nav aria-label="Documentation sections" className="mt-4 hidden gap-4 lg:grid">
+          <nav aria-label="Documentation sections" className="mt-6 hidden gap-6 lg:grid">
             {navGroups.map((group) => (
               <div key={group.title}>
-                <p className="px-3 text-xs font-bold uppercase tracking-[0.18em] text-harlo-muted">{group.title}</p>
+                <p className="px-3 text-xs font-bold uppercase text-harlo-muted">{group.title}</p>
                 <div className="mt-2 grid gap-1">
                   {group.ids.map((id) => {
                     const doc = docs.find((item) => item.id === id)!;
@@ -73,12 +72,12 @@ export function DocsWorkspace({ initialDocId = "widget" }: { initialDocId?: DocI
                         key={id}
                         href={doc.path as NextRoute}
                         className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition ${
-                          isSelected ? "bg-harlo-mist text-harlo-teal shadow-sm" : "text-harlo-muted hover:bg-harlo-canvas hover:text-harlo-ink"
+                          isSelected ? "bg-[#0a2633] text-white" : "text-harlo-muted hover:bg-white hover:text-harlo-ink"
                         }`}
                       >
                         <Icon size={16} />
                         <span>{doc.label}</span>
-                        <ChevronRight size={14} className={isSelected ? "opacity-100" : "opacity-40"} />
+                        <ChevronRight size={14} className={isSelected ? "text-harlo-blue" : "opacity-35"} />
                       </Link>
                     );
                   })}
@@ -90,19 +89,6 @@ export function DocsWorkspace({ initialDocId = "widget" }: { initialDocId?: DocI
       </aside>
 
       <div className="min-w-0">
-        <header className="rounded-lg border border-harlo-line bg-white p-5 shadow-sm sm:p-7">
-          <span className="inline-flex items-center gap-2 rounded-full border border-harlo-line bg-harlo-canvas px-3 py-1.5 text-sm font-semibold text-harlo-teal">
-            <span className="h-2 w-2 rounded-full bg-harlo-blue" />
-            Harlo docs
-          </span>
-          <h1 className="mt-4 max-w-3xl text-4xl font-semibold leading-[1.04] tracking-tight text-harlo-ink sm:text-5xl">
-            Learn how to run Harlo for your business.
-          </h1>
-          <p className="mt-4 max-w-3xl text-lg leading-8 text-harlo-muted">
-            Choose a guide from the sidebar to focus on one part of Harlo, from installing the widget to managing conversations, leads, reporting, and team access.
-          </p>
-        </header>
-
         <DocPanel doc={selectedDoc} />
       </div>
     </div>
@@ -113,95 +99,94 @@ function DocPanel({ doc }: { doc: DocSection }) {
   const Icon = doc.icon;
 
   return (
-    <section className="mt-6 overflow-hidden rounded-lg border border-harlo-line bg-white shadow-soft">
-      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0 p-5 sm:p-7">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <div className="flex items-center gap-3">
-                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-harlo-teal text-white">
-                  <Icon size={22} />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-harlo-teal">{doc.eyebrow}</p>
-                  <h2 className="text-3xl font-semibold tracking-tight text-harlo-ink">{doc.title}</h2>
-                </div>
-              </div>
-              <p className="mt-4 max-w-3xl text-base leading-7 text-harlo-muted">{doc.description}</p>
+    <article>
+      <header className="relative overflow-hidden rounded-lg bg-[#07111a] px-5 py-8 text-white sm:px-8 sm:py-10 lg:px-10">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_86%_18%,rgba(13,143,170,0.3),transparent_32%),linear-gradient(135deg,#07111a_0%,#0a2633_100%)]" />
+        <div className="relative flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-white/10 text-harlo-blue ring-1 ring-white/10">
+                <Icon size={21} />
+              </span>
+              <p className="text-sm font-bold uppercase text-harlo-blue">{doc.eyebrow}</p>
             </div>
-            <Link href={doc.dashboardHref as NextRoute} className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-harlo-ink px-5 text-sm font-semibold text-white transition hover:bg-harlo-navy">
-              Open in dashboard
-              <ArrowRight size={16} />
-            </Link>
+            <h1 className="mt-6 max-w-4xl text-4xl font-semibold leading-[1.05] sm:text-5xl">{doc.title}</h1>
+            <p className="mt-4 max-w-3xl text-base leading-7 text-slate-300 sm:text-lg sm:leading-8">{doc.description}</p>
           </div>
-
-          {doc.id === "widget" ? <WidgetSnippets /> : null}
-          {doc.id === "integrations" ? <IntegrationDocsGrid /> : null}
-
-          <div className="mt-8">
-            <SectionHeading eyebrow="Workflow" title="How to use this page" />
-            <div className="mt-4 grid gap-3">
-              {doc.steps.map((step, index) => (
-                <article key={step.title} className="grid gap-3 rounded-lg border border-harlo-line bg-harlo-canvas p-4 sm:grid-cols-[auto_minmax(0,1fr)]">
-                  <span className="grid h-9 w-9 place-items-center rounded-full bg-white text-sm font-bold text-harlo-teal shadow-sm">{index + 1}</span>
-                  <div>
-                    <h3 className="font-semibold text-harlo-ink">{step.title}</h3>
-                    <p className="mt-1 text-sm leading-6 text-harlo-muted">{step.body}</p>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-8">
-            <SectionHeading eyebrow="Reference" title="Key areas" />
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              {doc.details.map((detail) => (
-                <article key={detail.title} className="rounded-lg border border-harlo-line bg-white p-4 shadow-sm">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-harlo-teal" />
-                    <div>
-                      <h3 className="font-semibold text-harlo-ink">{detail.title}</h3>
-                      <p className="mt-1 text-sm leading-6 text-harlo-muted">{detail.body}</p>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
+          <Link href={doc.dashboardHref as NextRoute} className="inline-flex h-11 w-fit shrink-0 items-center justify-center gap-2 rounded-lg bg-harlo-blue px-5 text-sm font-semibold text-white transition hover:bg-harlo-teal">
+            Open in dashboard
+            <ArrowRight size={16} />
+          </Link>
         </div>
+      </header>
 
-        <aside className="border-t border-harlo-line bg-[#fbfdfc] p-5 lg:border-l lg:border-t-0">
-          <div className="rounded-lg border border-harlo-line bg-white p-4 shadow-sm">
-            <p className="text-sm font-semibold text-harlo-ink">In this section</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {doc.highlights.map((item) => (
-                <span key={item} className="rounded-full bg-harlo-mist px-3 py-1 text-xs font-semibold text-harlo-teal">
-                  {item}
-                </span>
-              ))}
-            </div>
+      <div className="grid gap-4 border-b border-harlo-line py-8 md:grid-cols-2">
+        <section className="rounded-lg border border-harlo-line bg-white p-5">
+          <p className="text-sm font-semibold text-harlo-ink">Covered in this guide</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {doc.highlights.map((item) => (
+              <span key={item} className="rounded-full bg-harlo-mist px-3 py-1.5 text-xs font-semibold text-harlo-teal">
+                {item}
+              </span>
+            ))}
           </div>
+        </section>
 
-          <div className="mt-4 rounded-lg border border-harlo-line bg-white p-4 shadow-sm">
-            <p className="text-sm font-semibold text-harlo-ink">Best next checks</p>
-            <div className="mt-3 grid gap-3 text-sm leading-6 text-harlo-muted">
-              {doc.nextChecks.map((check) => (
-                <MiniCheck key={check.text} icon={check.icon} text={check.text} />
-              ))}
-            </div>
+        <section className="rounded-lg border border-harlo-line bg-white p-5">
+          <p className="text-sm font-semibold text-harlo-ink">Before you finish</p>
+          <div className="mt-4 grid gap-3 text-sm leading-6 text-harlo-muted">
+            {doc.nextChecks.map((check) => (
+              <MiniCheck key={check.text} icon={check.icon} text={check.text} />
+            ))}
           </div>
-        </aside>
+        </section>
       </div>
-    </section>
+
+      <div className="py-10">
+        {doc.id === "widget" ? <WidgetSnippets /> : null}
+        {doc.id === "integrations" ? <IntegrationDocsGrid /> : null}
+
+        <section className={doc.id === "widget" || doc.id === "integrations" ? "mt-12" : ""}>
+          <SectionHeading eyebrow="Workflow" title="Follow the setup step by step" />
+          <div className="mt-6 divide-y divide-harlo-line border-y border-harlo-line">
+            {doc.steps.map((step, index) => (
+              <article key={step.title} className="grid gap-4 py-6 sm:grid-cols-[44px_minmax(0,1fr)] sm:py-7">
+                <span className="grid h-10 w-10 place-items-center rounded-lg bg-[#0a2633] text-sm font-bold text-white">{index + 1}</span>
+                <div>
+                  <h3 className="text-lg font-semibold text-harlo-ink">{step.title}</h3>
+                  <p className="mt-2 max-w-4xl text-sm leading-7 text-harlo-muted">{step.body}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-12">
+          <SectionHeading eyebrow="Reference" title="Key areas to understand" />
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            {doc.details.map((detail) => (
+              <article key={detail.title} className="rounded-lg border border-harlo-line bg-white p-5">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-harlo-teal" />
+                  <div>
+                    <h3 className="font-semibold text-harlo-ink">{detail.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-harlo-muted">{detail.body}</p>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      </div>
+    </article>
   );
 }
 
 function IntegrationDocsGrid() {
   return (
-    <div className="mt-8">
+    <div>
       <SectionHeading eyebrow="Provider guides" title="Choose the integration you want to configure" />
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
+      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {integrationDocs.map((integration) => {
           const Icon = integration.icon;
 
@@ -209,7 +194,7 @@ function IntegrationDocsGrid() {
             <Link
               key={integration.id}
               href={integration.path as NextRoute}
-              className="group overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-harlo-teal/60 hover:shadow-soft"
+              className="group overflow-hidden rounded-lg border border-harlo-line bg-white transition hover:-translate-y-0.5 hover:border-harlo-teal/60 hover:shadow-soft"
             >
               <div className={`h-2 bg-gradient-to-r ${integration.accentClass}`} />
               <div className="p-4">
@@ -223,8 +208,8 @@ function IntegrationDocsGrid() {
                     )}
                   </span>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-harlo-teal">{integration.eyebrow}</p>
-                    <h3 className="mt-1 text-xl font-semibold tracking-tight text-harlo-ink">{integration.name}</h3>
+                    <p className="text-xs font-bold uppercase text-harlo-teal">{integration.eyebrow}</p>
+                    <h3 className="mt-1 text-xl font-semibold text-harlo-ink">{integration.name}</h3>
                   </div>
                 </div>
                 <p className="mt-4 text-sm leading-6 text-harlo-muted">{integration.description}</p>
@@ -253,7 +238,8 @@ function IntegrationDocsGrid() {
 
 function WidgetSnippets() {
   return (
-    <div className="mt-8 grid gap-4">
+    <div className="grid gap-4">
+      <SectionHeading eyebrow="Install code" title="Add Harlo across your website" />
       <SnippetCard
         icon={Route}
         title="Whole-site install code"
@@ -288,8 +274,8 @@ function SnippetCard({ icon: Icon, title, body, code }: { icon: typeof Sparkles;
 function SectionHeading({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
     <div>
-      <p className="text-sm font-semibold uppercase tracking-[0.18em] text-harlo-teal">{eyebrow}</p>
-      <h3 className="mt-1 text-2xl font-semibold tracking-tight text-harlo-ink">{title}</h3>
+      <p className="text-sm font-semibold uppercase text-harlo-teal">{eyebrow}</p>
+      <h2 className="mt-2 text-2xl font-semibold text-harlo-ink sm:text-3xl">{title}</h2>
     </div>
   );
 }

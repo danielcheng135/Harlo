@@ -42,6 +42,12 @@ export type IntegrationEntitlements = {
   logLevel: "none" | "basic" | "advanced";
 };
 
+export type BillingPlanComparisonRow = {
+  label: string;
+  detail: string;
+  values: Record<BillingPlanKey, string>;
+};
+
 export const TRIAL_CONFIG = {
   days: 14,
   credits: 50,
@@ -58,7 +64,7 @@ export const BILLING_PLANS: BillingPlan[] = [
     includedAgents: 1,
     seats: 1,
     description: "For small businesses adding one chatbot to their website.",
-    features: ["500 message credits/month", "1 agent", "1 seat", "Lead capture", "Basic analytics"]
+    features: ["500 message credits/month", "1 agent", "1 seat", "Lead capture", "Basic analytics", "Website widget and inbox"]
   },
   {
     key: "growth",
@@ -68,8 +74,8 @@ export const BILLING_PLANS: BillingPlan[] = [
     monthlyCredits: 4000,
     includedAgents: 1,
     seats: 3,
-    description: "For businesses getting steady website traffic and wanting more automation.",
-    features: ["4,000 message credits/month", "1 agent", "3 seats", "Auto-retrain knowledge", "Advanced analytics"]
+    description: "For businesses getting steady website traffic and connecting follow-up actions.",
+    features: ["4,000 message credits/month", "1 agent", "3 seats", "Auto-retrain knowledge", "Advanced analytics", "1 connected action per conversation", "All 7 integration providers"]
   },
   {
     key: "pro",
@@ -79,8 +85,8 @@ export const BILLING_PLANS: BillingPlan[] = [
     monthlyCredits: 15000,
     includedAgents: 1,
     seats: 5,
-    description: "For high-traffic businesses with heavier support and lead capture needs.",
-    features: ["15,000 message credits/month", "1 agent", "5 seats", "Priority support", "More actions per agent"]
+    description: "For high-traffic businesses with heavier support, lead capture, and integration needs.",
+    features: ["15,000 message credits/month", "1 agent", "5 seats", "Priority support", "Up to 3 connected actions per conversation", "All 7 integration providers"]
   }
 ];
 
@@ -147,6 +153,54 @@ export const INTEGRATION_ENTITLEMENTS: Record<BillingPlanKey, IntegrationEntitle
     logLevel: "advanced"
   }
 };
+
+export const BILLING_PLAN_COMPARISON_ROWS: BillingPlanComparisonRow[] = [
+  {
+    label: "Message credits",
+    detail: "Included assistant replies each billing period.",
+    values: { starter: "500", growth: "4,000", pro: "15,000" }
+  },
+  {
+    label: "Included agents",
+    detail: "Separate assistants for sites, brands, or workflows.",
+    values: { starter: "1", growth: "1", pro: "1" }
+  },
+  {
+    label: "Included seats",
+    detail: "Team members who can manage Harlo.",
+    values: { starter: "1", growth: "3", pro: "5" }
+  },
+  {
+    label: "Knowledge updates",
+    detail: "How Harlo keeps approved answers current.",
+    values: { starter: "Manual", growth: "Auto-retrain", pro: "Auto-retrain" }
+  },
+  {
+    label: "Support",
+    detail: "Help level included with the workspace.",
+    values: { starter: "Standard", growth: "Standard", pro: "Priority" }
+  },
+  {
+    label: "Lead capture",
+    detail: "Capture intent, contact details, and conversation context.",
+    values: { starter: "Included", growth: "Included", pro: "Included" }
+  },
+  {
+    label: "Analytics",
+    detail: "Conversation trends, top intents, and knowledge gaps.",
+    values: { starter: "Basic", growth: "Advanced", pro: "Advanced" }
+  },
+  {
+    label: "Integration providers",
+    detail: "Calendly, Cal.com, Jobber, Slack, HubSpot, Mailchimp, and Google Sheets.",
+    values: { starter: "Not included", growth: "All 7", pro: "All 7" }
+  },
+  {
+    label: "Connected actions",
+    detail: "Maximum provider actions Harlo can run during one visitor conversation.",
+    values: { starter: "Not included", growth: "1 per conversation", pro: "Up to 3 per conversation" }
+  }
+];
 
 export function getBillingPlan(planKey: string | null | undefined) {
   return BILLING_PLANS.find((plan) => plan.key === planKey) ?? BILLING_PLANS[0];

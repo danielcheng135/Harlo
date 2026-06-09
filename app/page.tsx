@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { RootHomepage } from "@/components/landing/root-homepage";
 import { homeJsonLd } from "@/lib/seo";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: {
@@ -13,7 +14,12 @@ export const metadata: Metadata = {
   }
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
   return (
     <>
       <script
@@ -22,7 +28,7 @@ export default function HomePage() {
           __html: JSON.stringify(homeJsonLd())
         }}
       />
-      <RootHomepage />
+      <RootHomepage isAuthenticated={Boolean(user)} />
     </>
   );
 }

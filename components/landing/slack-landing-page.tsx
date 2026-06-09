@@ -28,6 +28,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { CalendlyDemoButton } from "@/components/calendly-demo-button";
 import { CtaPhoneGraphic } from "@/components/cta-phone-graphic";
+import { IntegrationsShowcase } from "@/components/landing/integrations-showcase";
 import { TRIAL_CONFIG } from "@/lib/billing/plans";
 import { getSignupHref } from "@/lib/onboarding/signup-url";
 
@@ -85,6 +86,7 @@ const footerColumns = [
     links: [
       { label: "Overview", href: "/#hero" },
       { label: "Features", href: "/#product" },
+      { label: "Integrations", href: "/#integrations" },
       { label: "Pricing", href: "/#pricing" },
       { label: "Compare", href: "/#compare" }
     ]
@@ -127,6 +129,11 @@ export function SlackLandingPage() {
       <HowItWorksSection />
       <InstallSection />
       <UseCasesSection />
+      <IntegrationsShowcase
+        tone="light"
+        title="Slack is one part of a complete follow-up stack."
+        description="Pair team alerts with scheduling, service intake, CRM contacts, audience sync, and spreadsheet exports from the same Harlo conversations."
+      />
       <SecuritySection />
       <CtaSection />
       <HomeFooter />
@@ -139,7 +146,7 @@ function SlackNav() {
   const navItems = [
     { label: "How it works", href: "#how-it-works" },
     { label: "Install", href: "#install" },
-    { label: "Use cases", href: "#use-cases" },
+    { label: "Integrations", href: "#integrations" },
     { label: "Security", href: "#security" }
   ];
 
@@ -522,36 +529,36 @@ function HomeFooter() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-white px-4 py-12 sm:px-6">
+    <footer className="border-t border-white/10 bg-[#07111a] px-4 py-14 text-white sm:px-6">
       <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.2fr_repeat(4,0.7fr)]">
         <div>
-          <LogoMark tone="light" />
-          <p className="mt-5 max-w-xs text-sm leading-6 text-harlo-muted">
+          <LogoMark tone="dark" />
+          <p className="mt-5 max-w-xs text-sm leading-6 text-slate-300">
             AI agent for websites. Answer questions, capture leads, and hand off with full context.
           </p>
           <div className="mt-5 flex items-center gap-3">
             <Link
               href="mailto:support@harloai.co"
               aria-label="Email Harlo support"
-              className="grid h-9 w-9 place-items-center rounded-full border border-harlo-line text-harlo-muted transition hover:border-harlo-teal hover:text-harlo-teal"
+              className="grid h-9 w-9 place-items-center rounded-full border border-white/15 text-slate-300 transition hover:border-harlo-blue hover:text-harlo-blue"
             >
               <Mail size={16} />
             </Link>
             <div>
-              <p className="text-sm font-semibold text-harlo-ink">Customer Support</p>
-              <Link href="mailto:support@harloai.co" className="text-sm font-medium text-harlo-muted transition hover:text-harlo-teal">
+              <p className="text-sm font-semibold text-white">Customer Support</p>
+              <Link href="mailto:support@harloai.co" className="text-sm font-medium text-slate-400 transition hover:text-harlo-blue">
                 support@harloai.co
               </Link>
             </div>
           </div>
-          <p className="mt-6 text-xs font-medium text-harlo-muted">© {currentYear} Harlo AI LLC. All rights reserved.</p>
+          <p className="mt-6 text-xs font-medium text-slate-500">© {currentYear} Harlo AI LLC. All rights reserved.</p>
         </div>
         {footerColumns.map((column) => (
           <div key={column.title}>
-            <h2 className="text-sm font-semibold text-harlo-ink">{column.title}</h2>
-            <div className="mt-4 grid gap-3 text-sm text-harlo-muted">
+            <h2 className="text-sm font-semibold text-white">{column.title}</h2>
+            <div className="mt-4 grid gap-3 text-sm text-slate-400">
               {column.links.map((link) => (
-                <Link key={link.label} href={link.href as Route} className="transition hover:text-harlo-teal">
+                <Link key={link.label} href={link.href as Route} className="transition hover:text-harlo-blue">
                   {link.label}
                 </Link>
               ))}

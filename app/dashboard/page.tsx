@@ -107,6 +107,7 @@ export default async function DashboardPage() {
         <div className="space-y-6">
           <ChatWidgetPreview
             title={workspace.bot.widget_theme.title}
+            businessName={workspace.organization.name}
             greeting={workspace.bot.greeting}
             accent={workspace.bot.widget_theme.accent}
             launcherPosition={workspace.bot.widget_theme.launcher_position}

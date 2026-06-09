@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { DocsNav } from "@/components/docs/docs-nav";
 import { IntegrationDocPageContent } from "@/components/docs/integration-doc-page";
 import { MarketingFooter } from "@/components/marketing-footer";
-import { MarketingNav } from "@/components/marketing-nav";
 import { integrationDocs } from "@/lib/docs";
-import { getSignupHref } from "@/lib/onboarding/signup-url";
 import { siteConfig } from "@/lib/seo";
 
 type IntegrationProviderPageProps = {
@@ -60,18 +59,8 @@ export default async function IntegrationProviderPage({ params }: IntegrationPro
   }
 
   return (
-    <main className="min-h-screen bg-[#f7faf8] text-harlo-ink">
-      <MarketingNav
-        links={[
-          { label: "Docs", href: "/docs" },
-          { label: "Integrations", href: "/docs/integrations" },
-          { label: "Dashboard", href: "/dashboard" },
-          { label: "Sign in", href: "/auth/sign-in" }
-        ]}
-        ctaLabel="Start free trial"
-        ctaHref={getSignupHref()}
-        ctaVariant="dark"
-      />
+    <main className="min-h-screen bg-harlo-canvas text-harlo-ink">
+      <DocsNav />
       <IntegrationDocPageContent doc={doc} />
       <MarketingFooter />
     </main>

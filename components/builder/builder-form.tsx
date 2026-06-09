@@ -37,6 +37,7 @@ type BuilderFormProps = {
     launcherPosition: "bottom-right" | "bottom-left";
     welcomePrompts: string[];
     brandLogoUrl: string | null;
+    businessName: string;
     allowedDomains: string[];
     routePatterns: string[];
     excludedRoutePatterns: string[];
@@ -981,6 +982,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                 <div className="grid gap-5 xl:grid-cols-[minmax(360px,460px)_minmax(0,1fr)]">
                   <ChatWidgetPreview
                     title={widgetTitle}
+                    businessName={initial.businessName}
                     greeting={greeting}
                     accent={accent}
                     launcherPosition={launcherPosition}
@@ -1209,7 +1211,7 @@ function padPrompts(prompts: string[]) {
 
   return normalizedPrompts.length > 0
     ? normalizedPrompts
-    : ["What services do you offer?", "How much does it cost?", "Can I book a consultation?"];
+    : ["What services do you offer?", "How much does it cost?", "Can I book a demo?"];
 }
 
 function padDomains(domains: string[]) {

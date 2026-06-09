@@ -1,20 +1,24 @@
 "use client";
 
-import { AlertTriangle, CalendarDays, CheckCircle2, Clock3, ExternalLink, Info, Link, Loader2, Lock, Settings2, Unlink } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Activity, AlertTriangle, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, ExternalLink, Info, Link as LinkIcon, Loader2, Lock, Settings2, Unlink } from "lucide-react";
+import type { Route } from "next";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import type React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
 import { ToastViewport, useToast } from "@/components/ui/toast";
-import type { IntegrationConfiguredAction, IntegrationOverview, IntegrationProviderOverview } from "@/lib/harlo/data";
+import type { IntegrationConfiguredAction, IntegrationOverview, IntegrationProviderOverview, IntegrationRunOverview } from "@/lib/harlo/data";
 import type { IntegrationActionType, IntegrationProviderKey, IntegrationTriggerType } from "@/lib/integrations/types";
 
 type IntegrationsWorkspaceProps = {
-  initialTab: "all" | "connected" | "disconnected";
+  initialTab: IntegrationTab;
   integrationStatus: string | null;
   statusProvider: IntegrationProviderKey | null;
   overview: IntegrationOverview;
 };
+
+type IntegrationTab = "all" | "connected" | "disconnected" | "history";
 
 type DisplayProvider = IntegrationProviderOverview & {
   visiblePlan: "Growth" | "Pro";
@@ -94,7 +98,11 @@ export function IntegrationsWorkspace({
   statusProvider,
   overview
 }: IntegrationsWorkspaceProps) {
-  const [activeTab, setActiveTab] = useState<"all" | "connected" | "disconnected">(initialTab);
+  const router = useRouter();
+  const pathname = usePathname();
+  const [isHistoryPending, startHistoryTransition] = useTransition();
+  const [activeTab, setActiveTab] = useState<IntegrationTab>(initialTab);
+  const [pendingHistoryPage, setPendingHistoryPage] = useState<number | null>(null);
   const [expandedProvider, setExpandedProvider] = useState<IntegrationProviderKey | null>(null);
   const [connectingProvider, setConnectingProvider] = useState<IntegrationProviderKey | null>(null);
   const [disconnectingProvider, setDisconnectingProvider] = useState<IntegrationProviderKey | null>(null);
@@ -110,6 +118,14 @@ export function IntegrationsWorkspace({
     : activeTab === "disconnected"
       ? providers.filter((provider) => provider.status !== "connected")
       : providers;
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  useEffect(() => {
+    setPendingHistoryPage(null);
+  }, [overview.runPagination.page]);
 
   useEffect(() => {
     setProviders(overview.providers.map(toDisplayProvider));
@@ -314,6 +330,43 @@ export function IntegrationsWorkspace({
     }
   }
 
+  function selectTab(tab: IntegrationTab) {
+    setActiveTab(tab);
+    const params = new URLSearchParams();
+
+    if (tab !== "all") {
+      params.set("tab", tab);
+    }
+
+    if (tab === "history") {
+      params.set("page", "1");
+    }
+
+    const href = params.size > 0 ? `${pathname}?${params.toString()}` : pathname;
+    if (tab === "history" && initialTab !== "history") {
+      setPendingHistoryPage(1);
+      startHistoryTransition(() => {
+        router.replace(href as Route, {
+          scroll: false
+        });
+      });
+      return;
+    }
+
+    router.replace(href as Route, {
+      scroll: false
+    });
+  }
+
+  function selectHistoryPage(page: number) {
+    setPendingHistoryPage(page);
+    startHistoryTransition(() => {
+      router.push(`/dashboard/integrations?tab=history&page=${page}` as Route, {
+        scroll: false
+      });
+    });
+  }
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <ToastViewport toast={toast} onDismiss={dismissToast} />
@@ -329,18 +382,27 @@ export function IntegrationsWorkspace({
       <div className="border-b border-harlo-line pb-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-harlo-ink">Integrations</h1>
-          <div className="mt-7 flex items-center gap-7 text-sm font-semibold">
+          <p className="mt-2 text-sm leading-6 text-harlo-muted">
+            Your plan can run {formatActionAllowance(overview.entitlements.actionsPerVisitorFlow)}. Every attempt is recorded in action history.
+          </p>
+          <div className="mt-7 grid grid-cols-2 gap-2 text-sm font-semibold sm:flex sm:flex-wrap" role="tablist" aria-label="Integration views">
             <button
               type="button"
-              onClick={() => setActiveTab("all")}
-              className={`-mb-[17px] border-b-2 pb-4 ${activeTab === "all" ? "border-harlo-teal text-harlo-teal" : "border-transparent text-harlo-muted hover:text-harlo-ink"}`}
+              onClick={() => selectTab("all")}
+              role="tab"
+              aria-selected={activeTab === "all"}
+              aria-controls="integrations-panel"
+              className={`inline-flex h-10 items-center justify-center rounded-lg border px-3 transition sm:justify-start ${activeTab === "all" ? "border-harlo-teal bg-harlo-mist text-harlo-teal" : "border-harlo-line bg-white text-harlo-muted hover:border-harlo-teal/50 hover:text-harlo-ink"}`}
             >
               All integrations
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab("connected")}
-              className={`-mb-[17px] inline-flex items-center gap-2 border-b-2 pb-4 ${activeTab === "connected" ? "border-harlo-teal text-harlo-teal" : "border-transparent text-harlo-muted hover:text-harlo-ink"}`}
+              onClick={() => selectTab("connected")}
+              role="tab"
+              aria-selected={activeTab === "connected"}
+              aria-controls="integrations-panel"
+              className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-3 transition sm:justify-start ${activeTab === "connected" ? "border-harlo-teal bg-harlo-mist text-harlo-teal" : "border-harlo-line bg-white text-harlo-muted hover:border-harlo-teal/50 hover:text-harlo-ink"}`}
             >
               Connected
               <span className="grid h-6 min-w-6 place-items-center rounded-full bg-slate-100 px-2 text-xs text-slate-600">
@@ -349,19 +411,33 @@ export function IntegrationsWorkspace({
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab("disconnected")}
-              className={`-mb-[17px] inline-flex items-center gap-2 border-b-2 pb-4 ${activeTab === "disconnected" ? "border-harlo-teal text-harlo-teal" : "border-transparent text-harlo-muted hover:text-harlo-ink"}`}
+              onClick={() => selectTab("disconnected")}
+              role="tab"
+              aria-selected={activeTab === "disconnected"}
+              aria-controls="integrations-panel"
+              className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-3 transition sm:justify-start ${activeTab === "disconnected" ? "border-harlo-teal bg-harlo-mist text-harlo-teal" : "border-harlo-line bg-white text-harlo-muted hover:border-harlo-teal/50 hover:text-harlo-ink"}`}
             >
               Disconnected
               <span className="grid h-6 min-w-6 place-items-center rounded-full bg-slate-100 px-2 text-xs text-slate-600">
                 {disconnectedCount}
               </span>
             </button>
+            <button
+              type="button"
+              onClick={() => selectTab("history")}
+              role="tab"
+              aria-selected={activeTab === "history"}
+              aria-controls="action-history-panel"
+              className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-3 transition sm:justify-start ${activeTab === "history" ? "border-harlo-teal bg-harlo-mist text-harlo-teal" : "border-harlo-line bg-white text-harlo-muted hover:border-harlo-teal/50 hover:text-harlo-ink"}`}
+            >
+              <Activity size={15} />
+              Action history
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="space-y-3">
+      {activeTab !== "history" ? <div id="integrations-panel" className="space-y-3" role="tabpanel">
         {visibleProviders.length > 0 ? visibleProviders.map((provider) => (
           <ProviderRow
             key={provider.key}
@@ -386,9 +462,300 @@ export function IntegrationsWorkspace({
             </p>
           </div>
         )}
-      </div>
+      </div> : (
+        <ActionHistory
+          loading={isHistoryPending}
+          logLevel={overview.entitlements.logLevel}
+          onPageChange={selectHistoryPage}
+          pagination={overview.runPagination}
+          pendingPage={pendingHistoryPage}
+          providers={providers}
+          runs={overview.recentRuns}
+        />
+      )}
     </div>
   );
+}
+
+function ActionHistory({
+  loading,
+  logLevel,
+  onPageChange,
+  pagination,
+  pendingPage,
+  providers,
+  runs
+}: {
+  loading: boolean;
+  logLevel: IntegrationOverview["entitlements"]["logLevel"];
+  onPageChange: (page: number) => void;
+  pagination: IntegrationOverview["runPagination"];
+  pendingPage: number | null;
+  providers: DisplayProvider[];
+  runs: IntegrationRunOverview[];
+}) {
+  const providerNames = new Map(providers.map((provider) => [provider.key, provider.name]));
+  const advanced = logLevel === "advanced";
+
+  return (
+    <section
+      id="action-history-panel"
+      className="border-t border-harlo-line pt-6"
+      role="tabpanel"
+      aria-busy={loading}
+    >
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <Activity size={19} className="text-harlo-teal" />
+            <h2 className="text-lg font-semibold text-harlo-ink">Action history</h2>
+          </div>
+          <p className="mt-1 text-sm leading-6 text-harlo-muted">
+            Connected actions, provider failures, and plan-limit skips appear here.
+          </p>
+        </div>
+        {logLevel !== "none" ? (
+          <span className="inline-flex w-fit rounded-full border border-harlo-line bg-white px-3 py-1 text-xs font-semibold text-harlo-muted">
+            {advanced ? "Detailed history" : "Basic history"}
+          </span>
+        ) : null}
+      </div>
+
+      {loading && runs.length === 0 ? (
+        <div className="mt-4 grid min-h-48 place-items-center rounded-lg border border-harlo-line bg-white">
+          <div className="text-center">
+            <Loader2 size={22} className="mx-auto animate-spin text-harlo-teal" />
+            <p className="mt-3 text-sm font-semibold text-harlo-ink">Loading action history</p>
+            <p className="mt-1 text-xs text-harlo-muted">Fetching the latest connected actions.</p>
+          </div>
+        </div>
+      ) : runs.length > 0 ? (
+        <>
+          <div className="relative mt-4 overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm">
+            <div className={`transition-opacity ${loading ? "opacity-40" : "opacity-100"}`}>
+              {runs.map((run) => {
+                const providerName = providerNames.get(run.provider) ?? run.provider;
+                const detail = getRunDetail(run, advanced);
+
+                return (
+                  <div
+                    key={run.id}
+                    className="grid gap-4 border-b border-harlo-line px-4 py-4 last:border-b-0 md:grid-cols-[minmax(190px,1fr)_minmax(170px,0.9fr)_minmax(120px,0.55fr)_minmax(180px,1fr)] md:items-center"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-white">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={logoUrls[run.provider]} alt="" className="h-8 w-8 object-contain" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-harlo-ink">{providerName}</span>
+                        <span className="mt-1 block truncate text-xs font-medium text-harlo-muted">
+                          {getActionLabel(run.provider, run.actionType)}
+                        </span>
+                      </span>
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-harlo-muted">Result</p>
+                      <p className="mt-1 truncate text-sm font-medium text-harlo-ink" title={detail}>
+                        {detail}
+                      </p>
+                    </div>
+
+                    <div>
+                      <RunStatusPill run={run} />
+                      {advanced && run.durationMs != null ? (
+                        <p className="mt-1 text-xs font-medium text-harlo-muted">{formatDuration(run.durationMs)}</p>
+                      ) : null}
+                    </div>
+
+                    <div className="flex min-w-0 items-center justify-between gap-3 md:justify-end">
+                      <time className="text-xs font-medium text-harlo-muted" dateTime={run.completedAt ?? run.createdAt}>
+                        {formatDateTime(run.completedAt ?? run.createdAt)}
+                      </time>
+                      {advanced && run.externalUrl ? (
+                        <a
+                          href={run.externalUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={`Open ${providerName} result`}
+                          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-harlo-line text-harlo-muted transition hover:border-harlo-teal hover:text-harlo-teal"
+                        >
+                          <ExternalLink size={15} />
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {loading ? (
+              <div className="absolute inset-0 grid place-items-center bg-white/55">
+                <span className="inline-flex items-center gap-2 rounded-lg border border-harlo-line bg-white px-4 py-2.5 text-sm font-semibold text-harlo-ink shadow-sm">
+                  <Loader2 size={16} className="animate-spin text-harlo-teal" />
+                  Loading action history
+                </span>
+              </div>
+            ) : null}
+          </div>
+          <HistoryPagination loading={loading} onPageChange={onPageChange} pagination={pagination} pendingPage={pendingPage} />
+        </>
+      ) : (
+        <>
+          <div className="mt-4 rounded-lg border border-dashed border-harlo-line bg-white px-4 py-10 text-center">
+            <p className="text-sm font-semibold text-harlo-ink">
+              {pagination.page > 1 ? "No actions on this page." : "No connected actions have run yet."}
+            </p>
+            <p className="mt-2 text-sm text-harlo-muted">
+              {pagination.page > 1 ? "Go back to an earlier page to continue browsing." : "The first booking, lead sync, or notification will appear here."}
+            </p>
+          </div>
+          <HistoryPagination loading={loading} onPageChange={onPageChange} pagination={pagination} pendingPage={pendingPage} />
+        </>
+      )}
+    </section>
+  );
+}
+
+function HistoryPagination({
+  loading,
+  onPageChange,
+  pagination,
+  pendingPage
+}: {
+  loading: boolean;
+  onPageChange: (page: number) => void;
+  pagination: IntegrationOverview["runPagination"];
+  pendingPage: number | null;
+}) {
+  if (!pagination.hasPrevious && !pagination.hasNext) {
+    return null;
+  }
+
+  return (
+    <nav className="mt-4 flex items-center justify-between" aria-label="Action history pagination">
+      <p className="text-sm font-medium text-harlo-muted">Page {pagination.page}</p>
+      <div className="flex items-center gap-2">
+        <PaginationLink
+          direction="previous"
+          disabled={loading || !pagination.hasPrevious}
+          loading={loading && pendingPage === Math.max(1, pagination.page - 1)}
+          onClick={() => onPageChange(Math.max(1, pagination.page - 1))}
+        />
+        <PaginationLink
+          direction="next"
+          disabled={loading || !pagination.hasNext}
+          loading={loading && pendingPage === pagination.page + 1}
+          onClick={() => onPageChange(pagination.page + 1)}
+        />
+      </div>
+    </nav>
+  );
+}
+
+function PaginationLink({
+  direction,
+  disabled,
+  loading,
+  onClick
+}: {
+  direction: "previous" | "next";
+  disabled: boolean;
+  loading: boolean;
+  onClick: () => void;
+}) {
+  const label = direction === "previous" ? "Previous page" : "Next page";
+  const icon = direction === "previous" ? <ChevronLeft size={17} /> : <ChevronRight size={17} />;
+
+  if (disabled) {
+    return (
+      <button
+        type="button"
+        aria-disabled="true"
+        disabled
+        className="grid h-10 w-10 place-items-center rounded-lg border border-harlo-line bg-slate-50 text-slate-300"
+        title={label}
+      >
+        {loading ? <Loader2 size={17} className="animate-spin" /> : icon}
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="grid h-10 w-10 place-items-center rounded-lg border border-harlo-line bg-white text-harlo-ink transition hover:border-harlo-teal hover:text-harlo-teal"
+      title={label}
+    >
+      {icon}
+    </button>
+  );
+}
+
+function RunStatusPill({ run }: { run: IntegrationRunOverview }) {
+  const limitReached = run.reason === "plan_action_limit";
+  const label = limitReached
+    ? "Limit reached"
+    : run.status === "success"
+      ? "Succeeded"
+      : run.status === "failed"
+        ? "Failed"
+        : run.status === "pending"
+          ? "Running"
+          : "Skipped";
+  const className = limitReached
+    ? "bg-amber-50 text-amber-700"
+    : run.status === "success"
+      ? "bg-emerald-50 text-emerald-700"
+      : run.status === "failed"
+        ? "bg-rose-50 text-rose-700"
+        : run.status === "pending"
+          ? "bg-sky-50 text-sky-700"
+          : "bg-slate-100 text-slate-600";
+
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${className}`}>
+      {label}
+    </span>
+  );
+}
+
+function getRunDetail(run: IntegrationRunOverview, advanced: boolean) {
+  if (run.reason === "plan_action_limit") {
+    return "Skipped because this conversation used its plan allowance.";
+  }
+
+  if (run.errorMessage) {
+    return run.errorMessage;
+  }
+
+  if (advanced && run.resultMessage) {
+    return run.resultMessage;
+  }
+
+  if (run.status === "success") {
+    return "Provider action completed.";
+  }
+
+  if (run.status === "pending") {
+    return "Waiting for the provider response.";
+  }
+
+  return "Provider action was skipped.";
+}
+
+function formatActionAllowance(limit: number) {
+  if (limit <= 0) {
+    return "no connected actions";
+  }
+
+  return limit === 1 ? "1 connected action per conversation" : `up to ${limit} connected actions per conversation`;
+}
+
+function formatDuration(durationMs: number) {
+  return durationMs < 1000 ? `${durationMs} ms` : `${(durationMs / 1000).toFixed(1)} s`;
 }
 
 function ProviderRow({
@@ -450,11 +817,11 @@ function ProviderRow({
                   </IconButton>
                 ) : setupPending ? (
                   <IconButton label="Setup pending" disabled>
-                    <Link size={17} />
+                    <LinkIcon size={17} />
                   </IconButton>
                 ) : showConnect ? (
                   <IconLink href={`/api/integrations/${provider.key}/connect`} label="Connect" loading={loadingConnect} onClick={onConnectStart}>
-                    <Link size={17} />
+                    <LinkIcon size={17} />
                   </IconLink>
                 ) : null}
               </>
