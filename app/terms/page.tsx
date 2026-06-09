@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { Route } from "next";
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
 import { MarketingFooter } from "@/components/marketing-footer";
@@ -341,6 +342,16 @@ export default function TermsPage() {
               {paragraph}
             </p>
           ))}
+          <aside className="rounded-lg border border-harlo-blue/20 bg-harlo-blue/5 p-5">
+            <p className="font-semibold text-harlo-ink">Service providers and subprocessors</p>
+            <p className="mt-2">
+              Harlo uses selected providers to operate the Service. Review their purposes and the categories of data they process on our{" "}
+              <Link href={"/subprocessors" as Route} className="font-semibold text-harlo-blue transition hover:text-harlo-teal">
+                Subprocessors page
+              </Link>
+              .
+            </p>
+          </aside>
           {sections.map((section) => (
             <section key={section.title} className="border-t border-harlo-line pt-6 first:border-t-0 first:pt-0">
               <h2 className="text-lg font-semibold text-harlo-ink">{section.title}</h2>

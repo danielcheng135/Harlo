@@ -40,6 +40,7 @@ export const publicRoutes = [
   { path: "/docs/integrations/google-sheets", priority: 0.7, changeFrequency: "weekly" },
   { path: "/docs/team", priority: 0.7, changeFrequency: "weekly" },
   { path: "/privacy", priority: 0.35, changeFrequency: "yearly" },
+  { path: "/subprocessors", priority: 0.35, changeFrequency: "monthly" },
   { path: "/cookie-policy", priority: 0.35, changeFrequency: "yearly" },
   { path: "/terms", priority: 0.35, changeFrequency: "yearly" }
 ] as const;
