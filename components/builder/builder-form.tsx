@@ -15,6 +15,7 @@ const MAX_WELCOME_PROMPTS = 4;
 const MAX_LEAD_FIELDS = 8;
 const MAX_CUSTOM_LEAD_FIELDS = 4;
 const BUILT_IN_LEAD_FIELD_KEYS = new Set(DEFAULT_LEAD_FIELDS.map((field) => field.key));
+const DELETABLE_DEFAULT_LEAD_FIELD_KEYS = new Set(["phone", "company"]);
 const LEGACY_DEFAULT_LEAD_FIELD_KEYS = new Set(["service_needed", "property_size", "preferred_date", "budget"]);
 const LEAD_FIELD_TYPE_OPTIONS: Array<{ value: LeadFieldType; label: string }> = [
   { value: "text", label: "Text" },
@@ -391,9 +392,9 @@ export function BuilderForm({ initial }: BuilderFormProps) {
     });
   }
 
-  function removeCustomLeadField(index: number) {
+  function removeLeadField(index: number) {
     setOpenLeadMenuKey(null);
-    setLeadCaptureFields((current) => current.filter((field, fieldIndex) => fieldIndex !== index || !isCustomLeadField(field.key)));
+    setLeadCaptureFields((current) => current.filter((field, fieldIndex) => fieldIndex !== index || !canDeleteLeadField(field.key)));
   }
 
   function applyAgentType(nextType: AgentType) {
@@ -724,7 +725,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
 
                 <div className="grid gap-2.5">
                   {leadCaptureFields.map((field, index) => {
-                    const custom = isCustomLeadField(field.key);
+                    const canDelete = canDeleteLeadField(field.key);
                     const required = field.required;
                     const isMenuOpen = openLeadMenuKey === field.key;
 
@@ -771,8 +772,8 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                             </button>
                             {isMenuOpen ? (
                               <LeadQuestionMenu
-                                canDelete={custom}
-                                onDelete={() => removeCustomLeadField(index)}
+                                canDelete={canDelete}
+                                onDelete={() => removeLeadField(index)}
                               />
                             ) : null}
                           </div>
@@ -800,8 +801,8 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                               </button>
                               {isMenuOpen ? (
                                 <LeadQuestionMenu
-                                  canDelete={custom}
-                                  onDelete={() => removeCustomLeadField(index)}
+                                  canDelete={canDelete}
+                                  onDelete={() => removeLeadField(index)}
                                 />
                               ) : null}
                             </div>
@@ -823,7 +824,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                 </button>
 
                 <p className="text-xs font-medium leading-5 text-harlo-muted">
-                  Built-in questions cannot be deleted. You can add up to {MAX_CUSTOM_LEAD_FIELDS} custom questions.
+                  Name and Email are protected. Phone, Company, and custom questions can be deleted. You can add up to {MAX_CUSTOM_LEAD_FIELDS} custom questions.
                 </p>
               </div>
             ) : null}
@@ -1285,16 +1286,18 @@ function getExampleRoutePath(pattern: string | undefined) {
 
 function padLeadFields(fields: LeadCaptureField[]) {
   const byKey = new Map(fields.map((field) => [field.key, field]));
-  const builtInFields = DEFAULT_LEAD_FIELDS.map((field) => {
-    const savedField = byKey.get(field.key);
+  const builtInFields = DEFAULT_LEAD_FIELDS
+    .filter((field) => !DELETABLE_DEFAULT_LEAD_FIELD_KEYS.has(field.key) || byKey.has(field.key))
+    .map((field) => {
+      const savedField = byKey.get(field.key);
 
-    return {
-      ...field,
-      ...savedField,
-      enabled: true,
-      required: savedField?.required ?? field.required
-    };
-  });
+      return {
+        ...field,
+        ...savedField,
+        enabled: true,
+        required: savedField?.required ?? field.required
+      };
+    });
   const customFields = fields
     .filter((field) => isCustomLeadField(field.key))
     .slice(0, MAX_CUSTOM_LEAD_FIELDS)
@@ -1323,6 +1326,10 @@ function getLeadFieldsForSave(fields: LeadCaptureField[]) {
 
 function isCustomLeadField(key: string) {
   return !BUILT_IN_LEAD_FIELD_KEYS.has(key) && !LEGACY_DEFAULT_LEAD_FIELD_KEYS.has(key);
+}
+
+function canDeleteLeadField(key: string) {
+  return DELETABLE_DEFAULT_LEAD_FIELD_KEYS.has(key) || isCustomLeadField(key);
 }
 
 function getNextCustomLeadFieldIndex(fields: LeadCaptureField[]) {
