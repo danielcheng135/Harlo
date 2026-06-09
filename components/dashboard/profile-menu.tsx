@@ -100,7 +100,7 @@ export function ProfileMenu({ brandLogoUrl, businessName, canManageBilling, emai
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate">{email ?? "Account"}</span>
-              <span className="block truncate text-xs font-medium text-white/60">{role}</span>
+              <span className="block truncate text-xs font-medium capitalize text-white/60">{role}</span>
             </span>
             <ChevronsUpDown size={16} className={`shrink-0 text-white/50 transition group-hover:text-teal-200 ${isOpen ? "text-teal-200" : ""}`} />
           </div>

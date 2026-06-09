@@ -64,7 +64,7 @@ export function OnboardingForm({
   const cleanInitialAssistantName = initialAssistantName.trim();
   const [businessName, setBusinessName] = useState(cleanInitialBusinessName);
   const [websiteUrl, setWebsiteUrl] = useState(initialWebsiteUrl.trim());
-  const [botName, setBotName] = useState(cleanInitialAssistantName || (cleanInitialBusinessName ? `${cleanInitialBusinessName} Assistant` : "Harlo Assistant"));
+  const [botName, setBotName] = useState(cleanInitialAssistantName || "Harlo AI Agent");
   const [primaryGoal, setPrimaryGoal] = useState<PrimaryGoal>("both");
   const [tone, setTone] = useState<Tone>("friendly");
   const [accent, setAccent] = useState("#087f95");
@@ -249,7 +249,7 @@ export function OnboardingForm({
           onChange={(event) => setBotName(event.target.value)}
           required
           className="h-11 w-full rounded-lg border border-harlo-line bg-white px-3 text-sm outline-none focus:border-harlo-teal"
-          placeholder="Harlo Assistant"
+          placeholder="Harlo AI Agent"
         />
       </Field>
 

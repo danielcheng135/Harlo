@@ -716,7 +716,7 @@ function normalizeTheme(theme: unknown): {
     accent: typeof themeRecord.accent === "string" ? themeRecord.accent : "#087f95",
     launcherPosition,
     title: typeof themeRecord.title === "string" ? themeRecord.title : "Ask Harlo",
-    welcomePrompts: welcomePrompts.length > 0 ? welcomePrompts : ["What services do you offer?", "How much does it cost?", "Can I book a demo?"]
+    welcomePrompts
   };
 }
 

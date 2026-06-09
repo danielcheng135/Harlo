@@ -138,9 +138,7 @@ async function buildBotConfig(bot: Record<string, unknown>): Promise<BotConfig> 
         typeof themeRecord.title === "string" ? themeRecord.title : "",
         businessName
       ),
-      welcomePrompts: Array.isArray(themeRecord.welcome_prompts)
-        ? themeRecord.welcome_prompts.filter((prompt): prompt is string => typeof prompt === "string")
-        : ["What services do you offer?", "How much does it cost?", "Can I book a demo?"]
+      welcomePrompts: normalizeWelcomePrompts(themeRecord.welcome_prompts, businessName)
     }
   };
 }
@@ -155,6 +153,20 @@ function getCustomerFacingWidgetTitle(title: string, businessName: string) {
   ].includes(trimmed);
 
   return !trimmed || legacyDefault ? `${businessName} AI Agent` : trimmed;
+}
+
+function normalizeWelcomePrompts(prompts: unknown, businessName: string) {
+  const defaults = ["What services do you offer?", `What is ${businessName}?`, "Can I book a demo?"];
+
+  if (!Array.isArray(prompts)) {
+    return defaults;
+  }
+
+  const normalized = prompts
+    .filter((prompt): prompt is string => typeof prompt === "string" && prompt.trim().length > 0)
+    .map((prompt) => prompt.trim().toLowerCase() === "how much does it cost?" ? `What is ${businessName}?` : prompt);
+
+  return normalized.length > 0 ? normalized : defaults;
 }
 
 function getCustomerFacingGreeting(greeting: string, businessName: string) {

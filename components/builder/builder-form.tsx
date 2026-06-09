@@ -3,7 +3,7 @@
 import type React from "react";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, Bot, ClipboardList, Globe2, GripVertical, Loader2, MessageSquare, MoreVertical, Palette, Plus, Route as RouteIcon, Sparkles, Trash2, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, Bot, CheckCircle2, ClipboardList, Globe2, GripVertical, Loader2, MessageSquare, MoreVertical, Palette, Plus, Route as RouteIcon, Sparkles, Trash2, type LucideIcon } from "lucide-react";
 import { ChatWidgetPreview } from "@/components/chat-widget-preview";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -135,7 +135,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
   const [fallbackMessage, setFallbackMessage] = useState(firstAgent.fallbackMessage);
   const [accent, setAccent] = useState(firstAgent.accent);
   const [launcherPosition, setLauncherPosition] = useState(firstAgent.launcherPosition);
-  const [welcomePrompts, setWelcomePrompts] = useState(padPrompts(firstAgent.welcomePrompts));
+  const [welcomePrompts, setWelcomePrompts] = useState(padPrompts(firstAgent.welcomePrompts, initial.businessName));
   const [allowedDomains, setAllowedDomains] = useState(padDomains(firstAgent.allowedDomains));
   const [routePatterns, setRoutePatterns] = useState(padRoutePatterns(firstAgent.routePatterns));
   const [excludedRoutePatterns, setExcludedRoutePatterns] = useState(padRoutePatterns(firstAgent.excludedRoutePatterns));
@@ -158,6 +158,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
   const cleanExcludedRoutePatterns = useMemo(() => normalizeRoutePatternsClient(excludedRoutePatterns), [excludedRoutePatterns]);
   const customLeadFieldCount = leadCaptureFields.filter((field) => isCustomLeadField(field.key)).length;
   const canAddCustomLeadField = customLeadFieldCount < MAX_CUSTOM_LEAD_FIELDS && leadCaptureFields.length < MAX_LEAD_FIELDS;
+  const welcomePromptLimitReached = welcomePrompts.length >= MAX_WELCOME_PROMPTS;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -238,7 +239,7 @@ export function BuilderForm({ initial }: BuilderFormProps) {
     setFallbackMessage(agent.fallbackMessage);
     setAccent(agent.accent);
     setLauncherPosition(agent.launcherPosition);
-    setWelcomePrompts(padPrompts(agent.welcomePrompts));
+    setWelcomePrompts(padPrompts(agent.welcomePrompts, initial.businessName));
     setAllowedDomains(padDomains(agent.allowedDomains));
     setRoutePatterns(padRoutePatterns(agent.routePatterns));
     setExcludedRoutePatterns(padRoutePatterns(agent.excludedRoutePatterns));
@@ -651,15 +652,27 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                     title="Welcome prompts"
                     description="Quick-start questions customers can tap."
                     action={
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => setWelcomePrompts((current) => current.length >= MAX_WELCOME_PROMPTS ? current : [...current, ""])}
-                        disabled={welcomePrompts.length >= MAX_WELCOME_PROMPTS}
-                      >
-                        <Plus size={16} />
-                        Add
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-flex h-8 items-center rounded-full px-3 text-xs font-semibold ${
+                            welcomePromptLimitReached
+                              ? "bg-harlo-mist text-harlo-teal"
+                              : "bg-harlo-canvas text-harlo-muted"
+                          }`}
+                        >
+                          {welcomePrompts.length} / {MAX_WELCOME_PROMPTS}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => setWelcomePrompts((current) => current.length >= MAX_WELCOME_PROMPTS ? current : [...current, ""])}
+                          disabled={welcomePromptLimitReached}
+                          className="disabled:cursor-not-allowed disabled:border-harlo-line disabled:bg-harlo-canvas disabled:text-harlo-muted"
+                        >
+                          {welcomePromptLimitReached ? <CheckCircle2 size={16} /> : <Plus size={16} />}
+                          {welcomePromptLimitReached ? "Limit reached" : "Add"}
+                        </Button>
+                      </div>
                     }
                   >
                     <div className="space-y-3">
@@ -677,6 +690,11 @@ export function BuilderForm({ initial }: BuilderFormProps) {
                           </Button>
                         </div>
                       ))}
+                      {!welcomePromptLimitReached ? (
+                        <p className="text-xs font-medium text-harlo-muted">
+                          You can add {MAX_WELCOME_PROMPTS - welcomePrompts.length} more suggestion{MAX_WELCOME_PROMPTS - welcomePrompts.length === 1 ? "" : "s"}.
+                        </p>
+                      ) : null}
                     </div>
                   </Panel>
                 </div>
@@ -1206,12 +1224,15 @@ function makeAgentFromInitial(initial: BuilderInitial): BuilderAgentDraft {
   };
 }
 
-function padPrompts(prompts: string[]) {
-  const normalizedPrompts = prompts.map((prompt) => prompt.trim()).filter(Boolean).slice(0, MAX_WELCOME_PROMPTS);
+function padPrompts(prompts: string[], businessName: string) {
+  const normalizedPrompts = prompts
+    .map((prompt) => prompt.trim().toLowerCase() === "how much does it cost?" ? `What is ${businessName}?` : prompt.trim())
+    .filter(Boolean)
+    .slice(0, MAX_WELCOME_PROMPTS);
 
   return normalizedPrompts.length > 0
     ? normalizedPrompts
-    : ["What services do you offer?", "How much does it cost?", "Can I book a demo?"];
+    : ["What services do you offer?", `What is ${businessName}?`, "Can I book a demo?"];
 }
 
 function padDomains(domains: string[]) {

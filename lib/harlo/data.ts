@@ -377,7 +377,7 @@ export async function getWorkspaceOrRedirect(): Promise<Workspace> {
     redirect("/onboarding/checkout?checkout=required");
   }
 
-  const normalizedBots = bots.map(normalizeWorkspaceBot);
+  const normalizedBots = bots.map((bot) => normalizeWorkspaceBot(bot, organization.name));
 
   return {
     user: {
@@ -443,7 +443,7 @@ function normalizeWorkspaceBot(bot: {
   widget_routes?: unknown;
   lead_capture_fields: unknown;
   widget_themes: unknown;
-}): WorkspaceBot {
+}, businessName: string): WorkspaceBot {
   return {
     id: bot.id,
     name: bot.name,
@@ -459,7 +459,7 @@ function normalizeWorkspaceBot(bot: {
     route_patterns: normalizeRoutePatternsFromRows(bot.widget_routes),
     excluded_route_patterns: normalizeRoutePatternsFromRows(bot.widget_routes, "exclude"),
     lead_capture_fields: normalizeLeadFields(bot.lead_capture_fields),
-    widget_theme: normalizeWidgetTheme(bot.widget_themes)
+    widget_theme: normalizeWidgetTheme(bot.widget_themes, businessName)
   };
 }
 
@@ -475,12 +475,14 @@ function normalizeRoutePatternsFromRows(rows: unknown, behavior = "include") {
     .filter(Boolean);
 }
 
-function normalizeWidgetTheme(theme: unknown): WorkspaceBot["widget_theme"] {
+function normalizeWidgetTheme(theme: unknown, businessName: string): WorkspaceBot["widget_theme"] {
   const rawTheme = Array.isArray(theme) ? theme[0] : theme;
   const themeRecord = rawTheme && typeof rawTheme === "object" ? rawTheme as Record<string, unknown> : {};
   const launcherPosition = themeRecord.launcher_position === "bottom-left" ? "bottom-left" : "bottom-right";
   const welcomePrompts = Array.isArray(themeRecord.welcome_prompts)
-    ? themeRecord.welcome_prompts.filter((prompt): prompt is string => typeof prompt === "string" && prompt.trim().length > 0)
+    ? themeRecord.welcome_prompts
+      .filter((prompt): prompt is string => typeof prompt === "string" && prompt.trim().length > 0)
+      .map((prompt) => prompt.trim().toLowerCase() === "how much does it cost?" ? `What is ${businessName}?` : prompt)
     : [];
 
   return {
@@ -489,7 +491,7 @@ function normalizeWidgetTheme(theme: unknown): WorkspaceBot["widget_theme"] {
     title: typeof themeRecord.title === "string" ? themeRecord.title : "Ask Harlo",
     welcome_prompts: welcomePrompts.length > 0
       ? welcomePrompts
-      : ["What services do you offer?", "How much does it cost?", "Can I book a demo?"]
+      : ["What services do you offer?", `What is ${businessName}?`, "Can I book a demo?"]
   };
 }
 

@@ -19,7 +19,7 @@ export function ChatWidgetPreview({
   greeting = "Hi, I can help answer questions and get you to the right next step.",
   accent = "#087f95",
   launcherPosition = "bottom-right",
-  welcomePrompts = ["What services do you offer?", "How much does it cost?"],
+  welcomePrompts = [],
   brandLogoUrl = null,
   leadCaptureFields = []
 }: ChatWidgetPreviewProps) {
@@ -28,6 +28,9 @@ export function ChatWidgetPreview({
   const gradient = `linear-gradient(135deg, ${accent}, color-mix(in srgb, ${accent} 82%, #111827))`;
   const enabledLeadFields = leadCaptureFields.filter((field) => field.enabled);
   const displayTitle = getDisplayWidgetTitle(title, businessName);
+  const displayPrompts = welcomePrompts.length > 0
+    ? welcomePrompts.map((prompt) => normalizeDefaultPrompt(prompt, businessName))
+    : ["What services do you offer?", `What is ${businessName}?`, "Can I book a demo?"];
 
   return (
     <div className="relative min-h-[500px] overflow-hidden rounded-lg border border-harlo-line bg-[#f5f8fa] p-4 sm:min-h-[560px] sm:p-5">
@@ -66,7 +69,7 @@ export function ChatWidgetPreview({
                   className="max-w-[86%] rounded-2xl rounded-tr-md bg-[#F4F4F5] px-[13px] py-3 text-sm leading-relaxed"
                   style={{ background: gradient, color: accentText }}
                 >
-                  {welcomePrompts[0] ?? "What services do you offer?"}
+                  {displayPrompts[0]}
                 </div>
                 <p className="mt-1 mr-0.5 text-[11px] text-[#7c8986]">Visitor · 10:24 AM</p>
               </div>
@@ -140,6 +143,12 @@ function getDisplayWidgetTitle(title: string, businessName: string) {
   ].includes(trimmed);
 
   return !trimmed || legacyDefault ? `${businessName} AI Agent` : trimmed;
+}
+
+function normalizeDefaultPrompt(prompt: string, businessName: string) {
+  return prompt.trim().toLowerCase() === "how much does it cost?"
+    ? `What is ${businessName}?`
+    : prompt;
 }
 
 function LeadCapturePreview({

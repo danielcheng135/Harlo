@@ -313,12 +313,15 @@ export function GET(request: NextRequest) {
 
   function renderSuggestions() {
     suggestions.innerHTML = "";
-    var defaultPrompts = ["What services do you offer?", "How much does it cost?", "Can I book a demo?"];
+    var defaultPrompts = ["What services do you offer?", "What is " + getBusinessLabel() + "?", "Can I book a demo?"];
     var configuredPrompts = config && config.theme && Array.isArray(config.theme.welcomePrompts)
       ? config.theme.welcomePrompts
         .filter(function (prompt) { return typeof prompt === "string" && prompt.trim(); })
         .map(function (prompt) {
           var trimmed = prompt.trim();
+          if (trimmed.toLowerCase() === "how much does it cost?") {
+            return "What is " + getBusinessLabel() + "?";
+          }
           return trimmed.toLowerCase() === "i want to book a demo" ? "Can I book a demo?" : prompt;
         })
       : [];

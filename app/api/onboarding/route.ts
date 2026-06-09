@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
         accent,
         launcher_position: "bottom-right",
         title: botName,
-        welcome_prompts: getWelcomePrompts(primaryGoal)
+        welcome_prompts: getWelcomePrompts(primaryGoal, businessName)
       });
 
       if (themeRepairError) {
@@ -337,7 +337,7 @@ export async function POST(request: NextRequest) {
     accent,
     launcher_position: "bottom-right",
     title: botName,
-    welcome_prompts: getWelcomePrompts(primaryGoal)
+    welcome_prompts: getWelcomePrompts(primaryGoal, businessName)
   });
 
   if (themeError) {
@@ -511,7 +511,7 @@ function getFallbackMessage(goal: string) {
   return "I can pass this to the team. What is the best email to reach you?";
 }
 
-function getWelcomePrompts(goal: string) {
+function getWelcomePrompts(goal: string, businessName: string) {
   if (goal === "support") {
     return ["What services do you offer?", "How does this work?", "What should I know before getting started?"];
   }
@@ -520,5 +520,5 @@ function getWelcomePrompts(goal: string) {
     return ["Can someone follow up?", "Which plan is right for me?", "Can I book a demo?"];
   }
 
-  return ["What services do you offer?", "How much does it cost?", "Can someone follow up?"];
+  return ["What services do you offer?", `What is ${businessName}?`, "Can someone follow up?"];
 }
