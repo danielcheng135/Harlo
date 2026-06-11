@@ -24,6 +24,7 @@ import {
   Workflow
 } from "lucide-react";
 import { AgentBadge } from "@/components/agent-badge";
+import { useDashboardNotifications } from "@/components/dashboard/dashboard-notifications-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -38,12 +39,13 @@ type LeadsWorkspaceProps = {
   page: number;
   pageSize: number;
   totalCount: number;
+  unreadLeadIds: string[];
 };
 
 type LeadView = "table" | "pipeline" | "activity";
 type StageFilter = "all" | "new" | "contacted";
 
-export function LeadsWorkspace({ leads, initialLeadId, activeAgentId, page, pageSize, totalCount }: LeadsWorkspaceProps) {
+export function LeadsWorkspace({ leads, initialLeadId, activeAgentId, page, pageSize, totalCount, unreadLeadIds }: LeadsWorkspaceProps) {
   const [items, setItems] = useState(leads);
   const [loadedTotal, setLoadedTotal] = useState(totalCount);
   const [query, setQuery] = useState("");
@@ -56,6 +58,8 @@ export function LeadsWorkspace({ leads, initialLeadId, activeAgentId, page, page
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [unreadIds, setUnreadIds] = useState(() => new Set(unreadLeadIds));
+  const notifications = useDashboardNotifications();
   const { toast, showToast, dismissToast } = useToast();
 
   useEffect(() => {
@@ -70,6 +74,23 @@ export function LeadsWorkspace({ leads, initialLeadId, activeAgentId, page, page
     });
     setSelectedRows(new Set());
   }, [initialLeadId, leads, totalCount]);
+
+  useEffect(() => {
+    setUnreadIds(new Set(unreadLeadIds));
+  }, [unreadLeadIds]);
+
+  useEffect(() => {
+    if (!selectedId || !unreadIds.has(selectedId)) {
+      return;
+    }
+
+    setUnreadIds((current) => {
+      const next = new Set(current);
+      next.delete(selectedId);
+      return next;
+    });
+    notifications?.markItemRead("leads", selectedId);
+  }, [notifications, selectedId, unreadIds]);
 
   const filteredLeads = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -416,6 +437,7 @@ export function LeadsWorkspace({ leads, initialLeadId, activeAgentId, page, page
               selectedRows={selectedRows}
               selectedOnPage={selectedOnPage}
               pageCount={selectedLeadIds.size}
+              unreadIds={unreadIds}
               onSelect={(lead) => selectLead(lead.id)}
               onToggleRow={toggleSelectedRow}
               onTogglePage={togglePageSelection}
@@ -425,11 +447,12 @@ export function LeadsWorkspace({ leads, initialLeadId, activeAgentId, page, page
               leads={filteredLeads}
               selectedId={selectedLead?.id}
               savingId={savingId}
+              unreadIds={unreadIds}
               onSelect={(lead) => selectLead(lead.id)}
               onUpdateStatus={updateLeadStatus}
             />
           ) : (
-            <ActivityView leads={filteredLeads} selectedId={selectedLead?.id} onSelect={(lead) => selectLead(lead.id)} />
+            <ActivityView leads={filteredLeads} selectedId={selectedLead?.id} unreadIds={unreadIds} onSelect={(lead) => selectLead(lead.id)} />
           )}
 
           <div className="flex shrink-0 flex-col gap-3 border-t border-harlo-line px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -592,6 +615,7 @@ function LeadTable({
   selectedRows,
   selectedOnPage,
   pageCount,
+  unreadIds,
   onSelect,
   onToggleRow,
   onTogglePage
@@ -601,6 +625,7 @@ function LeadTable({
   selectedRows: Set<string>;
   selectedOnPage: number;
   pageCount: number;
+  unreadIds: Set<string>;
   onSelect: (lead: LeadRow) => void;
   onToggleRow: (lead: LeadRow) => void;
   onTogglePage: () => void;
@@ -614,6 +639,7 @@ function LeadTable({
             checked={selectedRows.has(lead.id)}
             lead={lead}
             selected={selectedId === lead.id}
+            unread={unreadIds.has(lead.id)}
             onSelect={() => onSelect(lead)}
             onToggle={() => onToggleRow(lead)}
           />
@@ -653,6 +679,7 @@ function LeadTable({
             const source = getLeadSource(lead);
             const selected = selectedId === lead.id;
             const checked = selectedRows.has(lead.id);
+            const unread = unreadIds.has(lead.id);
 
             return (
               <tr
@@ -660,7 +687,11 @@ function LeadTable({
                 onClick={() => onSelect(lead)}
                 className={cn(
                   "cursor-pointer transition hover:bg-harlo-canvas/70",
-                  selected ? "bg-harlo-mist/60 outline outline-1 -outline-offset-1 outline-harlo-teal" : "bg-white"
+                  selected
+                    ? "bg-harlo-mist/60 outline outline-1 -outline-offset-1 outline-harlo-teal"
+                    : unread
+                      ? "bg-slate-50/80"
+                      : "bg-white"
                 )}
               >
                 <td className="border-b border-harlo-line px-4 py-4 align-middle">
@@ -681,7 +712,10 @@ function LeadTable({
                 </td>
                 <td className="border-b border-harlo-line px-3 py-4 align-middle">
                   <div className="min-w-0">
-                    <p className="truncate font-semibold text-harlo-ink">{lead.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className={cn("truncate text-harlo-ink", unread ? "font-bold" : "font-semibold")}>{lead.name}</p>
+                      {unread ? <NewItemBadge /> : null}
+                    </div>
                     <p className="mt-1 truncate text-xs text-harlo-muted">{lead.email}</p>
                     {getLeadPhone(lead) ? <p className="mt-1 truncate text-xs text-harlo-muted">{getLeadPhone(lead)}</p> : null}
                   </div>
@@ -724,12 +758,14 @@ function LeadMobileCard({
   checked,
   lead,
   selected,
+  unread,
   onSelect,
   onToggle
 }: {
   checked: boolean;
   lead: LeadRow;
   selected: boolean;
+  unread: boolean;
   onSelect: () => void;
   onToggle: () => void;
 }) {
@@ -740,13 +776,20 @@ function LeadMobileCard({
     <article
       className={cn(
         "w-full rounded-lg border bg-white p-3 text-left transition hover:border-harlo-teal",
-        selected ? "border-harlo-teal bg-harlo-mist/50 ring-1 ring-harlo-teal/10" : "border-harlo-line"
+        selected
+          ? "border-harlo-teal bg-harlo-mist/50 ring-1 ring-harlo-teal/10"
+          : unread
+            ? "border-slate-300 bg-slate-50/80"
+            : "border-harlo-line"
       )}
     >
       <button type="button" onClick={onSelect} className="block w-full text-left">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate font-semibold text-harlo-ink">{lead.name}</p>
+            <div className="flex items-center gap-2">
+              <p className={cn("truncate text-harlo-ink", unread ? "font-bold" : "font-semibold")}>{lead.name}</p>
+              {unread ? <NewItemBadge /> : null}
+            </div>
             <p className="mt-1 truncate text-xs text-harlo-muted">{lead.email}</p>
             {getLeadPhone(lead) ? <p className="mt-1 truncate text-xs text-harlo-muted">{getLeadPhone(lead)}</p> : null}
           </div>
@@ -786,12 +829,14 @@ function PipelineView({
   leads,
   selectedId,
   savingId,
+  unreadIds,
   onSelect,
   onUpdateStatus
 }: {
   leads: LeadRow[];
   selectedId?: string;
   savingId: string | null;
+  unreadIds: Set<string>;
   onSelect: (lead: LeadRow) => void;
   onUpdateStatus: (leadId: string, status: "new" | "contacted") => Promise<boolean>;
 }) {
@@ -877,7 +922,10 @@ function PipelineView({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-harlo-ink">{lead.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className={cn("truncate text-sm text-harlo-ink", unreadIds.has(lead.id) ? "font-bold" : "font-semibold")}>{lead.name}</p>
+                        {unreadIds.has(lead.id) ? <NewItemBadge /> : null}
+                      </div>
                       <p className="mt-1 truncate text-xs text-harlo-muted">{lead.email}</p>
                     </div>
                     {savingId === lead.id ? <Loader2 size={16} className="animate-spin text-harlo-teal" /> : <MiniScore score={getLeadScore(lead)} />}
@@ -893,7 +941,7 @@ function PipelineView({
   );
 }
 
-function ActivityView({ leads, selectedId, onSelect }: { leads: LeadRow[]; selectedId?: string; onSelect: (lead: LeadRow) => void }) {
+function ActivityView({ leads, selectedId, unreadIds, onSelect }: { leads: LeadRow[]; selectedId?: string; unreadIds: Set<string>; onSelect: (lead: LeadRow) => void }) {
   return (
     <div className="min-h-0 flex-1 overflow-auto p-4">
       <div className="space-y-3">
@@ -911,7 +959,10 @@ function ActivityView({ leads, selectedId, onSelect }: { leads: LeadRow[]; selec
               <UserRound size={16} />
             </span>
             <div className="min-w-0">
-              <p className="font-semibold text-harlo-ink">{lead.name} was captured as a lead</p>
+              <div className="flex items-center gap-2">
+                <p className={cn("text-harlo-ink", unreadIds.has(lead.id) ? "font-bold" : "font-semibold")}>{lead.name} was captured as a lead</p>
+                {unreadIds.has(lead.id) ? <NewItemBadge /> : null}
+              </div>
               <p className="mt-1 line-clamp-2 text-sm leading-6 text-harlo-muted">{lead.question}</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <LeadStatusBadge status={lead.status} score={getLeadScore(lead)} />
@@ -1129,6 +1180,14 @@ function ScoreRing({ score }: { score: number }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function NewItemBadge() {
+  return (
+    <span className="inline-flex shrink-0 items-center rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase text-red-600 ring-1 ring-inset ring-red-200">
+      New
+    </span>
   );
 }
 

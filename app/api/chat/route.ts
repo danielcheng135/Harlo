@@ -161,8 +161,8 @@ async function handleDashboardTestMessage({
 
   return widgetJson(request, {
     conversationId: "dashboard-test",
-    answer,
-    fallback: chunks.length === 0,
+    answer: answer.text,
+    fallback: answer.needsReview,
     leadCaptured: false,
     retrieval: chunks.map((chunk) => ({
       sourceTitle: chunk.sourceTitle,

@@ -33,6 +33,11 @@ export type AgentAnswerProfile = {
   handoffInstructions?: string;
 };
 
+export type GeneratedAgentAnswer = {
+  text: string;
+  needsReview: boolean;
+};
+
 const STOP_WORDS = new Set([
   "a",
   "about",
@@ -164,12 +169,17 @@ export function buildAnswerInstructions(chunks: KnowledgeChunk[], agent?: AgentA
     "Answer only from the provided business context.",
     "Focus on resolving the visitor's question before suggesting a handoff.",
     "Talk directly to the visitor as the business's assistant. Do not sound like you are advising the business owner or describing what Harlo does for the team.",
-    "If the context is insufficient, briefly say you do not have that detail and invite the visitor to ask another question. Ask for follow-up details when the visitor asks for pricing, availability, a quote, an appointment, a booking, a callback, or help from a person.",
+    "On the first line, output exactly CONFIDENT if the business context clearly supports the answer, or UNCERTAIN if it does not. The visitor will not see this line.",
+    "When the answer is uncertain, do not guess or turn an unknown fact into a categorical yes or no. Respond naturally to the specific question, explain briefly what cannot be confirmed, and give the most useful next step.",
+    "For certifications, policies, account details, contracts, security, legal terms, or other facts that require authoritative confirmation, say that you cannot confirm the current status and offer the relevant team or support channel.",
+    "For pricing, availability, quotes, bookings, or troubleshooting, ask one focused clarifying question when the missing detail could make the question answerable.",
+    "Never mention provided knowledge, business context, sources, documents, a database, training data, retrieval, or missing information in the system.",
+    "Do not respond with a generic menu of unrelated topics. Do not ask the visitor to rephrase unless the question itself is unclear.",
     "Keep answers concise, direct, and useful.",
     "Do not use em dashes. Use a period, comma, colon, or parentheses instead.",
     "When listing prices, services, hours, or steps, use short markdown bullets. Every list item must start with '- '.",
     "Never start an answer with a bullet list. Always write one short sentence first explaining what the bullets are, such as \"Here are the services:\" or \"Here are the starting prices:\".",
-    "End each answer with one short contextual next step. If the business context contains a useful related topic the visitor has not just received, offer it naturally, such as pricing after services or hours after pricing. If there is no useful related topic left, ask whether they have any other questions.",
+    "End confident answers with one short contextual next step when it is genuinely useful. For uncertain answers, end with one specific clarification or handoff path instead of offering unrelated topics.",
     "Do not offer contact capture as the default next step for low-intent FAQs. Do offer a quote, callback, appointment, booking, consultation, or team follow-up when the visitor shows buying intent, asks about cost or timing, or seems ready for help.",
     "If the visitor says yes, ok, okay, sure, do that, or similar, interpret it as accepting the most recent offered follow-up in the recent conversation. If two options were offered, answer the first unanswered option.",
     `Business context:\n${context}`
@@ -188,27 +198,40 @@ export async function generateAnswer({
   conversationContext?: string;
   intent?: VisitorIntent;
   agent?: AgentAnswerProfile;
-}) {
+}): Promise<GeneratedAgentAnswer> {
   if (intent === "decline_offer" || intent === "unclear") {
-    return generateConversationalAnswer({
-      question,
-      conversationContext,
-      intent,
-      agent
-    });
+    return {
+      text: await generateConversationalAnswer({
+        question,
+        conversationContext,
+        intent,
+        agent
+      }),
+      needsReview: false
+    };
   }
 
   if (isUnclearQuestion(question) && !isContextualConfirmation(question, conversationContext)) {
-    return generateConversationalAnswer({
-      question,
-      conversationContext,
-      intent: "unclear",
-      agent
-    });
+    return {
+      text: await generateConversationalAnswer({
+        question,
+        conversationContext,
+        intent: "unclear",
+        agent
+      }),
+      needsReview: false
+    };
   }
 
   if (chunks.length === 0) {
-    return "Sorry, I do not have enough information to answer that confidently yet. Could you ask another way, or share what you need help with?";
+    return {
+      text: await generateContextualFallback({
+        question,
+        conversationContext,
+        agent
+      }),
+      needsReview: true
+    };
   }
 
   const openai = getOpenAIClient();
@@ -221,7 +244,74 @@ export async function generateAnswer({
     max_output_tokens: 450
   });
 
-  return ensureListIntro(response.output_text.trim(), question);
+  const parsed = parseGroundedAnswer(response.output_text);
+
+  return {
+    text: ensureListIntro(parsed.text, question),
+    needsReview: parsed.needsReview
+  };
+}
+
+async function generateContextualFallback({
+  question,
+  conversationContext,
+  agent
+}: {
+  question: string;
+  conversationContext?: string;
+  agent?: AgentAnswerProfile;
+}) {
+  const openai = getOpenAIClient();
+  const response = await openai.responses.create({
+    model: HARLO_MODELS.answer,
+    instructions: [
+      "You are the business's calm and helpful website chatbot, speaking directly to a customer or site visitor.",
+      ...buildAgentInstructionLines(agent),
+      "The available business information does not clearly answer the visitor's latest question.",
+      "Write a useful, contextual fallback without guessing.",
+      "Address the exact subject of the question. Briefly state what you cannot confirm, then offer one relevant next step.",
+      "For certifications, security, legal terms, policies, contracts, or account-specific facts, offer confirmation from the appropriate team or support channel.",
+      "For pricing, availability, quotes, bookings, or troubleshooting, ask one focused clarifying question if that could move the conversation forward.",
+      "Do not mention provided knowledge, context, sources, documents, a database, training data, retrieval, or that information is missing from a system.",
+      "Do not list unrelated things the chatbot can answer. Do not tell the visitor to ask another way.",
+      "Do not invent a yes, no, price, date, policy, certification, availability, or commitment.",
+      "Examples of the intended tone:",
+      "\"I cannot confirm the current SOC 2 certification status. The security team can provide the latest compliance details.\"",
+      "\"I cannot confirm service availability for that location yet. What ZIP code should I check?\"",
+      "\"I cannot determine the cause from that detail alone. What error message are you seeing?\"",
+      "Use no more than three short sentences. Do not use an em dash."
+    ].join("\n"),
+    input: [
+      conversationContext ? `Recent conversation:\n${conversationContext}` : "Recent conversation: none",
+      `Visitor's latest question:\n${question}`
+    ].join("\n\n"),
+    max_output_tokens: 180
+  });
+
+  return response.output_text.trim();
+}
+
+function parseGroundedAnswer(value: string) {
+  const trimmed = value.trim();
+  const marker = trimmed.match(/^(CONFIDENT|UNCERTAIN):?(?:\r?\n|\s+)([\s\S]*)$/i);
+
+  if (marker) {
+    const text = marker[2]?.trim();
+
+    return {
+      text: text || "I cannot confirm that right now. The team can provide the most accurate answer.",
+      needsReview: marker[1]?.toUpperCase() === "UNCERTAIN"
+    };
+  }
+
+  return {
+    text: trimmed,
+    needsReview: looksLikeUncertainAnswer(trimmed)
+  };
+}
+
+function looksLikeUncertainAnswer(value: string) {
+  return /\b(?:cannot confirm|can't confirm|could not confirm|couldn't confirm|not able to confirm|not sure|do not know|don't know|cannot determine|can't determine|do not have enough|don't have enough|do not have that detail|don't have that detail)\b/i.test(value);
 }
 
 async function generateConversationalAnswer({

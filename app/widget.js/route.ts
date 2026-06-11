@@ -8,12 +8,17 @@ export function GET(request: NextRequest) {
   var botId = currentScript && currentScript.getAttribute("data-harlo-bot");
   var organizationId = currentScript && (currentScript.getAttribute("data-harlo-organization") || currentScript.getAttribute("data-harlo-org"));
   var pageUrlOverride = currentScript && currentScript.getAttribute("data-harlo-page-url");
+  var suppressGreetingNudge = currentScript && currentScript.getAttribute("data-harlo-hide-greeting") === "true";
   if ((!botId && !organizationId) || document.getElementById("harlo-widget-root")) return;
   var baseUrl = new URL(currentScript.src).origin;
   var conversationStorageKey = "";
   var completedConversationStorageKey = "";
+  var launcherPositionStorageKey = "";
   var conversationId = "";
   var completedConversationId = "";
+  var launcherPosition = "bottom-right";
+  var launcherDrag = null;
+  var suppressLauncherClick = false;
   var visitorId = window.localStorage.getItem("harlo:visitor");
   if (!visitorId) {
     visitorId = "visitor_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -41,7 +46,7 @@ export function GET(request: NextRequest) {
   var style = document.createElement("style");
   style.textContent = [
     "#harlo-widget-root,#harlo-widget-root *{box-sizing:border-box}",
-    ".harlo-launcher{position:fixed;right:24px;bottom:24px;width:58px;height:58px;border-radius:999px;border:0;background:linear-gradient(135deg,var(--harlo-accent,#087f95),color-mix(in srgb,var(--harlo-accent,#087f95) 82%,#111827));color:var(--harlo-accent-text,#fff);box-shadow:none;z-index:2147483000;cursor:pointer;display:grid;place-items:center;transition:transform .18s ease,filter .18s ease}.harlo-launcher .harlo-icon{width:31px;height:31px;stroke-width:2.1}.harlo-launcher:hover{transform:translateY(-2px);filter:saturate(1.05) brightness(.98)}.harlo-launcher:active{transform:translateY(0) scale(.98)}",
+    ".harlo-launcher{position:fixed;right:24px;bottom:24px;width:58px;height:58px;border-radius:999px;border:0;background:linear-gradient(135deg,var(--harlo-accent,#087f95),color-mix(in srgb,var(--harlo-accent,#087f95) 82%,#111827));color:var(--harlo-accent-text,#fff);box-shadow:none;z-index:2147483000;cursor:grab;display:grid;place-items:center;touch-action:none;user-select:none;-webkit-user-select:none;transition:transform .18s ease,filter .18s ease}.harlo-launcher .harlo-icon{width:31px;height:31px;stroke-width:2.1;pointer-events:none}.harlo-launcher:hover{transform:translateY(-2px);filter:saturate(1.05) brightness(.98)}.harlo-launcher:active{transform:translateY(0) scale(.98)}.harlo-launcher[data-dragging=true]{cursor:grabbing;transition:none;filter:saturate(1.05)}",
     ".harlo-nudge{position:fixed;right:24px;bottom:104px;width:min(340px,calc(100vw - 32px));z-index:2147482999;display:none;border:0;border-radius:16px;background:#fff;color:#111827;padding:16px;box-shadow:0 16px 38px rgba(15,23,42,.12);font-family:Inter,system-ui,-apple-system,sans-serif;overflow:visible;animation:harloNudgeIn .28s ease-out}.harlo-nudge[data-visible=true]{display:block}.harlo-nudge:after{content:'';position:absolute;bottom:-9px;width:16px;height:16px;background:#fff;transform:rotate(45deg);border-bottom-right-radius:4px}.harlo-nudge[data-side=right]:after{right:37px;left:auto}.harlo-nudge[data-side=left]:after{left:37px;right:auto}@keyframes harloNudgeIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}",
     ".harlo-nudge-text{border:0;background:transparent;color:#111827;padding:0;text-align:left;font:inherit;font-size:15px;font-weight:400;line-height:1.38;cursor:pointer;letter-spacing:0}.harlo-nudge-text:hover{color:#111827}.harlo-nudge-close{position:absolute;right:-7px;top:-7px;width:24px;height:24px;border:1px solid #d7dde5;border-radius:999px;background:#eef2f5;color:#5f6876;cursor:pointer;font-size:16px;line-height:1;display:grid;place-items:center;box-shadow:0 6px 14px rgba(15,23,42,.1);transition:background .16s ease,color .16s ease,transform .16s ease}.harlo-nudge-close:hover{background:#e2e8ee;color:#111827;transform:scale(1.03)}",
     ".harlo-icon{display:block;width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}.harlo-panel{position:fixed;right:24px;bottom:100px;width:min(410px,calc(100vw - 32px));height:min(650px,calc(100vh - 132px));border:0;border-radius:22px;background:#fff;box-shadow:0 28px 80px rgba(15,23,42,.22);z-index:2147483001;display:none;overflow:hidden;font-family:Inter,system-ui,-apple-system,sans-serif}.harlo-panel[data-open=true]{display:flex;flex-direction:column;animation:harloPanelIn .2s ease-out}@keyframes harloPanelIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}",
@@ -87,6 +92,10 @@ export function GET(request: NextRequest) {
   var nudgeClose = root.querySelector(".harlo-nudge-close");
 
   launcher.addEventListener("click", function () {
+    if (suppressLauncherClick) {
+      suppressLauncherClick = false;
+      return;
+    }
     var nextOpen = panel.getAttribute("data-open") === "true" ? "false" : "true";
     panel.setAttribute("data-open", nextOpen);
     updateLauncherIcon();
@@ -107,6 +116,13 @@ export function GET(request: NextRequest) {
   });
   nudgeClose.addEventListener("click", function () {
     hideGreetingNudge();
+  });
+  launcher.addEventListener("pointerdown", startLauncherDrag);
+  launcher.addEventListener("pointermove", moveLauncherDrag);
+  launcher.addEventListener("pointerup", finishLauncherDrag);
+  launcher.addEventListener("pointercancel", cancelLauncherDrag);
+  window.addEventListener("resize", function () {
+    setLauncherPosition(launcherPosition);
   });
 
   form.addEventListener("submit", function (event) {
@@ -216,13 +232,94 @@ export function GET(request: NextRequest) {
 
   function setLauncherPosition(position) {
     var isLeft = position === "bottom-left";
-    launcher.style.left = isLeft ? "24px" : "";
-    launcher.style.right = isLeft ? "auto" : "24px";
-    nudge.style.left = isLeft ? "24px" : "";
-    nudge.style.right = isLeft ? "auto" : "24px";
+    var isMobile = window.matchMedia("(max-width: 768px)").matches;
+    var leftOffset = isMobile ? "max(16px, env(safe-area-inset-left))" : "24px";
+    var rightOffset = isMobile ? "max(16px, env(safe-area-inset-right))" : "24px";
+    launcherPosition = isLeft ? "bottom-left" : "bottom-right";
+    launcher.style.left = isLeft ? leftOffset : "auto";
+    launcher.style.right = isLeft ? "auto" : rightOffset;
     nudge.setAttribute("data-side", isLeft ? "left" : "right");
-    panel.style.left = isLeft ? "24px" : "";
-    panel.style.right = isLeft ? "auto" : "24px";
+
+    if (isMobile) {
+      nudge.style.left = "";
+      nudge.style.right = "";
+      panel.style.left = "";
+      panel.style.right = "";
+      return;
+    }
+
+    nudge.style.left = isLeft ? leftOffset : "";
+    nudge.style.right = isLeft ? "" : rightOffset;
+    panel.style.left = isLeft ? leftOffset : "";
+    panel.style.right = isLeft ? "" : rightOffset;
+  }
+
+  function startLauncherDrag(event) {
+    if (event.button !== undefined && event.button !== 0) return;
+    launcherDrag = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      currentX: event.clientX,
+      moved: false
+    };
+    launcher.setPointerCapture(event.pointerId);
+  }
+
+  function moveLauncherDrag(event) {
+    if (!launcherDrag || launcherDrag.pointerId !== event.pointerId) return;
+    launcherDrag.currentX = event.clientX;
+    var deltaX = event.clientX - launcherDrag.startX;
+
+    if (!launcherDrag.moved && Math.abs(deltaX) < 6) return;
+    launcherDrag.moved = true;
+    hideGreetingNudge();
+    launcher.setAttribute("data-dragging", "true");
+    launcher.style.transform = "translateX(" + deltaX + "px)";
+  }
+
+  function finishLauncherDrag(event) {
+    if (!launcherDrag || launcherDrag.pointerId !== event.pointerId) return;
+    var wasMoved = launcherDrag.moved;
+    var finalX = launcherDrag.currentX;
+    launcherDrag = null;
+    launcher.removeAttribute("data-dragging");
+    launcher.style.transform = "";
+
+    if (launcher.hasPointerCapture(event.pointerId)) {
+      launcher.releasePointerCapture(event.pointerId);
+    }
+
+    if (!wasMoved) return;
+    suppressLauncherClick = true;
+    window.setTimeout(function () {
+      suppressLauncherClick = false;
+    }, 0);
+    setLauncherPosition(finalX < window.innerWidth / 2 ? "bottom-left" : "bottom-right");
+    storeLauncherPosition();
+  }
+
+  function cancelLauncherDrag(event) {
+    if (!launcherDrag || launcherDrag.pointerId !== event.pointerId) return;
+    launcherDrag = null;
+    launcher.removeAttribute("data-dragging");
+    launcher.style.transform = "";
+  }
+
+  function storeLauncherPosition() {
+    if (!launcherPositionStorageKey) return;
+    try {
+      window.localStorage.setItem(launcherPositionStorageKey, launcherPosition);
+    } catch {}
+  }
+
+  function getStoredLauncherPosition() {
+    if (!launcherPositionStorageKey) return "";
+    try {
+      var storedPosition = window.localStorage.getItem(launcherPositionStorageKey);
+      return storedPosition === "bottom-left" || storedPosition === "bottom-right" ? storedPosition : "";
+    } catch {
+      return "";
+    }
   }
 
   function hideGreetingNudge() {
@@ -1247,6 +1344,7 @@ export function GET(request: NextRequest) {
       botId = config.id || botId;
       conversationStorageKey = "harlo:conversation:" + botId;
       completedConversationStorageKey = "harlo:completed-conversation:" + botId;
+      launcherPositionStorageKey = "harlo:launcher-position:" + botId;
       completedConversationId = getStoredCompletedConversationId();
       // The widget does not restore its transcript, so a reload should begin a
       // new visible conversation instead of silently continuing an old one.
@@ -1254,12 +1352,12 @@ export function GET(request: NextRequest) {
       title.textContent = getWidgetTitle();
       setAccent(config.theme.accent);
       renderBrandMark(mark);
-      setLauncherPosition(config.theme.launcherPosition);
+      setLauncherPosition(getStoredLauncherPosition() || config.theme.launcherPosition);
       if (powered && config.removeBranding) powered.style.display = "none";
       greetingMessage = config.greeting || defaultGreetingMessage();
       addMessage("assistant", greetingMessage);
       revealWidget();
-      scheduleGreetingNudge(greetingMessage);
+      if (!suppressGreetingNudge) scheduleGreetingNudge(greetingMessage);
     })
     .catch(function () {
       root.remove();

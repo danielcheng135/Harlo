@@ -3,6 +3,7 @@ import { ConversationHistory } from "@/components/conversations/conversation-his
 import { AgentFilter } from "@/components/dashboard/agent-filter";
 import { EmptyState } from "@/components/empty-state";
 import { Card, CardBody } from "@/components/ui/card";
+import { getUnreadDashboardItemIds } from "@/lib/dashboard/notifications";
 import { getPaginatedInboxConversations, getWorkspaceOrRedirect } from "@/lib/harlo/data";
 
 type ConversationsPageProps = {
@@ -23,6 +24,12 @@ export default async function ConversationsPage({ searchParams }: ConversationsP
     agentId: activeAgentId
   });
   const visibleConversations = paginatedConversations.items;
+  const unreadConversationIds = await getUnreadDashboardItemIds(
+    workspace.user.id,
+    workspace.organization.id,
+    "conversations",
+    visibleConversations.map((conversation) => conversation.id)
+  );
   const selectedConversation =
     visibleConversations.find((conversation) => conversation.id === params?.conversation) ?? visibleConversations[0] ?? null;
 
@@ -66,6 +73,7 @@ export default async function ConversationsPage({ searchParams }: ConversationsP
           page={paginatedConversations.page}
           pageSize={paginatedConversations.pageSize}
           totalCount={paginatedConversations.total}
+          unreadConversationIds={unreadConversationIds}
         />
       )}
     </div>

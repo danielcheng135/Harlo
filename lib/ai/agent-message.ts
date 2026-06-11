@@ -177,6 +177,14 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
       throw new Error(assistantMessageError?.message ?? "Could not save assistant message.");
     }
 
+    if (metadata.fallback === true) {
+      await supabase
+        .from("conversations")
+        .update({ review_status: "needs_review" })
+        .eq("id", conversationId)
+        .eq("organization_id", organizationId);
+    }
+
     if (options.recordUsage !== false) {
       await recordAssistantMessageUsage({
         supabase,
@@ -387,7 +395,7 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
     bookingRequested,
     acceptedFollowUpType: contextualFollowUp?.type ?? "none"
   });
-  let answer = generatedAnswer;
+  let answer = generatedAnswer.text;
   const integrationResults: WidgetIntegrationResult[] = [];
   const widgetActions: WidgetAction[] = [];
   const bookingAction = decision.step === "show_booking"
@@ -597,9 +605,10 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
   }
 
   answer = normalizeAssistantPunctuation(answer);
+  const answerNeedsReview = generatedAnswer.needsReview && decision.step === "answer_question";
 
   await saveAssistantReply(answer, {
-    fallback: chunks.length === 0,
+    fallback: answerNeedsReview,
     intent,
     retrieval: chunks.map((chunk) => ({
       id: chunk.id,
@@ -617,7 +626,7 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
   return {
     conversationId,
     answer,
-    fallback: chunks.length === 0,
+    fallback: answerNeedsReview,
     leadCaptured: false,
     assistantMessageSaved: true,
     integrationResults,

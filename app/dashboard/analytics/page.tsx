@@ -73,7 +73,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
   const scopedConversations = agentConversations.filter((conversation) => isWithinPeriod(conversation.created_at, analyticsRange.start, analyticsRange.end));
   const scopedLeads = agentLeads.filter((lead) => isWithinPeriod(lead.created_at, analyticsRange.start, analyticsRange.end));
   const scopedVisitorMessages = scopedConversations.flatMap((conversation) => conversation.messages).filter((message) => message.role === "user");
-  const leadConversationCount = scopedConversations.filter((conversation) => conversation.outcome === "Lead captured").length;
+  const leadConversationCount = scopedConversations.filter((conversation) => Boolean(conversation.lead)).length;
   const contactedLeadCount = scopedLeads.filter((lead) => lead.status === "contacted").length;
   const responseQuality = getResponseQuality(scopedConversations);
   const averageResponseSeconds = getAverageResponseSeconds(scopedConversations);
@@ -844,7 +844,7 @@ function getResponseQuality(conversations: InboxConversationRow[]) {
     return 0;
   }
 
-  const good = conversations.filter((conversation) => conversation.outcome !== "Needs review").length;
+  const good = conversations.filter((conversation) => conversation.review_status === "resolved").length;
   return good / conversations.length;
 }
 
@@ -922,9 +922,9 @@ function getTopQuestions(messages: InboxMessageRow[], totalConversations: number
 
 function getOutcomeBreakdown(conversations: InboxConversationRow[]) {
   const total = Math.max(1, conversations.length);
-  const resolved = conversations.filter((conversation) => conversation.outcome === "Answered").length;
-  const leadCaptured = conversations.filter((conversation) => conversation.outcome === "Lead captured").length;
-  const noMatch = conversations.filter((conversation) => conversation.outcome === "Needs review").length;
+  const resolved = conversations.filter((conversation) => conversation.review_status === "resolved" && !conversation.lead).length;
+  const leadCaptured = conversations.filter((conversation) => conversation.review_status === "resolved" && Boolean(conversation.lead)).length;
+  const noMatch = conversations.filter((conversation) => conversation.review_status === "needs_review").length;
 
   return [
     { label: "Resolved", value: resolved, percent: Math.round((resolved / total) * 100), color: "#087f95" },

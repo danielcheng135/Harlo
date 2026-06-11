@@ -3,6 +3,7 @@ import { AgentFilter } from "@/components/dashboard/agent-filter";
 import { EmptyState } from "@/components/empty-state";
 import { LeadsWorkspace } from "@/components/leads/leads-workspace";
 import { Card, CardBody } from "@/components/ui/card";
+import { getUnreadDashboardItemIds } from "@/lib/dashboard/notifications";
 import { getPaginatedLeads, getWorkspaceOrRedirect } from "@/lib/harlo/data";
 
 type LeadsPageProps = {
@@ -20,6 +21,12 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
   const requestedPage = parsePage(params?.page);
   const paginatedLeads = await getPaginatedLeads(workspace, { page: requestedPage, pageSize: 10, agentId: activeAgentId });
   const initialLeadId = paginatedLeads.items.some((lead) => lead.id === params?.lead) ? params?.lead : undefined;
+  const unreadLeadIds = await getUnreadDashboardItemIds(
+    workspace.user.id,
+    workspace.organization.id,
+    "leads",
+    paginatedLeads.items.map((lead) => lead.id)
+  );
 
   return (
     <div className="flex min-h-[calc(100svh-10rem)] flex-col gap-5 lg:h-[calc(100vh-7rem)] lg:overflow-hidden">
@@ -60,6 +67,7 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
           page={paginatedLeads.page}
           pageSize={paginatedLeads.pageSize}
           totalCount={paginatedLeads.total}
+          unreadLeadIds={unreadLeadIds}
         />
       )}
     </div>

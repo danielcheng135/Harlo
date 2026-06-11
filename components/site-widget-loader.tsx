@@ -6,7 +6,6 @@ import { useEffect, useRef } from "react";
 const HARLO_ORGANIZATION_ID = "2a007ac5-01c5-4154-8a41-21f4dbcd2b43";
 const WIDGET_EXCLUDED_PATHS = [
   "/auth",
-  "/dashboard",
   "/invite",
   "/onboarding",
   "/privacy",
@@ -39,6 +38,9 @@ export function SiteWidgetLoader() {
     script.src = "/widget.js";
     script.async = true;
     script.setAttribute("data-harlo-organization", HARLO_ORGANIZATION_ID);
+    if (isDashboardPath(pathname)) {
+      script.setAttribute("data-harlo-hide-greeting", "true");
+    }
     document.body.appendChild(script);
     loadedPathRef.current = pathname;
   }, [shouldLoadWidget, pathname]);
@@ -50,4 +52,10 @@ function isWidgetExcludedPath(pathname: string | null) {
   const normalizedPath = pathname || "/";
 
   return WIDGET_EXCLUDED_PATHS.some((path) => normalizedPath === path || normalizedPath.startsWith(`${path}/`));
+}
+
+function isDashboardPath(pathname: string | null) {
+  const normalizedPath = pathname || "/";
+
+  return normalizedPath === "/dashboard" || normalizedPath.startsWith("/dashboard/");
 }

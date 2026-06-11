@@ -2,8 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Zap } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
+import { DashboardNotificationsProvider } from "@/components/dashboard/dashboard-notifications-provider";
 import { ProfileMenu } from "@/components/dashboard/profile-menu";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
+import {
+  emptyDashboardNotificationCounts,
+  getDashboardNotificationState
+} from "@/lib/dashboard/notifications";
 import { getBillingOverview, getInitials, getWorkspaceOrRedirect, isWorkspaceAdmin } from "@/lib/harlo/data";
 
 export const metadata: Metadata = {
@@ -15,58 +20,71 @@ export const metadata: Metadata = {
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const workspace = await getWorkspaceOrRedirect();
-  const billingOverview = await getBillingOverview(workspace);
+  const [billingOverview, notificationState] = await Promise.all([
+    getBillingOverview(workspace),
+    getDashboardNotificationState(workspace.user.id, workspace.organization.id)
+  ]);
   const initials = getInitials(workspace.user.email);
   const canManageBilling = isWorkspaceAdmin(workspace.role);
 
   return (
-    <div className="min-h-screen bg-white">
-      <aside className="fixed inset-y-0 left-0 z-50 hidden w-64 overflow-visible border-r border-white/10 bg-[#032832] p-5 text-white shadow-[8px_0_40px_rgba(2,18,24,0.18)] lg:flex lg:flex-col">
-        <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-          <div>
-            <BrandLogo tone="light" />
-            <SidebarNav role={workspace.role} />
+    <DashboardNotificationsProvider
+      initialCounts={notificationState?.counts ?? emptyDashboardNotificationCounts}
+    >
+      <div className="min-h-screen bg-white">
+        <aside className="fixed inset-y-0 left-0 z-50 hidden w-64 overflow-visible border-r border-white/10 bg-[#032832] p-5 text-white shadow-[8px_0_40px_rgba(2,18,24,0.18)] lg:flex lg:flex-col">
+          <div className="relative z-10 flex min-h-0 flex-1 flex-col">
+            <div>
+              <Link
+                href="/"
+                aria-label="Go to Harlo home page"
+                className="inline-flex rounded-lg outline-none transition-opacity hover:opacity-85 focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#032832]"
+              >
+                <BrandLogo tone="light" />
+              </Link>
+              <SidebarNav role={workspace.role} />
+            </div>
+            <div className="mt-auto space-y-3">
+              <CreditUsageIndicator used={billingOverview.creditsUsed} limit={billingOverview.creditLimit} title="Message credits" />
+              <ProfileMenu
+                brandLogoUrl={workspace.organization.brand_logo_url ?? null}
+                businessName={workspace.organization.name}
+                canManageBilling={canManageBilling}
+                email={workspace.user.email}
+                hasHigherTier={billingOverview.hasHigherTier}
+                initials={initials}
+                role={workspace.role}
+              />
+            </div>
           </div>
-          <div className="mt-auto space-y-3">
-            <CreditUsageIndicator used={billingOverview.creditsUsed} limit={billingOverview.creditLimit} title="Message credits" />
-            <ProfileMenu
-              brandLogoUrl={workspace.organization.brand_logo_url ?? null}
-              businessName={workspace.organization.name}
-              canManageBilling={canManageBilling}
-              email={workspace.user.email}
-              hasHigherTier={billingOverview.hasHigherTier}
-              initials={initials}
-              role={workspace.role}
-            />
-          </div>
+        </aside>
+        <div className="min-w-0 lg:pl-64">
+          <header className="sticky top-0 z-20 border-b border-harlo-line bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
+            <div className="flex items-center justify-between gap-3">
+              <BrandLogo />
+              <ProfileMenu
+                brandLogoUrl={workspace.organization.brand_logo_url ?? null}
+                businessName={workspace.organization.name}
+                canManageBilling={canManageBilling}
+                email={workspace.user.email}
+                hasHigherTier={billingOverview.hasHigherTier}
+                initials={initials}
+                role={workspace.role}
+                variant="mobile"
+              />
+            </div>
+            <div className="mt-3">
+              <SidebarNav role={workspace.role} variant="mobile" />
+            </div>
+          </header>
+          <main className="min-w-0 overflow-x-clip bg-white px-4 py-5 sm:p-6">
+            <AutoRechargeFailureBanner failure={billingOverview.autoRechargeFailure} />
+            <CreditUsageBanner canManageBilling={canManageBilling} status={billingOverview.status} used={billingOverview.creditsUsed} limit={billingOverview.creditLimit} />
+            {children}
+          </main>
         </div>
-      </aside>
-      <div className="min-w-0 lg:pl-64">
-        <header className="sticky top-0 z-20 border-b border-harlo-line bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
-          <div className="flex items-center justify-between gap-3">
-            <BrandLogo />
-            <ProfileMenu
-              brandLogoUrl={workspace.organization.brand_logo_url ?? null}
-              businessName={workspace.organization.name}
-              canManageBilling={canManageBilling}
-              email={workspace.user.email}
-              hasHigherTier={billingOverview.hasHigherTier}
-              initials={initials}
-              role={workspace.role}
-              variant="mobile"
-            />
-          </div>
-          <div className="mt-3">
-            <SidebarNav role={workspace.role} variant="mobile" />
-          </div>
-        </header>
-        <main className="min-w-0 overflow-x-clip bg-white px-4 py-5 sm:p-6">
-          <AutoRechargeFailureBanner failure={billingOverview.autoRechargeFailure} />
-          <CreditUsageBanner canManageBilling={canManageBilling} status={billingOverview.status} used={billingOverview.creditsUsed} limit={billingOverview.creditLimit} />
-          {children}
-        </main>
       </div>
-    </div>
+    </DashboardNotificationsProvider>
   );
 }
 

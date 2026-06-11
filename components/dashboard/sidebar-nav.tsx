@@ -3,10 +3,12 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
+import { useDashboardNotifications } from "@/components/dashboard/dashboard-notifications-provider";
 import { navItems } from "@/lib/mock-data";
 
 export function SidebarNav({ role, variant = "sidebar" }: { role: string; variant?: "sidebar" | "mobile" }) {
   const pathname = usePathname();
+  const notifications = useDashboardNotifications();
   const items = navItems.filter((item) => !("adminOnly" in item && item.adminOnly) || role === "owner" || role === "admin");
   const isMobile = variant === "mobile";
 
@@ -17,6 +19,12 @@ export function SidebarNav({ role, variant = "sidebar" }: { role: string; varian
           item.href === "/dashboard"
             ? pathname === "/dashboard"
             : pathname === item.href || pathname.startsWith(`${item.href}/`);
+        const notificationCount =
+          item.href === "/dashboard/conversations"
+            ? notifications?.counts.conversations ?? 0
+            : item.href === "/dashboard/leads"
+              ? notifications?.counts.leads ?? 0
+              : 0;
 
         return (
           <Link
@@ -38,6 +46,11 @@ export function SidebarNav({ role, variant = "sidebar" }: { role: string; varian
           >
             <item.icon size={isMobile ? 16 : 18} className={isMobile ? undefined : isActive ? "text-teal-200" : "text-slate-300/70"} />
             <span>{item.label}</span>
+            {notificationCount > 0 ? (
+              <span className={`${isMobile ? "" : "ml-auto"} inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold leading-none text-white`}>
+                {notificationCount > 99 ? "99+" : notificationCount}
+              </span>
+            ) : null}
           </Link>
         );
       })}

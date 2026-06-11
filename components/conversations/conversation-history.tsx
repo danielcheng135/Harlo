@@ -9,6 +9,7 @@ import {
   Clock3,
   ExternalLink,
   Globe2,
+  Loader2,
   Mail,
   MessageSquare,
   Phone,
@@ -20,7 +21,10 @@ import {
   UserRound
 } from "lucide-react";
 import { AgentBadge } from "@/components/agent-badge";
+import { useDashboardNotifications } from "@/components/dashboard/dashboard-notifications-provider";
 import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
+import { ToastViewport, useToast } from "@/components/ui/toast";
 import type { InboxConversationRow, InboxMessageRow, LeadRow } from "@/lib/harlo/data";
 import { cn, formatPercent } from "@/lib/utils";
 
@@ -32,9 +36,10 @@ type ConversationHistoryProps = {
   page: number;
   pageSize: number;
   totalCount: number;
+  unreadConversationIds: string[];
 };
 
-type ConversationFilter = "inbox" | "needs-review" | "lead-captured" | "answered";
+type ConversationFilter = "inbox" | "needs-review" | "answered";
 type DetailTab = "chat" | "details" | "activity";
 const HARLO_ACCENT = "#087f95";
 const LEAD_PHONE_METADATA_KEYS = new Set(["phone", "phone_number", "mobile", "tel"]);
@@ -46,39 +51,66 @@ export function ConversationHistory({
   activeAgentId,
   page,
   pageSize,
-  totalCount
+  totalCount,
+  unreadConversationIds
 }: ConversationHistoryProps) {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState(initialConversationId ?? conversations[0]?.id ?? "");
   const [filter, setFilter] = useState<ConversationFilter>("inbox");
   const [pageFilter, setPageFilter] = useState("all");
   const [detailTab, setDetailTab] = useState<DetailTab>("chat");
+  const [unreadIds, setUnreadIds] = useState(() => new Set(unreadConversationIds));
+  const [conversationRows, setConversationRows] = useState(conversations);
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+  const notifications = useDashboardNotifications();
+  const { toast, showToast, dismissToast } = useToast();
+
+  useEffect(() => {
+    setConversationRows(conversations);
+  }, [conversations]);
 
   useEffect(() => {
     setSelectedId((current) => {
-      if (current && conversations.some((conversation) => conversation.id === current)) {
+      if (current && conversationRows.some((conversation) => conversation.id === current)) {
         return current;
       }
 
-      return initialConversationId ?? conversations[0]?.id ?? "";
+      return initialConversationId ?? conversationRows[0]?.id ?? "";
     });
-  }, [conversations, initialConversationId]);
+  }, [conversationRows, initialConversationId]);
+
+  useEffect(() => {
+    setUnreadIds(new Set(unreadConversationIds));
+  }, [unreadConversationIds]);
+
+  useEffect(() => {
+    if (!selectedId || !unreadIds.has(selectedId)) {
+      return;
+    }
+
+    setUnreadIds((current) => {
+      const next = new Set(current);
+      next.delete(selectedId);
+      return next;
+    });
+    notifications?.markItemRead("conversations", selectedId);
+  }, [notifications, selectedId, unreadIds]);
 
   const pageOptions = useMemo(() => {
     const pages = new Map<string, string>();
 
-    conversations.forEach((conversation) => {
+    conversationRows.forEach((conversation) => {
       const key = getPageKey(conversation.page_url);
       pages.set(key, formatPageLabel(conversation.page_url));
     });
 
     return Array.from(pages.entries());
-  }, [conversations]);
+  }, [conversationRows]);
 
   const filteredConversations = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    return conversations.filter((conversation) => {
+    return conversationRows.filter((conversation) => {
       const searchableMessages = conversation.messages.map((message) => message.content).join(" ");
       const leadText = conversation.lead ? `${conversation.lead.name} ${conversation.lead.email}` : "";
       const externalProfile = getExternalProfileLabel(conversation);
@@ -94,27 +126,63 @@ export function ConversationHistory({
       ].some((value) => value.toLowerCase().includes(normalizedQuery));
       const filterMatches =
         filter === "inbox" ||
-        (filter === "needs-review" && conversation.outcome === "Needs review") ||
-        (filter === "lead-captured" && conversation.outcome === "Lead captured") ||
-        (filter === "answered" && conversation.outcome === "Answered");
+        (filter === "needs-review" && conversation.review_status === "needs_review") ||
+        (filter === "answered" && conversation.review_status === "resolved");
       const pageMatches = pageFilter === "all" || getPageKey(conversation.page_url) === pageFilter;
 
       return queryMatches && filterMatches && pageMatches;
     });
-  }, [conversations, filter, pageFilter, query]);
+  }, [conversationRows, filter, pageFilter, query]);
 
   const selectedConversation =
     filteredConversations.find((conversation) => conversation.id === selectedId) ??
-    conversations.find((conversation) => conversation.id === selectedId) ??
+    conversationRows.find((conversation) => conversation.id === selectedId) ??
     filteredConversations[0] ??
-    conversations[0] ??
+    conversationRows[0] ??
     null;
-  const openConversations = filteredConversations.filter((conversation) => conversation.outcome !== "Answered");
-  const resolvedConversations = filteredConversations.filter((conversation) => conversation.outcome === "Answered");
-  const needsReviewCount = conversations.filter((conversation) => conversation.outcome === "Needs review").length;
-  const leadCapturedCount = conversations.filter((conversation) => conversation.outcome === "Lead captured").length;
-  const answeredCount = conversations.filter((conversation) => conversation.outcome === "Answered").length;
+  const needsReviewConversations = filteredConversations.filter((conversation) => conversation.review_status === "needs_review");
+  const resolvedConversations = filteredConversations.filter((conversation) => conversation.review_status === "resolved");
+  const needsReviewCount = conversationRows.filter((conversation) => conversation.review_status === "needs_review").length;
+  const resolvedCount = conversationRows.filter((conversation) => conversation.review_status === "resolved").length;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+  async function updateReviewStatus(conversationId: string, reviewStatus: InboxConversationRow["review_status"]) {
+    setUpdatingStatusId(conversationId);
+
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}/status`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status: reviewStatus })
+      });
+      const result = (await response.json().catch(() => null)) as { error?: string } | null;
+
+      if (!response.ok) {
+        throw new Error(result?.error ?? "Could not update the conversation.");
+      }
+
+      setConversationRows((current) => current.map((conversation) => {
+        if (conversation.id !== conversationId) {
+          return conversation;
+        }
+
+        return {
+          ...conversation,
+          review_status: reviewStatus,
+          outcome: reviewStatus === "needs_review"
+            ? "Needs review"
+            : conversation.lead
+              ? "Lead captured"
+              : "Answered"
+        };
+      }));
+      showToast("success", reviewStatus === "resolved" ? "Conversation resolved." : "Conversation marked for review.");
+    } catch (error) {
+      showToast("error", error instanceof Error ? error.message : "Could not update the conversation.");
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  }
 
   function selectConversation(conversationId: string) {
     setSelectedId(conversationId);
@@ -138,8 +206,7 @@ export function ConversationHistory({
       <div className="flex shrink-0 gap-2 overflow-x-auto border-b border-harlo-line [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <ConversationTab active={filter === "inbox"} label="Inbox" count={totalCount} onClick={() => setFilter("inbox")} />
         <ConversationTab active={filter === "needs-review"} label="Needs review" count={needsReviewCount} onClick={() => setFilter("needs-review")} />
-        <ConversationTab active={filter === "lead-captured"} label="Leads captured" count={leadCapturedCount} onClick={() => setFilter("lead-captured")} />
-        <ConversationTab active={filter === "answered"} label="Resolved" count={answeredCount} onClick={() => setFilter("answered")} />
+        <ConversationTab active={filter === "answered"} label="Resolved" count={resolvedCount} onClick={() => setFilter("answered")} />
       </div>
 
       <div className="grid min-h-0 flex-1 gap-4 xl:gap-0 xl:overflow-hidden xl:rounded-lg xl:border xl:border-harlo-line xl:bg-white xl:shadow-sm xl:grid-cols-[340px_minmax(0,1fr)_330px] 2xl:grid-cols-[380px_minmax(0,1fr)_360px]">
@@ -155,20 +222,15 @@ export function ConversationHistory({
                   placeholder="Search conversations..."
                 />
               </label>
-              <label className="relative block">
-                <span className="sr-only">Filter by page</span>
-                <select
-                  value={pageFilter}
-                  onChange={(event) => setPageFilter(event.target.value)}
-                  className="h-10 w-full appearance-none rounded-lg border border-harlo-line bg-white px-3 pr-9 text-sm font-medium text-harlo-ink outline-none transition focus:border-harlo-teal"
-                >
-                  <option value="all">All pages</option>
-                  {pageOptions.map(([key, label]) => (
-                    <option key={key} value={key}>{label}</option>
-                  ))}
-                </select>
-                <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-harlo-muted" />
-              </label>
+              <Select
+                name="conversation-page-filter"
+                value={pageFilter}
+                onValueChange={setPageFilter}
+                options={[
+                  { value: "all", label: "All pages" },
+                  ...pageOptions.map(([value, label]) => ({ value, label }))
+                ]}
+              />
             </div>
           </div>
 
@@ -179,11 +241,12 @@ export function ConversationHistory({
               </div>
             ) : (
               <div className="space-y-5">
-                {openConversations.length > 0 ? (
+                {needsReviewConversations.length > 0 ? (
                   <ConversationGroup
-                    title={`Open (${openConversations.length})`}
-                    conversations={openConversations}
+                    title={`Needs review (${needsReviewConversations.length})`}
+                    conversations={needsReviewConversations}
                     selectedId={selectedConversation?.id}
+                    unreadIds={unreadIds}
                     onSelect={selectConversation}
                   />
                 ) : null}
@@ -192,6 +255,7 @@ export function ConversationHistory({
                     title={`Resolved (${resolvedConversations.length})`}
                     conversations={resolvedConversations}
                     selectedId={selectedConversation?.id}
+                    unreadIds={unreadIds}
                     onSelect={selectConversation}
                   />
                 ) : null}
@@ -233,7 +297,14 @@ export function ConversationHistory({
 
         {selectedConversation ? (
           <>
-            <ConversationTranscript businessLogoUrl={businessLogoUrl} conversation={selectedConversation} detailTab={detailTab} onDetailTabChange={setDetailTab} />
+            <ConversationTranscript
+              businessLogoUrl={businessLogoUrl}
+              conversation={selectedConversation}
+              detailTab={detailTab}
+              isUpdatingStatus={updatingStatusId === selectedConversation.id}
+              onDetailTabChange={setDetailTab}
+              onReviewStatusChange={(status) => updateReviewStatus(selectedConversation.id, status)}
+            />
             <ConversationInsightPanel conversation={selectedConversation} />
           </>
         ) : (
@@ -248,6 +319,7 @@ export function ConversationHistory({
           </div>
         )}
       </div>
+      <ToastViewport toast={toast} onDismiss={dismissToast} />
     </div>
   );
 }
@@ -275,11 +347,13 @@ function ConversationGroup({
   title,
   conversations,
   selectedId,
+  unreadIds,
   onSelect
 }: {
   title: string;
   conversations: InboxConversationRow[];
   selectedId?: string;
+  unreadIds: Set<string>;
   onSelect: (conversationId: string) => void;
 }) {
   return (
@@ -291,6 +365,7 @@ function ConversationGroup({
             key={conversation.id}
             conversation={conversation}
             isSelected={conversation.id === selectedId}
+            isUnread={unreadIds.has(conversation.id)}
             onSelect={() => onSelect(conversation.id)}
           />
         ))}
@@ -302,10 +377,12 @@ function ConversationGroup({
 function ConversationRow({
   conversation,
   isSelected,
+  isUnread,
   onSelect
 }: {
   conversation: InboxConversationRow;
   isSelected: boolean;
+  isUnread: boolean;
   onSelect: () => void;
 }) {
   const firstUserMessage = conversation.messages.find((message) => message.role === "user");
@@ -318,7 +395,11 @@ function ConversationRow({
       onClick={onSelect}
       className={cn(
         "w-full rounded-lg border bg-white p-3 text-left transition hover:border-harlo-teal hover:shadow-sm",
-        isSelected ? "border-harlo-teal bg-harlo-mist/45 shadow-sm ring-1 ring-harlo-teal/10" : "border-harlo-line"
+        isSelected
+          ? "border-harlo-teal bg-harlo-mist/45 shadow-sm ring-1 ring-harlo-teal/10"
+          : isUnread
+            ? "border-slate-300 bg-slate-50/80"
+            : "border-harlo-line"
       )}
     >
       <div className="flex items-start gap-3">
@@ -326,21 +407,21 @@ function ConversationRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-harlo-ink">
-                {displayName}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className={cn("truncate text-sm text-harlo-ink", isUnread ? "font-bold" : "font-semibold")}>{displayName}</p>
+                {isUnread ? <NewItemBadge /> : null}
+              </div>
               <p className="mt-1 line-clamp-2 text-xs leading-5 text-harlo-muted">
                 {firstUserMessage?.content ?? lastMessage?.content ?? "No messages yet"}
               </p>
             </div>
             <span className="shrink-0 text-[11px] text-harlo-muted">{formatShortTime(conversation.last_message_at)}</span>
           </div>
-          <div className="mt-2 flex items-center justify-between gap-2">
+          <div className="mt-2 flex items-center gap-1.5">
             <div className="flex min-w-0 items-center gap-1.5">
               <ChannelBadge channel={conversation.source_channel} />
               <SmallPageBadge label={formatPageLabel(conversation.page_url)} />
             </div>
-            <OutcomeDot outcome={conversation.outcome} />
           </div>
         </div>
       </div>
@@ -352,12 +433,16 @@ function ConversationTranscript({
   businessLogoUrl,
   conversation,
   detailTab,
-  onDetailTabChange
+  isUpdatingStatus,
+  onDetailTabChange,
+  onReviewStatusChange
 }: {
   businessLogoUrl?: string | null;
   conversation: InboxConversationRow;
   detailTab: DetailTab;
+  isUpdatingStatus: boolean;
   onDetailTabChange: (tab: DetailTab) => void;
+  onReviewStatusChange: (status: InboxConversationRow["review_status"]) => void;
 }) {
   const displayName = getConversationDisplayName(conversation);
   const botName = conversation.bot_name ?? "Harlo";
@@ -365,7 +450,7 @@ function ConversationTranscript({
 
   return (
     <section className="flex min-h-[560px] min-w-0 flex-col overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm xl:min-h-0 xl:rounded-none xl:border-0 xl:border-r xl:shadow-none">
-      <header className="shrink-0 border-b border-harlo-line px-5 py-4">
+      <header className="relative z-20 shrink-0 overflow-visible border-b border-harlo-line px-5 py-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex min-w-0 items-start gap-3">
             <ConversationAvatar name={displayName} accent={accent} large />
@@ -400,7 +485,24 @@ function ConversationTranscript({
               </div>
             </div>
           </div>
-          <AgentBadge name={botName} type={conversation.agent_type} accent={accent} />
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <AgentBadge name={botName} type={conversation.agent_type} accent={accent} />
+            {conversation.review_status === "needs_review" ? (
+              <ReviewStatusButton
+                label="Resolve conversation"
+                loading={isUpdatingStatus}
+                onClick={() => onReviewStatusChange("resolved")}
+                icon={<CheckCircle2 size={17} />}
+              />
+            ) : (
+              <ReviewStatusButton
+                label="Mark for review"
+                loading={isUpdatingStatus}
+                onClick={() => onReviewStatusChange("needs_review")}
+                icon={<AlertCircle size={17} />}
+              />
+            )}
+          </div>
         </div>
 
         <div className="mt-4 flex items-center gap-5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -423,6 +525,38 @@ function ConversationTranscript({
         <ConversationActivity conversation={conversation} />
       )}
     </section>
+  );
+}
+
+function ReviewStatusButton({
+  icon,
+  label,
+  loading,
+  onClick
+}: {
+  icon: ReactNode;
+  label: string;
+  loading: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <span className="group relative inline-flex shrink-0">
+      <button
+        type="button"
+        aria-label={loading ? "Updating conversation status" : label}
+        disabled={loading}
+        onClick={onClick}
+        className="grid h-9 w-9 place-items-center rounded-lg border border-harlo-line bg-white text-harlo-muted transition hover:border-harlo-teal hover:bg-harlo-mist hover:text-harlo-teal focus:outline-none focus:ring-2 focus:ring-harlo-teal focus:ring-offset-2 disabled:cursor-wait disabled:text-harlo-teal"
+      >
+        {loading ? <Loader2 size={17} className="animate-spin" /> : icon}
+      </button>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute right-0 top-full z-50 mt-2 whitespace-nowrap rounded-md bg-harlo-ink px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+      >
+        {loading ? "Updating status" : label}
+      </span>
+    </span>
   );
 }
 
@@ -454,6 +588,11 @@ function ConversationDetails({ conversation }: { conversation: InboxConversation
         <DetailCard label="Started" value={formatDateTime(conversation.created_at)} icon={<Clock3 size={16} />} />
         <DetailCard label="Last message" value={formatDateTime(conversation.last_message_at)} icon={<MessageSquare size={16} />} />
         <DetailCard label="Messages" value={String(conversation.messages.length)} icon={<Activity size={16} />} />
+        <DetailCard
+          label="Review status"
+          value={conversation.review_status === "needs_review" ? "Needs review" : "Resolved"}
+          icon={conversation.review_status === "needs_review" ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
+        />
       </div>
       {conversation.source_channel !== "website" ? (
         <div className="mt-5 rounded-lg border border-harlo-line bg-white p-4">
@@ -796,14 +935,12 @@ function ChannelBadge({ channel }: { channel: InboxConversationRow["source_chann
   );
 }
 
-function OutcomeDot({ outcome }: { outcome: InboxConversationRow["outcome"] }) {
-  const className = outcome === "Needs review"
-    ? "bg-amber-500"
-    : outcome === "Lead captured"
-      ? "bg-harlo-teal"
-      : "bg-emerald-500";
-
-  return <span className={cn("h-2 w-2 shrink-0 rounded-full", className)} aria-label={outcome} />;
+function NewItemBadge() {
+  return (
+    <span className="inline-flex shrink-0 items-center rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase text-red-600 ring-1 ring-inset ring-red-200">
+      New
+    </span>
+  );
 }
 
 function OutcomeBadge({ outcome }: { outcome: InboxConversationRow["outcome"] }) {

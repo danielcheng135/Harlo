@@ -104,6 +104,7 @@ export type ConversationRow = {
   id: string;
   visitor_id: string | null;
   page_url: string | null;
+  review_status: "resolved" | "needs_review";
   source_channel: "website";
   integration_channel_id?: string | null;
   external_thread_id?: string | null;
@@ -998,7 +999,7 @@ export async function getConversations(workspace: Workspace): Promise<Conversati
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("conversations")
-    .select("id, visitor_id, page_url, source_channel, integration_channel_id, external_thread_id, external_sender_id, external_profile, created_at, bot_id")
+    .select("id, visitor_id, page_url, review_status, source_channel, integration_channel_id, external_thread_id, external_sender_id, external_profile, created_at, bot_id")
     .eq("organization_id", workspace.organization.id)
     .order("created_at", { ascending: false })
     .limit(20);
@@ -1013,7 +1014,7 @@ export async function getInboxConversations(workspace: Workspace): Promise<Inbox
   const supabase = await createSupabaseServerClient();
   const { data: conversations } = await supabase
     .from("conversations")
-    .select("id, visitor_id, page_url, source_channel, integration_channel_id, external_thread_id, external_sender_id, external_profile, created_at, bot_id")
+    .select("id, visitor_id, page_url, review_status, source_channel, integration_channel_id, external_thread_id, external_sender_id, external_profile, created_at, bot_id")
     .eq("organization_id", workspace.organization.id)
     .order("created_at", { ascending: false })
     .limit(20);
@@ -1047,7 +1048,7 @@ export async function getPaginatedInboxConversations(
   const to = from + pageSize - 1;
   let conversationsQuery = supabase
     .from("conversations")
-    .select("id, visitor_id, page_url, source_channel, integration_channel_id, external_thread_id, external_sender_id, external_profile, created_at, bot_id")
+    .select("id, visitor_id, page_url, review_status, source_channel, integration_channel_id, external_thread_id, external_sender_id, external_profile, created_at, bot_id")
     .eq("organization_id", workspace.organization.id)
     .order("created_at", { ascending: false })
     .range(from, to);
@@ -1112,10 +1113,10 @@ async function hydrateInboxConversations(
     const conversationMessages = messagesByConversation[conversation.id] ?? [];
     const lastMessage = conversationMessages[conversationMessages.length - 1];
     const lead = leadsByConversation[conversation.id] ?? null;
-    const outcome: InboxConversationRow["outcome"] = lead
-      ? "Lead captured"
-      : conversationMessages.some((message) => message.metadata?.fallback === true)
-        ? "Needs review"
+    const outcome: InboxConversationRow["outcome"] = conversation.review_status === "needs_review"
+      ? "Needs review"
+      : lead
+        ? "Lead captured"
         : "Answered";
 
     return {

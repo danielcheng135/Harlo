@@ -32,11 +32,12 @@ export default async function DashboardPage() {
   ]);
   const messages = conversations.flatMap((conversation) => conversation.messages);
   const visitorMessages = messages.filter((message) => message.role === "user");
-  const answeredCount = conversations.filter((conversation) => conversation.outcome === "Answered").length;
-  const leadConversationCount = conversations.filter((conversation) => conversation.outcome === "Lead captured").length;
-  const needsReviewCount = conversations.filter((conversation) => conversation.outcome === "Needs review").length;
+  const resolvedCount = conversations.filter((conversation) => conversation.review_status === "resolved").length;
+  const answeredCount = conversations.filter((conversation) => conversation.review_status === "resolved" && !conversation.lead).length;
+  const leadConversationCount = conversations.filter((conversation) => Boolean(conversation.lead)).length;
+  const needsReviewCount = conversations.filter((conversation) => conversation.review_status === "needs_review").length;
   const readySources = sources.filter((source) => source.status === "ready").length;
-  const resolutionRate = conversations.length > 0 ? Math.round((answeredCount / conversations.length) * 100) : 0;
+  const resolutionRate = conversations.length > 0 ? Math.round((resolvedCount / conversations.length) * 100) : 0;
   const leadRate = conversations.length > 0 ? Math.round((leadConversationCount / conversations.length) * 100) : 0;
   const knowledgeHealth = sources.length > 0 ? Math.round((readySources / sources.length) * 100) : 0;
   const dailyVolume = getDailyVolume(messages);
@@ -70,7 +71,7 @@ export default async function DashboardPage() {
         <OverviewMetric
           label="Resolved by AI"
           value={`${resolutionRate}%`}
-          detail={`${answeredCount} answered, ${needsReviewCount} need review`}
+          detail={`${resolvedCount} resolved, ${needsReviewCount} need review`}
           icon={Sparkles}
           accent="sky"
         />
