@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -41,6 +42,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: error?.message ?? "Lead not found." }, { status: 404 });
   }
 
+  revalidatePath("/dashboard/leads");
+
   return NextResponse.json({ lead: data });
 }
 
@@ -64,6 +67,8 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   if (error || !data) {
     return NextResponse.json({ error: error?.message ?? "Lead not found." }, { status: 404 });
   }
+
+  revalidatePath("/dashboard/leads");
 
   return NextResponse.json({ status: "deleted" });
 }

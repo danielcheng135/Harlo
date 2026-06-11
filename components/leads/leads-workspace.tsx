@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -26,6 +26,7 @@ import {
 import { AgentBadge } from "@/components/agent-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { ToastViewport, useToast } from "@/components/ui/toast";
 import type { LeadRow } from "@/lib/harlo/data";
 import { cn } from "@/lib/utils";
@@ -34,28 +35,32 @@ type LeadsWorkspaceProps = {
   leads: LeadRow[];
   initialLeadId?: string;
   activeAgentId?: string;
+  page: number;
+  pageSize: number;
+  totalCount: number;
 };
 
 type LeadView = "table" | "pipeline" | "activity";
 type StageFilter = "all" | "new" | "contacted";
 
-const ROWS_PER_PAGE = 10;
-
-export function LeadsWorkspace({ leads, initialLeadId, activeAgentId }: LeadsWorkspaceProps) {
+export function LeadsWorkspace({ leads, initialLeadId, activeAgentId, page, pageSize, totalCount }: LeadsWorkspaceProps) {
   const [items, setItems] = useState(leads);
+  const [loadedTotal, setLoadedTotal] = useState(totalCount);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState(initialLeadId ?? leads[0]?.id ?? "");
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [view, setView] = useState<LeadView>("table");
   const [stageFilter, setStageFilter] = useState<StageFilter>("all");
-  const [page, setPage] = useState(1);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<LeadRow | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const { toast, showToast, dismissToast } = useToast();
 
   useEffect(() => {
     setItems(leads);
+    setLoadedTotal(totalCount);
     setSelectedId((current) => {
       if (initialLeadId && leads.some((lead) => lead.id === initialLeadId)) {
         return initialLeadId;
@@ -64,11 +69,7 @@ export function LeadsWorkspace({ leads, initialLeadId, activeAgentId }: LeadsWor
       return leads.some((lead) => lead.id === current) ? current : leads[0]?.id ?? "";
     });
     setSelectedRows(new Set());
-  }, [initialLeadId, leads]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [query, stageFilter, view]);
+  }, [initialLeadId, leads, totalCount]);
 
   const filteredLeads = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -95,8 +96,8 @@ export function LeadsWorkspace({ leads, initialLeadId, activeAgentId }: LeadsWor
     });
   }, [items, query, stageFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredLeads.length / ROWS_PER_PAGE));
-  const pagedLeads = filteredLeads.slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(loadedTotal / pageSize));
+  const pagedLeads = filteredLeads;
   const selectedLead =
     filteredLeads.find((lead) => lead.id === selectedId) ??
     filteredLeads[0] ??
@@ -109,7 +110,14 @@ export function LeadsWorkspace({ leads, initialLeadId, activeAgentId }: LeadsWor
   const contactedCount = items.filter((lead) => lead.status === "contacted").length;
 
   async function updateLeadStatus(leadId: string, status: "new" | "contacted") {
+    const previousLead = items.find((lead) => lead.id === leadId);
+
+    if (!previousLead || getLeadStage(previousLead) === status) {
+      return true;
+    }
+
     setSavingId(leadId);
+    setItems((current) => current.map((lead) => lead.id === leadId ? { ...lead, status } : lead));
 
     try {
       const response = await fetch(`/api/leads/${leadId}`, {
@@ -122,8 +130,9 @@ export function LeadsWorkspace({ leads, initialLeadId, activeAgentId }: LeadsWor
       const result = await response.json() as { error?: string; lead?: LeadRow };
 
       if (!response.ok || !result.lead) {
+        setItems((current) => current.map((lead) => lead.id === leadId ? previousLead : lead));
         showToast("error", result.error ?? "Could not update lead.");
-        return;
+        return false;
       }
 
       setItems((current) => current.map((lead) => {
@@ -144,10 +153,70 @@ export function LeadsWorkspace({ leads, initialLeadId, activeAgentId }: LeadsWor
         };
       }));
       showToast("success", status === "contacted" ? "Lead marked as contacted." : "Lead moved back to new.");
+      return true;
     } catch {
+      setItems((current) => current.map((lead) => lead.id === leadId ? previousLead : lead));
       showToast("error", "Could not update lead.");
+      return false;
     } finally {
       setSavingId(null);
+    }
+  }
+
+  async function deleteSelectedLeads() {
+    const leadIds = [...selectedRows];
+
+    if (leadIds.length === 0) {
+      return;
+    }
+
+    setBulkDeleting(true);
+
+    try {
+      const response = await fetch("/api/leads/bulk", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ leadIds })
+      });
+      const result = await response.json() as { error?: string; deletedIds?: string[]; failedIds?: string[] };
+      const deletedIds = new Set(result.deletedIds ?? []);
+
+      if (deletedIds.size > 0) {
+        setItems((current) => {
+          const next = current.filter((lead) => !deletedIds.has(lead.id));
+
+          if (deletedIds.has(selectedId)) {
+            setSelectedId(next[0]?.id ?? "");
+          }
+
+          return next;
+        });
+        setLoadedTotal((current) => Math.max(0, current - deletedIds.size));
+        setSelectedRows((current) => {
+          const next = new Set(current);
+          deletedIds.forEach((leadId) => next.delete(leadId));
+          return next;
+        });
+      }
+
+      const allSelectedLeadsDeleted =
+        response.ok &&
+        deletedIds.size === leadIds.length &&
+        leadIds.every((leadId) => deletedIds.has(leadId));
+
+      if (!allSelectedLeadsDeleted) {
+        showToast("error", result.error ?? "Could not delete selected leads.");
+        return;
+      }
+
+      setBulkDeleteOpen(false);
+      showToast("success", `${deletedIds.size} ${deletedIds.size === 1 ? "lead" : "leads"} deleted.`);
+    } catch {
+      showToast("error", "Could not delete selected leads.");
+    } finally {
+      setBulkDeleting(false);
     }
   }
 
@@ -174,6 +243,7 @@ export function LeadsWorkspace({ leads, initialLeadId, activeAgentId }: LeadsWor
 
         return next;
       });
+      setLoadedTotal((current) => Math.max(0, current - 1));
       setSelectedRows((current) => {
         const next = new Set(current);
         next.delete(lead.id);
@@ -209,6 +279,10 @@ export function LeadsWorkspace({ leads, initialLeadId, activeAgentId }: LeadsWor
 
     if (activeAgentId) {
       params.set("agent", activeAgentId);
+    }
+
+    if (page > 1) {
+      params.set("page", String(page));
     }
 
     params.set("lead", leadId);
@@ -252,7 +326,7 @@ export function LeadsWorkspace({ leads, initialLeadId, activeAgentId }: LeadsWor
         <ViewTab active={view === "activity"} icon={<Activity size={15} />} label="Activity" count={items.length} onClick={() => setView("activity")} />
       </div>
 
-      <div className="flex shrink-0 flex-col gap-3 rounded-lg border border-harlo-line bg-white p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex shrink-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[minmax(0,1fr)_160px_auto]">
           <label className="flex h-10 min-w-0 items-center gap-2 rounded-lg border border-harlo-line bg-white px-3 text-sm text-harlo-muted focus-within:border-harlo-teal">
             <Search size={16} />
@@ -264,11 +338,17 @@ export function LeadsWorkspace({ leads, initialLeadId, activeAgentId }: LeadsWor
             />
           </label>
 
-          <SelectControl label="Stage" value={stageFilter} onChange={(value) => setStageFilter(value as StageFilter)}>
-            <option value="all">All stages</option>
-            <option value="new">New</option>
-            <option value="contacted">Contacted</option>
-          </SelectControl>
+          <Select
+            name="stage"
+            value={stageFilter}
+            onValueChange={(value) => setStageFilter(value as StageFilter)}
+            options={[
+              { value: "all", label: "All stages" },
+              { value: "new", label: "New" },
+              { value: "contacted", label: "Contacted" }
+            ]}
+            className="[&>button]:h-10"
+          />
 
           <button
             type="button"
@@ -296,9 +376,22 @@ export function LeadsWorkspace({ leads, initialLeadId, activeAgentId }: LeadsWor
       <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_390px]">
         <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm">
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-harlo-line px-4 py-3">
-            <p className="text-sm font-semibold text-harlo-ink">{filteredLeads.length} leads</p>
+            <p className="text-sm font-semibold text-harlo-ink">
+              {query || stageFilter !== "all" ? `${filteredLeads.length} matching on this page` : `${loadedTotal} leads`}
+            </p>
             {selectedRows.size > 0 ? (
-              <p className="text-xs font-medium text-harlo-teal">{selectedRows.size} selected</p>
+              <div className="flex items-center gap-3">
+                <p className="text-xs font-medium text-harlo-teal">{selectedRows.size} selected</p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setBulkDeleteOpen(true)}
+                  className="h-8 border-red-200 px-2.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+                >
+                  <Trash2 size={14} />
+                  Delete
+                </Button>
+              </div>
             ) : (
               <p className="text-xs text-harlo-muted">
                 {newCount} new / {contactedCount} contacted
@@ -328,49 +421,57 @@ export function LeadsWorkspace({ leads, initialLeadId, activeAgentId }: LeadsWor
               onTogglePage={togglePageSelection}
             />
           ) : view === "pipeline" ? (
-            <PipelineView leads={filteredLeads} selectedId={selectedLead?.id} onSelect={(lead) => selectLead(lead.id)} />
+            <PipelineView
+              leads={filteredLeads}
+              selectedId={selectedLead?.id}
+              savingId={savingId}
+              onSelect={(lead) => selectLead(lead.id)}
+              onUpdateStatus={updateLeadStatus}
+            />
           ) : (
             <ActivityView leads={filteredLeads} selectedId={selectedLead?.id} onSelect={(lead) => selectLead(lead.id)} />
           )}
 
-          {view === "table" ? (
-            <div className="flex shrink-0 flex-col gap-3 border-t border-harlo-line px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2 text-sm text-harlo-muted">
-                <span>Rows per page</span>
-                <span className="inline-flex h-9 items-center rounded-lg border border-harlo-line bg-white px-3 font-semibold text-harlo-ink">
-                  {ROWS_PER_PAGE}
+          <div className="flex shrink-0 flex-col gap-3 border-t border-harlo-line px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 text-sm text-harlo-muted">
+              <span>Rows per page</span>
+              <span className="inline-flex h-9 items-center rounded-lg border border-harlo-line bg-white px-3 font-semibold text-harlo-ink">
+                {pageSize}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3 sm:justify-end">
+              <p className="text-sm text-harlo-muted">
+                {items.length === 0 ? `0 of ${loadedTotal}` : `${(page - 1) * pageSize + 1}-${Math.min((page - 1) * pageSize + items.length, loadedTotal)} of ${loadedTotal}`}
+              </p>
+              <div className="flex items-center gap-1">
+                <a
+                  href={getLeadsPageHref(page - 1, activeAgentId)}
+                  aria-disabled={page === 1}
+                  className={cn(
+                    "grid h-9 w-9 place-items-center rounded-lg border border-harlo-line text-harlo-muted transition hover:border-harlo-teal hover:text-harlo-teal",
+                    page === 1 && "pointer-events-none opacity-40"
+                  )}
+                  aria-label="Previous page"
+                >
+                  <ChevronDown size={16} className="rotate-90" />
+                </a>
+                <span className="grid h-9 min-w-9 place-items-center rounded-lg bg-harlo-mist px-3 text-sm font-semibold text-harlo-teal">
+                  {page}
                 </span>
-              </div>
-              <div className="flex items-center justify-between gap-3 sm:justify-end">
-                <p className="text-sm text-harlo-muted">
-                  {filteredLeads.length === 0 ? "0" : `${(page - 1) * ROWS_PER_PAGE + 1}-${Math.min(page * ROWS_PER_PAGE, filteredLeads.length)}`} of {filteredLeads.length}
-                </p>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    disabled={page === 1}
-                    onClick={() => setPage((current) => Math.max(1, current - 1))}
-                    className="grid h-9 w-9 place-items-center rounded-lg border border-harlo-line text-harlo-muted transition hover:border-harlo-teal hover:text-harlo-teal disabled:cursor-not-allowed disabled:opacity-40"
-                    aria-label="Previous page"
-                  >
-                    <ChevronDown size={16} className="rotate-90" />
-                  </button>
-                  <span className="grid h-9 min-w-9 place-items-center rounded-lg bg-harlo-mist px-3 text-sm font-semibold text-harlo-teal">
-                    {page}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={page === totalPages}
-                    onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-                    className="grid h-9 w-9 place-items-center rounded-lg border border-harlo-line text-harlo-muted transition hover:border-harlo-teal hover:text-harlo-teal disabled:cursor-not-allowed disabled:opacity-40"
-                    aria-label="Next page"
-                  >
-                    <ChevronDown size={16} className="-rotate-90" />
-                  </button>
-                </div>
+                <a
+                  href={getLeadsPageHref(page + 1, activeAgentId)}
+                  aria-disabled={page >= totalPages}
+                  className={cn(
+                    "grid h-9 w-9 place-items-center rounded-lg border border-harlo-line text-harlo-muted transition hover:border-harlo-teal hover:text-harlo-teal",
+                    page >= totalPages && "pointer-events-none opacity-40"
+                  )}
+                  aria-label="Next page"
+                >
+                  <ChevronDown size={16} className="-rotate-90" />
+                </a>
               </div>
             </div>
-          ) : null}
+          </div>
         </section>
 
         <LeadDetailPanel
@@ -414,6 +515,40 @@ export function LeadsWorkspace({ leads, initialLeadId, activeAgentId }: LeadsWor
         </div>
       ) : null}
 
+      {bulkDeleteOpen && selectedRows.size > 0 ? (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-harlo-ink/35 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="bulk-delete-leads-title">
+          <div className="w-full max-w-md rounded-xl border border-harlo-line bg-white p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-600">
+                <AlertTriangle size={20} />
+              </span>
+              <div className="min-w-0">
+                <h3 id="bulk-delete-leads-title" className="text-lg font-semibold text-harlo-ink">
+                  Delete {selectedRows.size} selected {selectedRows.size === 1 ? "lead" : "leads"}?
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-harlo-muted">
+                  The selected leads will be removed. Their related conversations will stay in conversation history.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button type="button" variant="secondary" onClick={() => setBulkDeleteOpen(false)} disabled={bulkDeleting}>
+                Keep leads
+              </Button>
+              <Button
+                type="button"
+                onClick={deleteSelectedLeads}
+                disabled={bulkDeleting}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {bulkDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                {bulkDeleting ? "Deleting..." : "Delete selected"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <ToastViewport toast={toast} onDismiss={dismissToast} />
     </div>
   );
@@ -448,32 +583,6 @@ function ViewTab({
       </span>
       {active ? <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-harlo-teal" /> : null}
     </button>
-  );
-}
-
-function SelectControl({
-  label,
-  value,
-  onChange,
-  children
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  children: ReactNode;
-}) {
-  return (
-    <label className="relative block">
-      <span className="sr-only">{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-10 w-full appearance-none rounded-lg border border-harlo-line bg-white px-3 pr-9 text-sm font-medium text-harlo-ink outline-none transition focus:border-harlo-teal"
-      >
-        {children}
-      </select>
-      <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-harlo-muted" />
-    </label>
   );
 }
 
@@ -673,31 +782,96 @@ function LeadMobileCard({
   );
 }
 
-function PipelineView({ leads, selectedId, onSelect }: { leads: LeadRow[]; selectedId?: string; onSelect: (lead: LeadRow) => void }) {
+function PipelineView({
+  leads,
+  selectedId,
+  savingId,
+  onSelect,
+  onUpdateStatus
+}: {
+  leads: LeadRow[];
+  selectedId?: string;
+  savingId: string | null;
+  onSelect: (lead: LeadRow) => void;
+  onUpdateStatus: (leadId: string, status: "new" | "contacted") => Promise<boolean>;
+}) {
+  const [draggingLeadId, setDraggingLeadId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<"new" | "contacted" | null>(null);
   const groups = [
-    { id: "new", label: "New", items: leads.filter((lead) => lead.status !== "contacted") },
-    { id: "contacted", label: "Contacted", items: leads.filter((lead) => lead.status === "contacted") }
+    { id: "new" as const, label: "New", items: leads.filter((lead) => lead.status !== "contacted") },
+    { id: "contacted" as const, label: "Contacted", items: leads.filter((lead) => lead.status === "contacted") }
   ];
+
+  function handleDragStart(event: DragEvent<HTMLButtonElement>, leadId: string) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", leadId);
+    setDraggingLeadId(leadId);
+  }
+
+  async function handleDrop(event: DragEvent<HTMLElement>, status: "new" | "contacted") {
+    event.preventDefault();
+    const leadId = event.dataTransfer.getData("text/plain") || draggingLeadId;
+
+    setDropTarget(null);
+    setDraggingLeadId(null);
+
+    if (leadId) {
+      await onUpdateStatus(leadId, status);
+    }
+  }
 
   return (
     <div className="min-h-0 flex-1 overflow-auto p-4">
       <div className="grid min-h-full gap-3 lg:grid-cols-2">
         {groups.map((group) => (
-          <section key={group.id} className="flex min-h-[240px] flex-col rounded-lg border border-harlo-line bg-harlo-canvas p-3">
+          <section
+            key={group.id}
+            onDragEnter={(event) => {
+              event.preventDefault();
+              setDropTarget(group.id);
+            }}
+            onDragOver={(event) => {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+              setDropTarget(group.id);
+            }}
+            onDragLeave={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                setDropTarget((current) => current === group.id ? null : current);
+              }
+            }}
+            onDrop={(event) => handleDrop(event, group.id)}
+            className={cn(
+              "flex min-h-[240px] flex-col rounded-lg border bg-harlo-canvas p-3 transition",
+              dropTarget === group.id && draggingLeadId
+                ? "border-harlo-teal bg-harlo-mist/70 ring-2 ring-harlo-teal/15"
+                : "border-harlo-line"
+            )}
+          >
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold text-harlo-ink">{group.label}</h3>
               <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-harlo-muted">{group.items.length}</span>
             </div>
-            <div className="mt-3 space-y-2">
+            <div className="mt-3 flex flex-1 flex-col gap-2">
               {group.items.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-harlo-line bg-white p-3 text-xs leading-5 text-harlo-muted">No leads in this stage.</p>
+                <p className="flex min-h-24 items-center justify-center rounded-lg border border-dashed border-harlo-line bg-white p-3 text-center text-xs leading-5 text-harlo-muted">
+                  Drop a lead here to mark it {group.id}.
+                </p>
               ) : group.items.map((lead) => (
                 <button
                   type="button"
                   key={lead.id}
+                  draggable={!savingId}
+                  onDragStart={(event) => handleDragStart(event, lead.id)}
+                  onDragEnd={() => {
+                    setDraggingLeadId(null);
+                    setDropTarget(null);
+                  }}
                   onClick={() => onSelect(lead)}
                   className={cn(
-                    "w-full rounded-lg border bg-white p-3 text-left transition hover:border-harlo-teal hover:shadow-sm",
+                    "w-full cursor-grab rounded-lg border bg-white p-3 text-left transition hover:border-harlo-teal hover:shadow-sm active:cursor-grabbing",
+                    draggingLeadId === lead.id && "opacity-45",
+                    savingId === lead.id && "cursor-wait opacity-70",
                     selectedId === lead.id ? "border-harlo-teal ring-1 ring-harlo-teal/10" : "border-harlo-line"
                   )}
                 >
@@ -706,7 +880,7 @@ function PipelineView({ leads, selectedId, onSelect }: { leads: LeadRow[]; selec
                       <p className="truncate text-sm font-semibold text-harlo-ink">{lead.name}</p>
                       <p className="mt-1 truncate text-xs text-harlo-muted">{lead.email}</p>
                     </div>
-                    <MiniScore score={getLeadScore(lead)} />
+                    {savingId === lead.id ? <Loader2 size={16} className="animate-spin text-harlo-teal" /> : <MiniScore score={getLeadScore(lead)} />}
                   </div>
                   <p className="mt-3 line-clamp-2 text-xs leading-5 text-harlo-muted">{lead.question}</p>
                 </button>
@@ -1154,6 +1328,17 @@ function getConversationHref(lead: LeadRow) {
   const query = params.toString();
 
   return query ? `/dashboard/conversations?${query}` : "/dashboard/conversations";
+}
+
+function getLeadsPageHref(page: number, activeAgentId?: string) {
+  const params = new URLSearchParams();
+
+  if (activeAgentId) {
+    params.set("agent", activeAgentId);
+  }
+
+  params.set("page", String(Math.max(1, page)));
+  return `/dashboard/leads?${params.toString()}`;
 }
 
 function formatMetadataLabel(key: string) {

@@ -1467,10 +1467,25 @@ function buildHubSpotLeadNote(payload: IntegrationActionPayload) {
     "Captured by Harlo.",
     formatNoteLine("Question", cleanString(payload.lead.question) ?? cleanString(payload.visitorMessage)),
     formatNoteLine("Source page", cleanString(payload.sourcePageUrl)),
+    formatNoteLine("Harlo conversation", getHarloConversationUrl(payload.conversationId)),
     ...getLeadMetadataNoteLines(payload.lead.metadata)
   ].filter((line): line is string => Boolean(line));
 
   return cleanString(lines.join("\n"));
+}
+
+function getHarloConversationUrl(conversationId: string | null | undefined) {
+  const cleanConversationId = cleanString(conversationId);
+
+  if (!cleanConversationId) {
+    return null;
+  }
+
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.harloai.co").replace(/\/$/, "");
+  const url = new URL("/dashboard/conversations", appUrl);
+  url.searchParams.set("conversation", cleanConversationId);
+
+  return url.toString();
 }
 
 async function runJobberLeadAction(

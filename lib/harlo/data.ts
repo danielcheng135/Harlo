@@ -133,6 +133,15 @@ export type InboxConversationRow = ConversationRow & {
   outcome: "Lead captured" | "Needs review" | "Answered";
 };
 
+export type PaginatedResult<T> = {
+  items: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  agentCounts: Record<string, number>;
+};
+
 export type LeadRow = {
   id: string;
   name: string;
@@ -1009,11 +1018,61 @@ export async function getInboxConversations(workspace: Workspace): Promise<Inbox
     .order("created_at", { ascending: false })
     .limit(20);
 
+  return hydrateInboxConversations(workspace, supabase, conversations ?? []);
+}
+
+export async function getPaginatedInboxConversations(
+  workspace: Workspace,
+  options: { page?: number; pageSize?: number; agentId?: string }
+): Promise<PaginatedResult<InboxConversationRow>> {
+  const supabase = await createSupabaseServerClient();
+  const pageSize = Math.max(1, Math.min(options.pageSize ?? 10, 50));
+  let countQuery = supabase
+    .from("conversations")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", workspace.organization.id);
+
+  if (options.agentId) {
+    countQuery = countQuery.eq("bot_id", options.agentId);
+  }
+
+  const [{ count }, agentCounts] = await Promise.all([
+    countQuery,
+    getTableAgentCounts(supabase, "conversations", workspace)
+  ]);
+  const total = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(Math.max(1, options.page ?? 1), totalPages);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  let conversationsQuery = supabase
+    .from("conversations")
+    .select("id, visitor_id, page_url, source_channel, integration_channel_id, external_thread_id, external_sender_id, external_profile, created_at, bot_id")
+    .eq("organization_id", workspace.organization.id)
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (options.agentId) {
+    conversationsQuery = conversationsQuery.eq("bot_id", options.agentId);
+  }
+
+  const { data: conversations } = await conversationsQuery;
+  const items = await hydrateInboxConversations(workspace, supabase, conversations ?? []);
+
+  return { items, page, pageSize, total, totalPages, agentCounts };
+}
+
+async function hydrateInboxConversations(
+  workspace: Workspace,
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  conversations: Array<Record<string, unknown>>
+): Promise<InboxConversationRow[]> {
   if (!conversations || conversations.length === 0) {
     return [];
   }
 
-  const conversationIds = conversations.map((conversation) => conversation.id);
+  const typedConversations = conversations as unknown as ConversationRow[];
+  const conversationIds = typedConversations.map((conversation) => conversation.id);
   const [{ data: messages }, { data: leads }] = await Promise.all([
     supabase
       .from("messages")
@@ -1049,7 +1108,7 @@ export async function getInboxConversations(workspace: Workspace): Promise<Inbox
     return current;
   }, {});
 
-  return conversations.map((conversation) => {
+  return typedConversations.map((conversation) => {
     const conversationMessages = messagesByConversation[conversation.id] ?? [];
     const lastMessage = conversationMessages[conversationMessages.length - 1];
     const lead = leadsByConversation[conversation.id] ?? null;
@@ -1060,7 +1119,7 @@ export async function getInboxConversations(workspace: Workspace): Promise<Inbox
         : "Answered";
 
     return {
-      ...normalizeConversationSource(conversation as ConversationRow),
+      ...normalizeConversationSource(conversation),
       ...getWorkspaceBotMeta(workspace, conversation.bot_id),
       messages: conversationMessages,
       lead,
@@ -1084,6 +1143,69 @@ export async function getLeads(workspace: Workspace): Promise<LeadRow[]> {
     metadata: normalizeLeadMetadata(lead.metadata, getLeadFieldsForBot(workspace, lead.bot_id)),
     ...getWorkspaceBotMeta(workspace, lead.bot_id)
   }));
+}
+
+export async function getPaginatedLeads(
+  workspace: Workspace,
+  options: { page?: number; pageSize?: number; agentId?: string }
+): Promise<PaginatedResult<LeadRow>> {
+  const supabase = await createSupabaseServerClient();
+  const pageSize = Math.max(1, Math.min(options.pageSize ?? 10, 50));
+  let countQuery = supabase
+    .from("leads")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", workspace.organization.id);
+
+  if (options.agentId) {
+    countQuery = countQuery.eq("bot_id", options.agentId);
+  }
+
+  const [{ count }, agentCounts] = await Promise.all([
+    countQuery,
+    getTableAgentCounts(supabase, "leads", workspace)
+  ]);
+  const total = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(Math.max(1, options.page ?? 1), totalPages);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  let leadsQuery = supabase
+    .from("leads")
+    .select("id, name, email, question, status, created_at, metadata, conversation_id, bot_id")
+    .eq("organization_id", workspace.organization.id)
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (options.agentId) {
+    leadsQuery = leadsQuery.eq("bot_id", options.agentId);
+  }
+
+  const { data } = await leadsQuery;
+  const items = ((data ?? []) as LeadRow[]).map((lead) => ({
+    ...lead,
+    metadata: normalizeLeadMetadata(lead.metadata, getLeadFieldsForBot(workspace, lead.bot_id)),
+    ...getWorkspaceBotMeta(workspace, lead.bot_id)
+  }));
+
+  return { items, page, pageSize, total, totalPages, agentCounts };
+}
+
+async function getTableAgentCounts(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  table: "conversations" | "leads",
+  workspace: Workspace
+) {
+  const counts = await Promise.all(workspace.bots.map(async (bot) => {
+    const { count } = await supabase
+      .from(table)
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", workspace.organization.id)
+      .eq("bot_id", bot.id);
+
+    return [bot.id, count ?? 0] as const;
+  }));
+
+  return Object.fromEntries(counts);
 }
 
 function getWorkspaceBotMeta(workspace: Workspace, botId?: string | null) {

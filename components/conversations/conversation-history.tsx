@@ -29,13 +29,25 @@ type ConversationHistoryProps = {
   conversations: InboxConversationRow[];
   initialConversationId?: string;
   activeAgentId?: string;
+  page: number;
+  pageSize: number;
+  totalCount: number;
 };
 
 type ConversationFilter = "inbox" | "needs-review" | "lead-captured" | "answered";
 type DetailTab = "chat" | "details" | "activity";
 const HARLO_ACCENT = "#087f95";
+const LEAD_PHONE_METADATA_KEYS = new Set(["phone", "phone_number", "mobile", "tel"]);
 
-export function ConversationHistory({ businessLogoUrl, conversations, initialConversationId, activeAgentId }: ConversationHistoryProps) {
+export function ConversationHistory({
+  businessLogoUrl,
+  conversations,
+  initialConversationId,
+  activeAgentId,
+  page,
+  pageSize,
+  totalCount
+}: ConversationHistoryProps) {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState(initialConversationId ?? conversations[0]?.id ?? "");
   const [filter, setFilter] = useState<ConversationFilter>("inbox");
@@ -102,6 +114,7 @@ export function ConversationHistory({ businessLogoUrl, conversations, initialCon
   const needsReviewCount = conversations.filter((conversation) => conversation.outcome === "Needs review").length;
   const leadCapturedCount = conversations.filter((conversation) => conversation.outcome === "Lead captured").length;
   const answeredCount = conversations.filter((conversation) => conversation.outcome === "Answered").length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   function selectConversation(conversationId: string) {
     setSelectedId(conversationId);
@@ -112,6 +125,10 @@ export function ConversationHistory({ businessLogoUrl, conversations, initialCon
       params.set("agent", activeAgentId);
     }
 
+    if (page > 1) {
+      params.set("page", String(page));
+    }
+
     params.set("conversation", conversationId);
     window.history.pushState(null, "", `/dashboard/conversations?${params.toString()}`);
   }
@@ -119,7 +136,7 @@ export function ConversationHistory({ businessLogoUrl, conversations, initialCon
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex shrink-0 gap-2 overflow-x-auto border-b border-harlo-line [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <ConversationTab active={filter === "inbox"} label="Inbox" count={conversations.length} onClick={() => setFilter("inbox")} />
+        <ConversationTab active={filter === "inbox"} label="Inbox" count={totalCount} onClick={() => setFilter("inbox")} />
         <ConversationTab active={filter === "needs-review"} label="Needs review" count={needsReviewCount} onClick={() => setFilter("needs-review")} />
         <ConversationTab active={filter === "lead-captured"} label="Leads captured" count={leadCapturedCount} onClick={() => setFilter("lead-captured")} />
         <ConversationTab active={filter === "answered"} label="Resolved" count={answeredCount} onClick={() => setFilter("answered")} />
@@ -182,8 +199,35 @@ export function ConversationHistory({ businessLogoUrl, conversations, initialCon
             )}
           </div>
 
-          <div className="shrink-0 border-t border-harlo-line px-4 py-3 text-xs text-harlo-muted">
-            Showing {filteredConversations.length} of {conversations.length}
+          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-harlo-line px-4 py-3">
+            <p className="text-xs text-harlo-muted">
+              {totalCount === 0 ? "0" : `${(page - 1) * pageSize + 1}-${Math.min((page - 1) * pageSize + conversations.length, totalCount)}`} of {totalCount}
+            </p>
+            <div className="flex items-center gap-1">
+              <a
+                href={getConversationsPageHref(page - 1, activeAgentId)}
+                aria-disabled={page === 1}
+                aria-label="Previous conversations page"
+                className={cn(
+                  "grid h-8 w-8 place-items-center rounded-lg border border-harlo-line text-harlo-muted transition hover:border-harlo-teal hover:text-harlo-teal",
+                  page === 1 && "pointer-events-none opacity-40"
+                )}
+              >
+                <ChevronDown size={15} className="rotate-90" />
+              </a>
+              <span className="grid h-8 min-w-8 place-items-center rounded-lg bg-harlo-mist px-2 text-xs font-semibold text-harlo-teal">{page}</span>
+              <a
+                href={getConversationsPageHref(page + 1, activeAgentId)}
+                aria-disabled={page >= totalPages}
+                aria-label="Next conversations page"
+                className={cn(
+                  "grid h-8 w-8 place-items-center rounded-lg border border-harlo-line text-harlo-muted transition hover:border-harlo-teal hover:text-harlo-teal",
+                  page >= totalPages && "pointer-events-none opacity-40"
+                )}
+              >
+                <ChevronDown size={15} className="-rotate-90" />
+              </a>
+            </div>
           </div>
         </aside>
 
@@ -877,7 +921,7 @@ function getLeadHref(lead: LeadRow) {
 }
 
 function getLeadPhone(lead: LeadRow) {
-  for (const key of ["phone", "phone_number", "mobile", "tel"]) {
+  for (const key of LEAD_PHONE_METADATA_KEYS) {
     const value = lead.metadata[key];
 
     if (typeof value === "string" && value.trim().length > 0) {
@@ -890,7 +934,12 @@ function getLeadPhone(lead: LeadRow) {
 
 function getLeadMetadataItems(lead: LeadRow) {
   return Object.entries(lead.metadata)
-    .filter(([key, value]) => typeof value === "string" && !key.endsWith("_label") && !key.endsWith("_type"))
+    .filter(([key, value]) => (
+      typeof value === "string" &&
+      !LEAD_PHONE_METADATA_KEYS.has(key) &&
+      !key.endsWith("_label") &&
+      !key.endsWith("_type")
+    ))
     .map(([key, value]) => ({
       key,
       value: value as string,
@@ -947,6 +996,17 @@ function getPageKey(value: string | null) {
   } catch {
     return value;
   }
+}
+
+function getConversationsPageHref(page: number, activeAgentId?: string) {
+  const params = new URLSearchParams();
+
+  if (activeAgentId) {
+    params.set("agent", activeAgentId);
+  }
+
+  params.set("page", String(Math.max(1, page)));
+  return `/dashboard/conversations?${params.toString()}`;
 }
 
 function formatPageLabel(value: string | null) {

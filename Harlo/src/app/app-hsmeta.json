@@ -4,7 +4,7 @@
   "config": {
     "description": "Harlo AI connects website chatbot leads and conversation context to HubSpot CRM.",
     "name": "Harlo AI",
-    "distribution": "private",
+    "distribution": "marketplace",
     "auth": {
       "type": "oauth",
       "redirectUrls": [
@@ -28,9 +28,9 @@
     },
     "support": {
       "supportEmail": "support@example.com",
-      "documentationUrl": "https://example.com/docs",
-      "supportUrl": "https://example.com/support",
-      "supportPhone": "+18005555555"
+      "documentationUrl": "https://www.harloai.co/docs",
+      "supportUrl": "https://www.harloai.co/support",
+      "supportPhone": "+15715289367"
     }
   }
 }

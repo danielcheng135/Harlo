@@ -3,7 +3,7 @@
 import { Activity, AlertTriangle, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, ExternalLink, Info, Link as LinkIcon, Loader2, Lock, Settings2, Unlink } from "lucide-react";
 import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
@@ -109,6 +109,7 @@ export function IntegrationsWorkspace({
   const [savingProvider, setSavingProvider] = useState<IntegrationProviderKey | null>(null);
   const [eventTypesByProvider, setEventTypesByProvider] = useState<Partial<Record<IntegrationProviderKey, EventTypeState>>>({});
   const [audiencesByProvider, setAudiencesByProvider] = useState<Partial<Record<IntegrationProviderKey, AudienceState>>>({});
+  const handledStatusRef = useRef<string | null>(null);
   const { toast, showToast, dismissToast } = useToast();
   const [providers, setProviders] = useState<DisplayProvider[]>(() => overview.providers.map(toDisplayProvider));
   const connectedCount = providers.filter((provider) => provider.status === "connected").length;
@@ -136,9 +137,22 @@ export function IntegrationsWorkspace({
       return;
     }
 
+    const statusKey = `${statusProvider ?? "unknown"}:${integrationStatus}`;
+
+    if (handledStatusRef.current === statusKey) {
+      return;
+    }
+
+    handledStatusRef.current = statusKey;
     const provider = statusProvider ? providers.find((item) => item.key === statusProvider) ?? null : null;
     const message = getStatusMessage(integrationStatus, provider?.name ?? "Integration");
     showToast(message.tone === "success" ? "success" : "error", `${message.title} ${message.body}`);
+
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.delete("status");
+    currentUrl.searchParams.delete("integration");
+    currentUrl.searchParams.delete("reason");
+    window.history.replaceState(window.history.state, "", `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`);
   }, [integrationStatus, statusProvider]);
 
   useEffect(() => {
@@ -500,7 +514,6 @@ function ActionHistory({
   return (
     <section
       id="action-history-panel"
-      className="border-t border-harlo-line pt-6"
       role="tabpanel"
       aria-busy={loading}
     >

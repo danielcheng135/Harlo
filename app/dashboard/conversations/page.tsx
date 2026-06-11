@@ -3,26 +3,28 @@ import { ConversationHistory } from "@/components/conversations/conversation-his
 import { AgentFilter } from "@/components/dashboard/agent-filter";
 import { EmptyState } from "@/components/empty-state";
 import { Card, CardBody } from "@/components/ui/card";
-import { getInboxConversations, getWorkspaceOrRedirect, type InboxConversationRow } from "@/lib/harlo/data";
+import { getPaginatedInboxConversations, getWorkspaceOrRedirect } from "@/lib/harlo/data";
 
 type ConversationsPageProps = {
   searchParams?: Promise<{
     agent?: string;
     conversation?: string;
+    page?: string;
   }>;
 };
 
 export default async function ConversationsPage({ searchParams }: ConversationsPageProps) {
   const workspace = await getWorkspaceOrRedirect();
-  const conversations = await getInboxConversations(workspace);
   const params = await searchParams;
   const activeAgentId = workspace.bots.some((bot) => bot.id === params?.agent) ? params?.agent : undefined;
-  const visibleConversations = activeAgentId
-    ? conversations.filter((conversation) => conversation.bot_id === activeAgentId)
-    : conversations;
+  const paginatedConversations = await getPaginatedInboxConversations(workspace, {
+    page: parsePage(params?.page),
+    pageSize: 10,
+    agentId: activeAgentId
+  });
+  const visibleConversations = paginatedConversations.items;
   const selectedConversation =
     visibleConversations.find((conversation) => conversation.id === params?.conversation) ?? visibleConversations[0] ?? null;
-  const agentCounts = getAgentCounts(conversations);
 
   return (
     <div className="flex min-h-[calc(100svh-10rem)] flex-col gap-5 lg:h-[calc(100vh-7rem)] lg:overflow-hidden">
@@ -35,8 +37,8 @@ export default async function ConversationsPage({ searchParams }: ConversationsP
           basePath="/dashboard/conversations"
           bots={workspace.bots}
           activeAgentId={activeAgentId}
-          counts={agentCounts}
-          allCount={conversations.length}
+          counts={paginatedConversations.agentCounts}
+          allCount={Object.values(paginatedConversations.agentCounts).reduce((sum, count) => sum + count, 0)}
         />
       </header>
 
@@ -61,18 +63,16 @@ export default async function ConversationsPage({ searchParams }: ConversationsP
           initialConversationId={selectedConversation?.id}
           activeAgentId={activeAgentId}
           businessLogoUrl={workspace.organization.brand_logo_url}
+          page={paginatedConversations.page}
+          pageSize={paginatedConversations.pageSize}
+          totalCount={paginatedConversations.total}
         />
       )}
     </div>
   );
 }
 
-function getAgentCounts(conversations: InboxConversationRow[]) {
-  return conversations.reduce<Record<string, number>>((current, conversation) => {
-    if (conversation.bot_id) {
-      current[conversation.bot_id] = (current[conversation.bot_id] ?? 0) + 1;
-    }
-
-    return current;
-  }, {});
+function parsePage(value?: string) {
+  const parsed = Number.parseInt(value ?? "1", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
