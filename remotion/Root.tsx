@@ -15,10 +15,10 @@ export const Root = () => {
       <Composition
         id="HarloMarketing"
         component={HarloMarketingVideo}
-        durationInFrames={900}
+        durationInFrames={960}
         fps={30}
         width={1080}
-        height={1350}
+        height={1260}
       />
       <Composition
         id="LandingFeaturesGraphic"

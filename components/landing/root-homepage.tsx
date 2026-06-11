@@ -1120,29 +1120,31 @@ function PlanCard({ plan, interval }: { plan: BillingPlan; interval: BillingInte
       className={`rounded-lg border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-harlo-teal/50 hover:shadow-md ${isGrowth ? "border-harlo-teal shadow-[0_18px_45px_rgba(8,127,149,0.12)]" : "border-harlo-line"
         }`}
     >
-      <div className="flex items-center justify-between gap-3">
+      <div>
         <div className="flex items-start gap-4">
           <PlanMark planKey={plan.key} />
           <div>
-            <h3 className="text-2xl font-semibold tracking-tight text-harlo-ink">{plan.name}</h3>
+            <div className="flex flex-wrap items-center gap-3">
+              <h3 className="text-2xl font-semibold tracking-tight text-harlo-ink">{plan.name}</h3>
+              {isGrowth ? <Badge>Popular</Badge> : null}
+            </div>
             <p className="mt-2 text-sm leading-6 text-harlo-muted">{plan.description}</p>
           </div>
         </div>
-        {isGrowth ? <Badge>Popular</Badge> : null}
       </div>
       <PlanPrice plan={plan} interval={interval} idPrefix="pricing" />
       <Link
         href={getSignupHref(plan.key, interval)}
-        className={`group/trial mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-harlo-teal focus:ring-offset-2 ${isGrowth ? "bg-harlo-ink text-white hover:bg-harlo-navy" : "border border-harlo-line bg-white text-harlo-ink hover:border-harlo-teal hover:text-harlo-teal"
+        className={`mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-harlo-teal focus:ring-offset-2 ${isGrowth ? "bg-harlo-ink text-white hover:bg-harlo-navy" : "border border-harlo-line bg-white text-harlo-ink hover:border-harlo-teal hover:text-harlo-teal"
           }`}
       >
         {plan.key === "starter" ? "Start free trial" : "Subscribe"}
         {plan.key === "starter" ? (
-          <span className="relative inline-flex">
+          <span className="group/trial-info relative inline-flex">
             <Info size={15} className="text-harlo-teal" />
             <span
               role="tooltip"
-              className="pointer-events-none absolute bottom-[calc(100%+0.65rem)] right-0 z-20 w-56 rounded-lg border border-harlo-line bg-white p-3 text-left text-xs font-semibold leading-5 text-harlo-muted opacity-0 shadow-soft transition group-hover/trial:opacity-100 group-focus/trial:opacity-100"
+              className="pointer-events-none absolute bottom-[calc(100%+0.65rem)] right-0 z-20 w-56 rounded-lg border border-harlo-line bg-white p-3 text-left text-xs font-semibold leading-5 text-harlo-muted opacity-0 shadow-soft transition group-hover/trial-info:opacity-100"
             >
               Includes a two-week trial with {TRIAL_CONFIG.credits} free credits.
             </span>

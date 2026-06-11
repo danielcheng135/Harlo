@@ -57,7 +57,7 @@ export function HeroVideo({ className }: HeroVideoProps) {
       <video
         ref={videoRef}
         aria-label="Harlo product overview video"
-        className="aspect-[6/7] w-full bg-white object-cover"
+        className="aspect-[6/7] w-full bg-harlo-ink object-contain"
         autoPlay
         muted
         loop

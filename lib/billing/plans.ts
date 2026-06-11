@@ -69,8 +69,8 @@ export const BILLING_PLANS: BillingPlan[] = [
   {
     key: "growth",
     name: "Growth",
-    monthlyPrice: 129,
-    annualMonthlyPrice: 103,
+    monthlyPrice: 149,
+    annualMonthlyPrice: 119,
     monthlyCredits: 4000,
     includedAgents: 1,
     seats: 3,
@@ -80,8 +80,8 @@ export const BILLING_PLANS: BillingPlan[] = [
   {
     key: "pro",
     name: "Pro",
-    monthlyPrice: 399,
-    annualMonthlyPrice: 319,
+    monthlyPrice: 499,
+    annualMonthlyPrice: 399,
     monthlyCredits: 15000,
     includedAgents: 1,
     seats: 5,
