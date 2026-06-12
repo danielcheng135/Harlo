@@ -11,6 +11,26 @@ export function GET(request: NextRequest) {
   var suppressGreetingNudge = currentScript && currentScript.getAttribute("data-harlo-hide-greeting") === "true";
   if ((!botId && !organizationId) || document.getElementById("harlo-widget-root")) return;
   var baseUrl = new URL(currentScript.src).origin;
+  var greetingNudgeScope = organizationId ? "organization:" + organizationId : "bot:" + botId;
+  var greetingNudgeStorageKey = "harlo:greeting-dismissed:" + greetingNudgeScope;
+  var greetingDismissals = window.__harloGreetingDismissals || {};
+  window.__harloGreetingDismissals = greetingDismissals;
+  if (!window.__harloGreetingReloadHandled) {
+    window.__harloGreetingReloadHandled = true;
+    var navigationEntries = window.performance && window.performance.getEntriesByType
+      ? window.performance.getEntriesByType("navigation")
+      : [];
+    if (navigationEntries[0] && navigationEntries[0].type === "reload") {
+      try {
+        window.sessionStorage.removeItem(greetingNudgeStorageKey);
+      } catch (error) {}
+    }
+  }
+  try {
+    if (window.sessionStorage.getItem(greetingNudgeStorageKey) === "true") {
+      greetingDismissals[greetingNudgeScope] = true;
+    }
+  } catch (error) {}
   var conversationStorageKey = "";
   var completedConversationStorageKey = "";
   var launcherPositionStorageKey = "";
@@ -115,6 +135,10 @@ export function GET(request: NextRequest) {
     input.focus();
   });
   nudgeClose.addEventListener("click", function () {
+    greetingDismissals[greetingNudgeScope] = true;
+    try {
+      window.sessionStorage.setItem(greetingNudgeStorageKey, "true");
+    } catch (error) {}
     hideGreetingNudge();
   });
   launcher.addEventListener("pointerdown", startLauncherDrag);
@@ -332,6 +356,7 @@ export function GET(request: NextRequest) {
 
   function showGreetingNudge(message) {
     if (greetingNudgeShown) return;
+    if (greetingDismissals[greetingNudgeScope]) return;
     if (panel.getAttribute("data-open") === "true") return;
     nudgeText.textContent = String(message || "").trim() || "👋 Hi! How can I help?";
     nudge.setAttribute("data-visible", "true");
@@ -340,6 +365,7 @@ export function GET(request: NextRequest) {
 
   function scheduleGreetingNudge(message, delay) {
     if (greetingNudgeShown) return;
+    if (greetingDismissals[greetingNudgeScope]) return;
     if (greetingNudgeTimer) window.clearTimeout(greetingNudgeTimer);
     greetingNudgeTimer = window.setTimeout(function () {
       greetingNudgeTimer = null;
