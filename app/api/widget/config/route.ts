@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { widgetCorsPreflight, widgetJson } from "@/lib/widget/cors";
-import { WidgetRouteExcludedError, getPublicWidgetConfig, isAllowedWidgetOrigin } from "@/lib/widget/config";
+import { WidgetRouteExcludedError, getPublicWidgetConfig, isAllowedWidgetOrigin, markWidgetInstalled } from "@/lib/widget/config";
 
 export function OPTIONS(request: NextRequest) {
   return widgetCorsPreflight(request);
@@ -31,6 +31,12 @@ export async function GET(request: NextRequest) {
   if (!isAllowedWidgetOrigin(config, origin)) {
     return widgetJson(request, { error: "Widget domain is not allowed." }, { status: 403 });
   }
+
+  await markWidgetInstalled({
+    organizationId: config.organizationId,
+    pageUrl,
+    origin
+  }).catch(() => undefined);
 
   return widgetJson(request, config);
 }

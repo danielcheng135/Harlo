@@ -785,7 +785,7 @@ export async function getIntegrationOverview(
     };
   }
 
-  if (!options.includeHistory) {
+  if (!options.includeHistory || !entitlements.enabled) {
     return {
       migrationReady,
       entitlements,

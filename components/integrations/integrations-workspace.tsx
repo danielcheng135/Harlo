@@ -112,6 +112,7 @@ export function IntegrationsWorkspace({
   const handledStatusRef = useRef<string | null>(null);
   const { toast, showToast, dismissToast } = useToast();
   const [providers, setProviders] = useState<DisplayProvider[]>(() => overview.providers.map(toDisplayProvider));
+  const hasIntegrationAccess = overview.entitlements.enabled;
   const connectedCount = providers.filter((provider) => provider.status === "connected").length;
   const disconnectedCount = providers.filter((provider) => provider.status !== "connected").length;
   const visibleProviders = activeTab === "connected"
@@ -357,6 +358,14 @@ export function IntegrationsWorkspace({
     }
 
     const href = params.size > 0 ? `${pathname}?${params.toString()}` : pathname;
+    if (tab === "history" && !hasIntegrationAccess) {
+      setPendingHistoryPage(null);
+      router.replace(href as Route, {
+        scroll: false
+      });
+      return;
+    }
+
     if (tab === "history" && initialTab !== "history") {
       setPendingHistoryPage(1);
       startHistoryTransition(() => {
@@ -397,7 +406,9 @@ export function IntegrationsWorkspace({
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-harlo-ink">Integrations</h1>
           <p className="mt-2 text-sm leading-6 text-harlo-muted">
-            Your plan can run {formatActionAllowance(overview.entitlements.actionsPerVisitorFlow)}. Every attempt is recorded in action history.
+            {hasIntegrationAccess
+              ? `Your plan can run ${formatActionAllowance(overview.entitlements.actionsPerVisitorFlow)}. Every attempt is recorded in action history.`
+              : "Connect Harlo to the tools your team already uses by upgrading to Growth or Pro."}
           </p>
           <div className="mt-7 grid grid-cols-2 gap-2 text-sm font-semibold sm:flex sm:flex-wrap" role="tablist" aria-label="Integration views">
             <button
@@ -446,6 +457,7 @@ export function IntegrationsWorkspace({
             >
               <Activity size={15} />
               Action history
+              {!hasIntegrationAccess ? <Lock size={13} aria-label="Locked" /> : null}
             </button>
           </div>
         </div>
@@ -476,7 +488,9 @@ export function IntegrationsWorkspace({
             </p>
           </div>
         )}
-      </div> : (
+      </div> : !hasIntegrationAccess ? (
+        <LockedActionHistory providers={providers} />
+      ) : (
         <ActionHistory
           loading={isHistoryPending}
           logLevel={overview.entitlements.logLevel}
@@ -487,6 +501,71 @@ export function IntegrationsWorkspace({
           runs={overview.recentRuns}
         />
       )}
+    </div>
+  );
+}
+
+function LockedActionHistory({ providers }: { providers: DisplayProvider[] }) {
+  return (
+    <section id="action-history-panel" role="tabpanel">
+      <div className="overflow-hidden rounded-lg border border-harlo-line bg-white shadow-sm">
+        <div className="grid gap-8 px-6 py-10 md:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)] md:items-center md:px-10 md:py-12">
+          <div className="max-w-xl">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+              <Lock size={12} aria-hidden="true" />
+              Growth feature
+            </span>
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-harlo-ink">See every action Harlo runs.</h2>
+            <p className="mt-3 text-sm leading-6 text-harlo-muted">
+              Upgrade to unlock integrations and a paginated history of bookings, lead syncs, notifications, failures, and plan-limit events.
+            </p>
+            <a
+              href="/dashboard/billing#plans"
+              className="mt-6 inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-harlo-ink px-4 text-sm font-semibold text-white transition hover:bg-harlo-navy focus:outline-none focus:ring-2 focus:ring-harlo-teal focus:ring-offset-2"
+            >
+              View upgrade options
+              <ChevronRight size={15} />
+            </a>
+          </div>
+
+          <div className="rounded-lg border border-harlo-line bg-slate-50/70 p-5">
+            <div className="flex items-center gap-2 text-sm font-semibold text-harlo-ink">
+              <Activity size={17} className="text-harlo-teal" />
+              Action history
+            </div>
+            <div className="mt-5 grid grid-cols-4 gap-3 sm:grid-cols-7 md:grid-cols-4 lg:grid-cols-7">
+              {providers.map((provider) => (
+                <span
+                  key={provider.key}
+                  className="grid aspect-square place-items-center rounded-lg border border-harlo-line bg-white"
+                  title={provider.name}
+                >
+                  <span
+                    className="block h-7 w-7 bg-contain bg-center bg-no-repeat"
+                    style={{ backgroundImage: `url(${logoUrls[provider.key]})` }}
+                    aria-label={`${provider.name} logo`}
+                    role="img"
+                  />
+                </span>
+              ))}
+            </div>
+            <div className="mt-5 space-y-2">
+              <LockedHistoryRow label="Lead captured" />
+              <LockedHistoryRow label="Booking created" />
+              <LockedHistoryRow label="Notification sent" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LockedHistoryRow({ label }: { label: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-md border border-harlo-line bg-white px-3 py-2.5">
+      <span className="text-xs font-semibold text-harlo-ink">{label}</span>
+      <span className="h-2 w-16 rounded-full bg-slate-200" aria-hidden="true" />
     </div>
   );
 }
@@ -814,11 +893,15 @@ function ProviderRow({
             </div>
           </div>
 
-          <div className="grid w-[5.5rem] shrink-0 grid-cols-2 gap-2 justify-self-end lg:col-span-1 lg:col-start-5 lg:row-start-1 lg:ml-auto lg:mr-10">
+          <div className={`${provider.locked ? "flex w-auto" : "grid w-[5.5rem] grid-cols-2"} shrink-0 gap-2 justify-self-end lg:col-span-1 lg:col-start-5 lg:row-start-1 lg:ml-auto lg:mr-10`}>
             {provider.locked ? (
-              <IconButton label="Configure" disabled>
-                <Settings2 size={17} />
-              </IconButton>
+              <a
+                href="/dashboard/billing#plans"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-harlo-ink px-3.5 text-sm font-semibold text-white transition hover:bg-harlo-navy focus:outline-none focus:ring-2 focus:ring-harlo-teal focus:ring-offset-2"
+              >
+                Upgrade
+                <ChevronRight size={15} />
+              </a>
             ) : (
               <>
                 <IconButton label={expanded ? "Close configuration" : "Configure"} disabled={!isConnected} onClick={onToggleConfigure}>
@@ -1621,20 +1704,14 @@ function getDefaultSuccessMessage(provider: IntegrationProviderKey) {
 }
 
 function Logo({ provider }: { provider: DisplayProvider }) {
-  const locked = provider.locked;
-
   return (
-    <span className={`grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-lg ${locked ? "bg-slate-100" : "bg-white"}`}>
-      {locked ? (
-        <Lock size={21} className="text-slate-400" />
-      ) : (
-        <span
-          className="block h-11 w-11 rounded-lg bg-contain bg-center bg-no-repeat"
-          style={{ backgroundImage: `url(${logoUrls[provider.key]})` }}
-          aria-label={`${provider.name} logo`}
-          role="img"
-        />
-      )}
+    <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-lg bg-white">
+      <span
+        className="block h-11 w-11 rounded-lg bg-contain bg-center bg-no-repeat"
+        style={{ backgroundImage: `url(${logoUrls[provider.key]})` }}
+        aria-label={`${provider.name} logo`}
+        role="img"
+      />
     </span>
   );
 }
@@ -1642,7 +1719,8 @@ function Logo({ provider }: { provider: DisplayProvider }) {
 function StatusPill({ provider }: { provider: DisplayProvider }) {
   if (provider.locked) {
     return (
-      <span className="mt-2 inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
+      <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
+        <Lock size={12} aria-hidden="true" />
         Locked
       </span>
     );

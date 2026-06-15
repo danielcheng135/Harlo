@@ -14,6 +14,7 @@ import {
 import { MessageVolumeCard } from "@/components/analytics/message-volume-card";
 import type { MessageVolumePoint } from "@/components/analytics/message-volume-line-chart";
 import { ChatWidgetPreview } from "@/components/chat-widget-preview";
+import { GettingStartedGuide } from "@/components/dashboard/getting-started-guide";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import {
@@ -42,6 +43,14 @@ export default async function DashboardPage() {
   const knowledgeHealth = sources.length > 0 ? Math.round((readySources / sources.length) * 100) : 0;
   const dailyVolume = getDailyVolume(messages);
   const actionItems = getActionItems({ needsReviewCount, sourcesCount: sources.length, readySources, leadsCount: leads.length });
+  const agentConfigured = Boolean(
+    workspace.bot.name.trim() &&
+    workspace.bot.description.trim() &&
+    workspace.bot.system_instructions.trim() &&
+    workspace.bot.greeting.trim()
+  );
+  const knowledgeConfigured = readySources > 0;
+  const widgetLive = hasWidgetInstallation(workspace.organization.metadata);
 
   return (
     <div className="space-y-6">
@@ -52,6 +61,12 @@ export default async function DashboardPage() {
           A quick pulse on conversations, leads, AI resolution, and knowledge readiness.
         </p>
       </div>
+
+      <GettingStartedGuide
+        agentConfigured={agentConfigured}
+        knowledgeConfigured={knowledgeConfigured}
+        widgetLive={widgetLive}
+      />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <OverviewMetric
@@ -256,4 +271,15 @@ function getDailyVolume(messages: Array<{ created_at: string }>): MessageVolumeP
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en").format(value);
+}
+
+function hasWidgetInstallation(metadata: Record<string, unknown> | null | undefined) {
+  const installation = metadata?.widget_installation;
+
+  return Boolean(
+    installation &&
+    typeof installation === "object" &&
+    !Array.isArray(installation) &&
+    typeof (installation as Record<string, unknown>).installed_at === "string"
+  );
 }

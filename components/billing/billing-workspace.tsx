@@ -136,7 +136,7 @@ export function BillingControls({ billing }: BillingWorkspaceProps) {
         <div className="mt-5 space-y-3 rounded-lg border border-harlo-line bg-harlo-canvas p-3">
           <div className="flex items-center justify-between gap-3">
             <span className="text-sm font-medium text-harlo-muted">Status</span>
-            <Badge>{billing.cancelAtPeriodEnd ? "Canceling" : billing.status === "active" ? "Active" : billing.status}</Badge>
+            <Badge>{billing.cancelAtPeriodEnd ? "Canceling" : formatBillingStatus(billing.status)}</Badge>
           </div>
           <div className="flex items-center justify-between gap-3">
             <span className="text-sm font-medium text-harlo-muted">Renewal</span>
@@ -433,7 +433,7 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
               type="button"
               onClick={() => changeInterval(option)}
               className={`rounded-md px-4 py-2 text-sm font-semibold capitalize transition ${
-                interval === option ? "bg-white text-harlo-ink shadow-sm" : "text-harlo-muted hover:text-harlo-ink"
+                interval === option ? "bg-black text-white shadow-sm" : "text-harlo-muted hover:text-harlo-ink"
               }`}
             >
               {option}
@@ -490,6 +490,16 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
                 </p>
               </div>
               <p className="mt-3 text-sm leading-6 text-harlo-muted">{plan.description}</p>
+              <Button
+                type="button"
+                variant={canStartPaidNow || isUpgrade ? "primary" : "secondary"}
+                disabled={(!canStartPaidNow && isCurrentInterval) || pendingAction === actionLabel}
+                className={`mt-5 w-full ${((!canStartPaidNow && isCurrentInterval) || pendingAction === actionLabel) ? "cursor-default opacity-70" : ""}`}
+                onClick={() => canStartPaidNow ? startPaidNow(actionLabel) : startCheckout(plan.key, actionLabel)}
+              >
+                {pendingAction === actionLabel ? <Loader2 size={16} className="animate-spin" /> : null}
+                {pendingAction === actionLabel ? "Opening Stripe..." : canStartPaidNow ? "Start paid now" : isCurrentInterval ? "Current plan" : isCurrent ? "Switch interval" : isUpgrade ? "Upgrade" : "Downgrade"}
+              </Button>
               <div className="mt-5 space-y-2">
                 {plan.features.map((feature) => (
                   <div key={feature} className="flex items-center gap-2 text-sm font-semibold text-harlo-muted">
@@ -498,16 +508,6 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
                   </div>
                 ))}
               </div>
-              <Button
-                type="button"
-                variant={canStartPaidNow || isUpgrade ? "primary" : "secondary"}
-                disabled={(!canStartPaidNow && isCurrentInterval) || pendingAction === actionLabel}
-                className={`mt-6 w-full ${((!canStartPaidNow && isCurrentInterval) || pendingAction === actionLabel) ? "cursor-default opacity-70" : ""}`}
-                onClick={() => canStartPaidNow ? startPaidNow(actionLabel) : startCheckout(plan.key, actionLabel)}
-              >
-                {pendingAction === actionLabel ? <Loader2 size={16} className="animate-spin" /> : null}
-                {pendingAction === actionLabel ? "Opening Stripe..." : canStartPaidNow ? "Start paid now" : isCurrentInterval ? "Current plan" : isCurrent ? "Switch interval" : isUpgrade ? "Upgrade" : "Downgrade"}
-              </Button>
             </div>
           );
         })}
@@ -711,4 +711,10 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
 
 function formatDate(value: Date) {
   return value.toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatBillingStatus(value: string) {
+  return value
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 }

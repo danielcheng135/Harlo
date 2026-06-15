@@ -14,6 +14,51 @@ export async function getPublicBotConfig(botId: string): Promise<BotConfig> {
   return getPublicWidgetConfig({ botId });
 }
 
+export async function markWidgetInstalled({
+  organizationId,
+  pageUrl,
+  origin
+}: {
+  organizationId: string;
+  pageUrl: string | null;
+  origin: string | null;
+}) {
+  const installationUrl = getWidgetInstallationUrl(pageUrl, origin);
+
+  if (!installationUrl) {
+    return;
+  }
+
+  const supabase = createSupabaseServiceClient();
+  const { data: organization } = await supabase
+    .from("organizations")
+    .select("metadata")
+    .eq("id", organizationId)
+    .maybeSingle();
+  const metadata = isRecord(organization?.metadata) ? organization.metadata : {};
+  const currentInstallation = isRecord(metadata.widget_installation) ? metadata.widget_installation : {};
+
+  if (typeof currentInstallation.installed_at === "string") {
+    return;
+  }
+
+  await supabase
+    .from("organizations")
+    .update({
+      metadata: {
+        ...metadata,
+        widget_installation: {
+          ...currentInstallation,
+          installed_at: new Date().toISOString(),
+          hostname: installationUrl.hostname,
+          page_url: installationUrl.toString()
+        }
+      },
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", organizationId);
+}
+
 export async function getPublicWidgetConfig({
   botId,
   organizationId,
@@ -305,6 +350,30 @@ export function isAllowedWidgetOrigin(config: Pick<BotConfig, "allowedDomains">,
   } catch {
     return false;
   }
+}
+
+function getWidgetInstallationUrl(pageUrl: string | null, origin: string | null) {
+  try {
+    const page = new URL(pageUrl || origin || "");
+    const requestOrigin = origin ? new URL(origin) : null;
+    const hostname = page.hostname.toLowerCase();
+
+    if (requestOrigin && requestOrigin.hostname.toLowerCase() !== hostname) {
+      return null;
+    }
+
+    if (["localhost", "127.0.0.1", "::1"].includes(hostname) || page.pathname.startsWith("/widget-test")) {
+      return null;
+    }
+
+    return page;
+  } catch {
+    return null;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isMissingWidgetRouteBehaviorColumn(error: unknown) {
