@@ -426,17 +426,25 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
           <p className="text-sm font-semibold text-harlo-ink">Billing interval</p>
           <p className="mt-1 text-sm text-harlo-muted">Annual pricing shows the effective monthly rate.</p>
         </div>
-        <div className="grid grid-cols-2 rounded-lg border border-harlo-line bg-harlo-canvas p-1">
+        <div className="grid w-full shrink-0 grid-cols-2 rounded-full border border-harlo-line bg-white/95 p-1.5 shadow-[0_14px_34px_rgba(15,23,42,0.08)] sm:w-auto sm:min-w-max">
           {(["monthly", "annual"] as const).map((option) => (
             <button
               key={option}
               type="button"
+              aria-pressed={interval === option}
               onClick={() => changeInterval(option)}
-              className={`rounded-md px-4 py-2 text-sm font-semibold capitalize transition ${
-                interval === option ? "bg-black text-white shadow-sm" : "text-harlo-muted hover:text-harlo-ink"
+              className={`inline-flex min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-full px-4 py-2.5 text-sm font-semibold capitalize transition sm:min-w-28 ${
+                interval === option
+                  ? "bg-harlo-ink text-white shadow-[0_10px_24px_rgba(17,24,39,0.18)]"
+                  : "text-harlo-muted hover:bg-harlo-mist hover:text-harlo-ink"
               }`}
             >
               {option}
+              {option === "annual" ? (
+                <span className="rounded-full bg-gradient-to-r from-rose-500 to-red-300 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm shadow-red-100">
+                  20%
+                </span>
+              ) : null}
             </button>
           ))}
         </div>

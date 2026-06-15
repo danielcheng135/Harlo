@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { LockKeyhole } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { CheckoutRecovery } from "@/components/onboarding/checkout-recovery";
 import { isBillingInterval, isBillingPlanKey } from "@/lib/billing/stripe";
@@ -77,9 +79,17 @@ export default async function OnboardingCheckoutPage({ searchParams }: CheckoutP
   const interval = isBillingInterval(billing?.billing_interval) ? billing.billing_interval : "monthly";
 
   return (
-    <main className="min-h-screen bg-harlo-canvas text-harlo-ink">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <BrandLogo />
+    <main className="relative min-h-screen overflow-hidden bg-[#07111a] text-white">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_12%,rgba(8,127,149,0.36),transparent_32%),linear-gradient(135deg,#07111a_0%,#08131d_54%,#063f4c_100%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:64px_64px] opacity-25" />
+      <header className="relative mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6 sm:py-7">
+        <Link href="/" aria-label="Return to Harlo home">
+          <BrandLogo tone="light" />
+        </Link>
+        <span className="inline-flex items-center gap-2 text-xs font-semibold text-white/60 sm:text-sm">
+          <LockKeyhole size={14} className="text-harlo-blue" />
+          Secure checkout
+        </span>
       </header>
       <CheckoutRecovery
         organizationName={organization?.name ?? "your workspace"}
@@ -87,6 +97,12 @@ export default async function OnboardingCheckoutPage({ searchParams }: CheckoutP
         initialInterval={interval as BillingInterval}
         checkoutState={params?.checkout}
       />
+      <p className="relative pb-6 text-center text-xs leading-5 text-white/45">
+        Payments are securely processed by Stripe.{" "}
+        <Link href="/terms" className="text-white/70 underline underline-offset-4 hover:text-white">Terms</Link>
+        {" "}and{" "}
+        <Link href="/privacy" className="text-white/70 underline underline-offset-4 hover:text-white">Privacy Policy</Link>.
+      </p>
     </main>
   );
 }
