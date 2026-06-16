@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { SiteWidgetLoader } from "@/components/site-widget-loader";
 import { siteConfig } from "@/lib/seo";
 
 const googleVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION;
+const googleAdsId = "AW-18142694200";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -65,6 +67,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <Script async src={`https://www.googletagmanager.com/gtag/js?id=${googleAdsId}`} strategy="afterInteractive" />
+        <Script id="google-ads-tag" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${googleAdsId}');
+          `}
+        </Script>
+      </head>
       <body suppressHydrationWarning>
         {children}
         <SiteWidgetLoader />
