@@ -561,15 +561,15 @@ export const integrationDocs: IntegrationDoc[] = [
     outcomeLabel: "Spreadsheet row is added",
     bestFor: ["Lightweight CRM", "Manual review", "Exports", "Ops handoff"],
     setupSteps: [
-      { title: "Connect Google Sheets", body: "Open Dashboard -> Integrations, choose Google Sheets, and authorize the Google account Harlo should use to edit the sheet." },
-      { title: "Paste the spreadsheet", body: "In Configure, paste the full Google Sheets URL or the spreadsheet ID from the URL." },
-      { title: "Name the tab", body: "Choose a tab name such as Leads. Harlo creates the tab if it does not exist and writes headers." },
-      { title: "Test lead capture", body: "Submit a test lead and confirm Harlo appends a row with contact details, source page, conversation summary, metadata, and the agent's lead fields." }
+      { title: "Connect Google Sheets", body: "Open Dashboard -> Integrations, choose Google Sheets, and authorize the Google account Harlo should use for lead exports." },
+      { title: "Choose the lead sheet", body: "In Configure, choose an existing spreadsheet with Google Picker or create a new Harlo-owned sheet. Harlo only receives access to the selected file." },
+      { title: "Save the action", body: "Select the widget agents that should append rows, then save the configuration. Harlo stores the selected spreadsheet and tab." },
+      { title: "Test lead capture", body: "Submit a test lead and confirm Harlo appends a row with contact details, source page, and the agent's lead fields." }
     ],
     requiredFields: [
-      { label: "Spreadsheet ID or URL", detail: "The target Google spreadsheet." },
+      { label: "Selected spreadsheet", detail: "The Google spreadsheet created or explicitly authorized for Harlo." },
       { label: "Sheet tab name", detail: "The tab Harlo should create or append to." },
-      { label: "Sheet access", detail: "The connected Google account must have edit access." }
+      { label: "File access", detail: "Harlo requests drive.file access so it can work with the selected file instead of every spreadsheet in Drive." }
     ],
     testSteps: [
       "Complete lead capture from the website widget.",

@@ -264,6 +264,7 @@ function getActionConfig(provider: NonNullable<ReturnType<typeof parseIntegratio
     return {
       provider,
       spreadsheetId: normalizeGoogleSpreadsheetId(formData.get("spreadsheetId")),
+      spreadsheetTitle: normalizeMessage(formData.get("spreadsheetTitle")),
       sheetName: normalizeMessage(formData.get("sheetName")) ?? "Leads"
     };
   }

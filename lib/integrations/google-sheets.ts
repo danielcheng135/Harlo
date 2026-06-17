@@ -21,6 +21,59 @@ type AppendGoogleSheetsRowInput = ValidateGoogleSheetsTargetInput & {
   row: Record<string, unknown>;
 };
 
+type CreateGoogleSheetsLeadSpreadsheetInput = {
+  accessToken: string;
+  title: string;
+  sheetName?: string | null;
+  headers?: readonly string[];
+};
+
+export async function createGoogleSheetsLeadSpreadsheet({
+  accessToken,
+  title,
+  sheetName,
+  headers
+}: CreateGoogleSheetsLeadSpreadsheetInput) {
+  const normalizedTitle = getString(title) ?? "Harlo Leads";
+  const normalizedSheetName = getString(sheetName) ?? "Leads";
+  const response = await fetch("https://sheets.googleapis.com/v4/spreadsheets", {
+    method: "POST",
+    headers: getGoogleSheetsHeaders(accessToken),
+    body: JSON.stringify({
+      properties: {
+        title: normalizedTitle
+      },
+      sheets: [
+        {
+          properties: {
+            title: normalizedSheetName
+          }
+        }
+      ]
+    })
+  });
+  const payload = await parseGoogleSheetsResponse(response, "Google Sheets spreadsheet creation failed.");
+  const spreadsheetId = getString(payload.spreadsheetId);
+
+  if (!spreadsheetId) {
+    throw new Error("Google Sheets did not return a spreadsheet ID.");
+  }
+
+  await ensureGoogleSheetsHeaderRow({
+    accessToken,
+    spreadsheetId,
+    sheetName: normalizedSheetName,
+    headers: normalizeGoogleSheetsHeaders(headers)
+  });
+
+  return {
+    spreadsheetId,
+    spreadsheetTitle: getSpreadsheetTitle(payload) ?? normalizedTitle,
+    sheetName: normalizedSheetName,
+    spreadsheetUrl: getGoogleSpreadsheetUrl(spreadsheetId)
+  };
+}
+
 export async function validateGoogleSheetsTarget({
   accessToken,
   spreadsheetId,

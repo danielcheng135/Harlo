@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, AlertTriangle, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, ExternalLink, Info, Link as LinkIcon, Loader2, Lock, Settings2, Unlink } from "lucide-react";
+import { Activity, AlertTriangle, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, ExternalLink, FileSpreadsheet, Info, Link as LinkIcon, Loader2, Lock, Plus, Settings2, Unlink, X } from "lucide-react";
 import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
@@ -49,6 +49,61 @@ type AudienceState = {
   error: string | null;
   options: MailchimpAudienceOption[];
 };
+
+type GoogleSheetSelection = {
+  spreadsheetId: string;
+  spreadsheetTitle: string | null;
+  spreadsheetUrl: string | null;
+  sheetName: string;
+};
+
+type GooglePickerConfig = {
+  accessToken: string;
+  developerKey: string;
+  appId: string;
+};
+
+type GooglePickerDocument = {
+  id?: string;
+  name?: string;
+  url?: string;
+};
+
+type GooglePickerResponse = {
+  action?: string;
+  docs?: GooglePickerDocument[];
+};
+
+type GooglePickerView = {
+  setMimeTypes: (mimeTypes: string) => GooglePickerView;
+  setIncludeFolders: (includeFolders: boolean) => GooglePickerView;
+  setSelectFolderEnabled: (enabled: boolean) => GooglePickerView;
+};
+
+type GooglePickerBuilder = {
+  addView: (view: GooglePickerView) => GooglePickerBuilder;
+  setAppId: (appId: string) => GooglePickerBuilder;
+  setDeveloperKey: (developerKey: string) => GooglePickerBuilder;
+  setOAuthToken: (token: string) => GooglePickerBuilder;
+  setCallback: (callback: (data: GooglePickerResponse) => void) => GooglePickerBuilder;
+  build: () => { setVisible: (visible: boolean) => void };
+};
+
+declare global {
+  interface Window {
+    gapi?: {
+      load: (api: string, callback: { callback: () => void; onerror?: () => void; timeout?: number; ontimeout?: () => void }) => void;
+    };
+    google?: {
+      picker?: {
+        Action: { PICKED: string };
+        DocsView: new (...args: unknown[]) => GooglePickerView;
+        PickerBuilder: new () => GooglePickerBuilder;
+        ViewId: { SPREADSHEETS: string };
+      };
+    };
+  }
+}
 
 const logoUrls: Record<IntegrationProviderKey, string> = {
   calendly: "https://www.google.com/s2/favicons?domain=calendly.com&sz=128",
@@ -1010,12 +1065,29 @@ function ConfigurePanel({
   const eventTypeOptions = eventTypeState?.options ?? [];
   const shouldShowEventTypes = isBookingProvider(provider.key);
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(() => new Set(selectedEventTypeIds));
+  const [googleSheetSelection, setGoogleSheetSelection] = useState<GoogleSheetSelection | null>(() => (
+    googleSpreadsheetId
+      ? {
+        spreadsheetId: googleSpreadsheetId,
+        spreadsheetTitle: getStringConfig(firstAction?.config, "spreadsheetTitle"),
+        spreadsheetUrl: getGoogleSpreadsheetUrl(googleSpreadsheetId),
+        sheetName: googleSheetName ?? "Leads"
+      }
+      : null
+  ));
+  const [googleSheetNameDraft, setGoogleSheetNameDraft] = useState(googleSheetName ?? "Leads");
+  const [googleSheetError, setGoogleSheetError] = useState<string | null>(null);
+  const [creatingGoogleSheet, setCreatingGoogleSheet] = useState(false);
+  const [openingGooglePicker, setOpeningGooglePicker] = useState(false);
+  const [showCreateGoogleSheetModal, setShowCreateGoogleSheetModal] = useState(false);
   const selectedEventTypeKey = selectedEventTypes.map((eventType) => eventType.id).join("|");
   const eventTypeOptionKey = eventTypeOptions.map((eventType) => eventType.id).join("|");
+  const googleSheetConfigKey = `${googleSpreadsheetId ?? ""}:${googleSheetName ?? ""}:${getStringConfig(firstAction?.config, "spreadsheetTitle") ?? ""}`;
   const canConfigure = provider.status === "connected" && provider.integrationId;
   const slackMissingChannel = provider.key === "slack" && !slackChannelId;
   const mailchimpMissingAudience = provider.key === "mailchimp" && !mailchimpAudienceId;
-  const googleSheetsMissingTarget = provider.key === "google_sheets" && (!googleSpreadsheetId || !googleSheetName);
+  const activeGoogleSheetName = googleSheetNameDraft.trim() || googleSheetSelection?.sheetName || "Leads";
+  const googleSheetsMissingTarget = provider.key === "google_sheets" && (!googleSheetSelection?.spreadsheetId || !activeGoogleSheetName);
   const selectedEventCount = selectedEventIds.size;
 
   useEffect(() => {
@@ -1026,6 +1098,22 @@ function ConfigurePanel({
 
     setSelectedEventIds(new Set(hasSavedEventTypes ? selectedEventTypeIds : eventTypeOptions.map((eventType) => eventType.id)));
   }, [shouldShowEventTypes, hasSavedEventTypes, selectedEventTypeKey, eventTypeOptionKey]);
+
+  useEffect(() => {
+    if (provider.key !== "google_sheets") {
+      return;
+    }
+
+    setGoogleSheetNameDraft(googleSheetName ?? "Leads");
+    setGoogleSheetSelection(googleSpreadsheetId
+      ? {
+        spreadsheetId: googleSpreadsheetId,
+        spreadsheetTitle: getStringConfig(firstAction?.config, "spreadsheetTitle"),
+        spreadsheetUrl: getGoogleSpreadsheetUrl(googleSpreadsheetId),
+        sheetName: googleSheetName ?? "Leads"
+      }
+      : null);
+  }, [provider.key, googleSheetConfigKey]);
 
   function toggleEventType(eventTypeId: string, checked: boolean) {
     setSelectedEventIds((current) => {
@@ -1041,9 +1129,82 @@ function ConfigurePanel({
     });
   }
 
+  async function createGoogleSheet() {
+    const form = document.getElementById(`configure-${provider.key}`) as HTMLFormElement | null;
+    const formData = form ? new FormData(form) : null;
+    const botIds = formData
+      ? formData.getAll("botIds").filter((value): value is string => typeof value === "string" && value.length > 0)
+      : [];
+
+    setCreatingGoogleSheet(true);
+    setGoogleSheetError(null);
+
+    try {
+      const response = await fetch(`/api/integrations/${provider.key}/spreadsheets`, {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+          "x-requested-with": "fetch"
+        },
+        body: JSON.stringify({
+          sheetName: googleSheetNameDraft,
+          botIds
+        })
+      });
+      const payload = await response.json().catch(() => null) as {
+        ok?: boolean;
+        error?: string;
+        spreadsheet?: GoogleSheetSelection;
+      } | null;
+
+      if (!response.ok || payload?.ok !== true || !payload.spreadsheet?.spreadsheetId) {
+        throw new Error(payload?.error ?? "Google Sheets could not create a spreadsheet.");
+      }
+
+      setGoogleSheetSelection(payload.spreadsheet);
+      setGoogleSheetNameDraft(payload.spreadsheet.sheetName);
+      setShowCreateGoogleSheetModal(false);
+    } catch (error) {
+      setGoogleSheetError(error instanceof Error ? error.message : "Google Sheets could not create a spreadsheet.");
+    } finally {
+      setCreatingGoogleSheet(false);
+    }
+  }
+
+  async function openGooglePicker() {
+    setOpeningGooglePicker(true);
+    setGoogleSheetError(null);
+
+    try {
+      const [pickerConfig] = await Promise.all([
+        getGooglePickerConfig(provider.key),
+        loadGooglePickerApi()
+      ]);
+
+      showGooglePicker(pickerConfig, (document) => {
+        if (!document.id) {
+          return;
+        }
+
+        setGoogleSheetSelection({
+          spreadsheetId: document.id,
+          spreadsheetTitle: document.name ?? "Selected Google Sheet",
+          spreadsheetUrl: document.url ?? getGoogleSpreadsheetUrl(document.id),
+          sheetName: googleSheetNameDraft.trim() || "Leads"
+        });
+      });
+    } catch (error) {
+      setGoogleSheetError(error instanceof Error ? error.message : "Google Picker could not be opened.");
+    } finally {
+      setOpeningGooglePicker(false);
+    }
+  }
+
   return (
     <div className="border-t border-harlo-line bg-white px-4 py-4 sm:px-5">
       <form
+        id={`configure-${provider.key}`}
         action={`/api/integrations/${provider.key}/configure`}
         method="post"
         className="space-y-5"
@@ -1203,47 +1364,159 @@ function ConfigurePanel({
         ) : null}
 
         {provider.key === "google_sheets" ? (
-          <div className="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(180px,0.6fr)]">
-            <label className="block text-sm font-semibold text-harlo-ink">
-              <span className="flex items-center gap-2">
-                Spreadsheet ID or URL
-                <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700">Required</span>
-                <InfoTooltip text="Paste the full Google Sheets URL or just the ID between /d/ and /edit." />
-              </span>
-              <input
-                name="spreadsheetId"
-                defaultValue={googleSpreadsheetId ?? ""}
-                disabled={!canConfigure || !expanded}
-                placeholder="https://docs.google.com/spreadsheets/d/..."
-                aria-invalid={googleSheetsMissingTarget}
-                required
-                className={`mt-2 h-11 w-full rounded-lg border px-3 text-sm font-medium text-harlo-ink outline-none transition focus:ring-2 disabled:bg-slate-50 disabled:text-harlo-muted ${
-                  googleSheetsMissingTarget
-                    ? "border-rose-300 bg-rose-50/40 focus:border-rose-400 focus:ring-rose-100"
-                    : "border-harlo-line focus:border-harlo-teal focus:ring-harlo-teal/20"
-                }`}
-              />
-              {googleSheetsMissingTarget ? (
-                <span className="mt-2 flex items-center gap-2 text-xs font-semibold leading-5 text-rose-700">
-                  <AlertTriangle size={13} />
-                  Add a spreadsheet and tab before saving Google Sheets.
+          <div className="rounded-lg border border-harlo-line bg-white p-4 shadow-sm">
+            <input type="hidden" name="spreadsheetId" value={googleSheetSelection?.spreadsheetId ?? ""} />
+            <input type="hidden" name="spreadsheetTitle" value={googleSheetSelection?.spreadsheetTitle ?? ""} />
+            <input type="hidden" name="sheetName" value={activeGoogleSheetName} />
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div className="min-w-0">
+                <span className="flex items-center gap-2 text-sm font-semibold text-harlo-ink">
+                  Google Sheets target
+                  <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700">Required</span>
+                  <InfoTooltip text="With drive.file access, Harlo can write to Sheets it creates or files explicitly authorized for the app." />
                 </span>
-              ) : null}
-              <span className="mt-2 block text-xs font-medium leading-5 text-harlo-muted">Share the sheet with the connected Google account so Harlo can create the tab and append rows.</span>
-            </label>
+                <p className="mt-1 text-sm leading-6 text-harlo-muted">
+                  Choose an existing spreadsheet first. Harlo only receives access to the selected file.
+                </p>
+              </div>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                <button
+                  type="button"
+                  onClick={openGooglePicker}
+                  disabled={!canConfigure || !expanded || openingGooglePicker}
+                  className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-harlo-ink px-4 text-sm font-semibold text-white transition hover:bg-harlo-navy disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  {openingGooglePicker ? <Loader2 size={15} className="animate-spin" /> : <FileSpreadsheet size={15} />}
+                  {googleSheetSelection ? "Change sheet" : "Choose sheet"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateGoogleSheetModal(true)}
+                  disabled={!canConfigure || !expanded}
+                  className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-harlo-line bg-white px-4 text-sm font-semibold text-harlo-ink transition hover:border-harlo-teal/60 hover:bg-harlo-mist disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-harlo-muted"
+                >
+                  <Plus size={15} />
+                  Create sheet
+                </button>
+              </div>
+            </div>
 
-            <label className="block text-sm font-semibold text-harlo-ink">
-              Sheet tab name
-              <input
-                name="sheetName"
-                defaultValue={googleSheetName ?? "Leads"}
-                disabled={!canConfigure || !expanded}
-                placeholder="Leads"
-                required
-                className="mt-2 h-11 w-full rounded-lg border border-harlo-line px-3 text-sm font-medium text-harlo-ink outline-none transition focus:border-harlo-teal focus:ring-2 focus:ring-harlo-teal/20 disabled:bg-slate-50 disabled:text-harlo-muted"
-              />
-              <span className="mt-2 block text-xs font-medium leading-5 text-harlo-muted">Harlo creates this tab if needed and adds columns for each selected agent's lead capture fields.</span>
-            </label>
+            <div className={`mt-4 rounded-lg border p-4 ${
+              googleSheetsMissingTarget
+                ? "border-rose-200 bg-rose-50/50"
+                : "border-emerald-200 bg-emerald-50/50"
+            }`}>
+              {googleSheetSelection ? (
+                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-100">
+                      <FileSpreadsheet size={19} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-harlo-ink">
+                        {googleSheetSelection.spreadsheetTitle ?? "Selected Google Sheet"}
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-harlo-muted">
+                        Tab: {activeGoogleSheetName}
+                      </p>
+                    </div>
+                  </div>
+                  {googleSheetSelection.spreadsheetUrl ? (
+                    <a
+                      href={googleSheetSelection.spreadsheetUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 text-xs font-semibold text-emerald-800 transition hover:border-emerald-300 hover:bg-emerald-50"
+                    >
+                      Open sheet
+                      <ExternalLink size={13} />
+                    </a>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="flex items-center gap-2 text-xs font-semibold leading-5 text-rose-700">
+                    <AlertTriangle size={13} />
+                    Choose a Google Sheet before saving this integration.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={openGooglePicker}
+                    disabled={!canConfigure || !expanded || openingGooglePicker}
+                    className="inline-flex h-9 w-fit items-center justify-center gap-2 rounded-lg bg-white px-3 text-xs font-semibold text-rose-700 ring-1 ring-rose-200 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {openingGooglePicker ? <Loader2 size={13} className="animate-spin" /> : <FileSpreadsheet size={13} />}
+                    Select spreadsheet
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {googleSheetError ? (
+              <span className="mt-3 flex items-center gap-2 text-xs font-semibold leading-5 text-rose-700">
+                <AlertTriangle size={13} />
+                {googleSheetError}
+              </span>
+            ) : null}
+            <span className="mt-3 block text-xs font-medium leading-5 text-harlo-muted">
+              Picker grants Harlo access to the selected spreadsheet under Google's limited drive.file scope. Harlo creates the Leads tab and headers on save.
+            </span>
+
+            {showCreateGoogleSheetModal ? (
+              <div className="fixed inset-0 z-[90] grid place-items-center overflow-y-auto bg-harlo-ink/35 px-4 py-6 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="create-google-sheet-title">
+                <div className="w-full max-w-md rounded-xl border border-harlo-line bg-white p-5 shadow-2xl">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 id="create-google-sheet-title" className="text-lg font-semibold text-harlo-ink">Create a Google Sheet</h3>
+                      <p className="mt-1 text-sm leading-6 text-harlo-muted">
+                        Harlo will create a new spreadsheet and use it for captured leads.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateGoogleSheetModal(false)}
+                      disabled={creatingGoogleSheet}
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-harlo-line text-harlo-muted transition hover:border-harlo-teal/50 hover:text-harlo-ink disabled:opacity-50"
+                      aria-label="Close create sheet dialog"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  <label className="mt-5 block text-sm font-semibold text-harlo-ink" htmlFor={`google-sheet-name-${provider.key}`}>
+                    Sheet tab name
+                    <input
+                      id={`google-sheet-name-${provider.key}`}
+                      value={googleSheetNameDraft}
+                      onChange={(event) => setGoogleSheetNameDraft(event.target.value)}
+                      disabled={!canConfigure || !expanded || creatingGoogleSheet}
+                      placeholder="Leads"
+                      className="mt-2 h-11 w-full rounded-lg border border-harlo-line px-3 text-sm font-medium text-harlo-ink outline-none transition focus:border-harlo-teal focus:ring-2 focus:ring-harlo-teal/20 disabled:bg-slate-50 disabled:text-harlo-muted"
+                    />
+                  </label>
+
+                  <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateGoogleSheetModal(false)}
+                      disabled={creatingGoogleSheet}
+                      className="inline-flex h-10 items-center justify-center rounded-lg border border-harlo-line bg-white px-4 text-sm font-semibold text-harlo-ink transition hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={createGoogleSheet}
+                      disabled={!canConfigure || !expanded || creatingGoogleSheet || !googleSheetNameDraft.trim()}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-harlo-ink px-4 text-sm font-semibold text-white transition hover:bg-harlo-navy disabled:cursor-not-allowed disabled:bg-slate-300"
+                    >
+                      {creatingGoogleSheet ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
+                      Create sheet
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -1540,6 +1813,7 @@ function getClientActionConfig(provider: DisplayProvider, formData?: FormData) {
     return {
       provider: provider.key,
       spreadsheetId: normalizeSpreadsheetId(formData?.get("spreadsheetId") ?? null),
+      spreadsheetTitle: normalizeFormMessage(formData?.get("spreadsheetTitle") ?? null),
       sheetName: normalizeFormMessage(formData?.get("sheetName") ?? null) ?? "Leads"
     };
   }
@@ -1559,6 +1833,127 @@ function normalizeSpreadsheetId(value: FormDataEntryValue | null) {
   const match = text.match(/\/spreadsheets\/d\/([^/?#]+)/);
 
   return match?.[1] ?? text;
+}
+
+function getGoogleSpreadsheetUrl(spreadsheetId: string) {
+  return `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/edit`;
+}
+
+async function getGooglePickerConfig(provider: IntegrationProviderKey): Promise<GooglePickerConfig> {
+  const response = await fetch(`/api/integrations/${provider}/picker-token`, {
+    headers: {
+      accept: "application/json",
+      "x-requested-with": "fetch"
+    }
+  });
+  const payload = await response.json().catch(() => null) as {
+    ok?: boolean;
+    error?: string;
+    accessToken?: string;
+    developerKey?: string;
+    appId?: string;
+  } | null;
+
+  if (!response.ok || payload?.ok !== true || !payload.accessToken || !payload.developerKey || !payload.appId) {
+    throw new Error(payload?.error ?? "Google Picker is not configured.");
+  }
+
+  return {
+    accessToken: payload.accessToken,
+    developerKey: payload.developerKey,
+    appId: payload.appId
+  };
+}
+
+function loadGooglePickerApi() {
+  return new Promise<void>((resolve, reject) => {
+    if (window.google?.picker) {
+      resolve();
+      return;
+    }
+
+    const existingScript = document.querySelector<HTMLScriptElement>("script[data-harlo-google-picker]");
+
+    if (existingScript) {
+      existingScript.addEventListener("load", () => loadPickerModule(resolve, reject), { once: true });
+      existingScript.addEventListener("error", () => reject(new Error("Google Picker script could not be loaded.")), { once: true });
+      loadPickerModule(resolve, reject);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://apis.google.com/js/api.js";
+    script.async = true;
+    script.defer = true;
+    script.dataset.harloGooglePicker = "true";
+    script.addEventListener("load", () => loadPickerModule(resolve, reject), { once: true });
+    script.addEventListener("error", () => reject(new Error("Google Picker script could not be loaded.")), { once: true });
+    document.head.appendChild(script);
+  });
+}
+
+function loadPickerModule(resolve: () => void, reject: (error: Error) => void) {
+  if (window.google?.picker) {
+    resolve();
+    return;
+  }
+
+  if (!window.gapi?.load) {
+    window.setTimeout(() => {
+      if (window.gapi?.load) {
+        loadPickerModule(resolve, reject);
+      } else {
+        reject(new Error("Google Picker API is unavailable."));
+      }
+    }, 150);
+    return;
+  }
+
+  window.gapi.load("picker", {
+    callback: () => {
+      if (window.google?.picker) {
+        resolve();
+      } else {
+        reject(new Error("Google Picker API is unavailable."));
+      }
+    },
+    onerror: () => reject(new Error("Google Picker API could not be loaded.")),
+    timeout: 5000,
+    ontimeout: () => reject(new Error("Google Picker API timed out."))
+  });
+}
+
+function showGooglePicker(config: GooglePickerConfig, onPicked: (document: GooglePickerDocument) => void) {
+  const picker = window.google?.picker;
+
+  if (!picker) {
+    throw new Error("Google Picker API is unavailable.");
+  }
+
+  const view = new picker.DocsView(picker.ViewId.SPREADSHEETS);
+  view.setMimeTypes("application/vnd.google-apps.spreadsheet");
+  view.setIncludeFolders(false);
+  view.setSelectFolderEnabled(false);
+
+  const pickerInstance = new picker.PickerBuilder()
+    .setAppId(config.appId)
+    .setDeveloperKey(config.developerKey)
+    .setOAuthToken(config.accessToken)
+    .addView(view)
+    .setCallback((data: GooglePickerResponse) => {
+      if (data.action !== picker.Action.PICKED) {
+        return;
+      }
+
+      const document = data.docs?.[0];
+
+      if (document?.id) {
+        onPicked(document);
+      }
+    })
+    .build();
+
+  pickerInstance.setVisible(true);
 }
 
 function getStringConfig(config: Record<string, unknown> | undefined, key: string) {
