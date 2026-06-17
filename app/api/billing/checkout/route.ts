@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       .single(),
     service
       .from("organization_billing")
-      .select("stripe_customer_id")
+      .select("stripe_customer_id, stripe_subscription_id, status")
       .eq("organization_id", membership.organization_id)
       .maybeSingle()
   ]);
@@ -104,7 +104,8 @@ export async function POST(request: NextRequest) {
   });
 
   const appUrl = getAppUrl(request.url);
-  const successUrl = buildCheckoutUrl(appUrl, successPath, true);
+  const isNewCustomer = !billing?.stripe_subscription_id || billing.status === "incomplete" || billing.status === "canceled";
+  const successUrl = buildCheckoutUrl(appUrl, successPath, true, isNewCustomer);
   const cancelUrl = buildCheckoutUrl(appUrl, cancelPath, false);
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
@@ -130,7 +131,8 @@ export async function POST(request: NextRequest) {
     metadata: {
       organization_id: organization.id,
       plan_key: planKey,
-      billing_interval: interval
+      billing_interval: interval,
+      google_ads_new_customer: String(isNewCustomer)
     }
   });
 
@@ -149,11 +151,13 @@ function sanitizePath(value: unknown, fallback: string) {
   return value;
 }
 
-function buildCheckoutUrl(appUrl: string, path: string, includeSessionId: boolean) {
+function buildCheckoutUrl(appUrl: string, path: string, includeSessionId: boolean, isNewCustomer?: boolean) {
   const url = new URL(path, appUrl);
 
   if (includeSessionId) {
     url.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
+    url.searchParams.set("gads_conversion", "checkout");
+    url.searchParams.set("gads_new_customer", String(Boolean(isNewCustomer)));
   }
 
   return url.toString().replace("%7BCHECKOUT_SESSION_ID%7D", "{CHECKOUT_SESSION_ID}");

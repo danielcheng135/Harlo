@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Zap } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { DashboardNotificationsProvider } from "@/components/dashboard/dashboard-notifications-provider";
+import { GoogleAdsConversionTracker } from "@/components/google-ads-conversion-tracker";
 import { ProfileMenu } from "@/components/dashboard/profile-menu";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
 import {
@@ -31,6 +32,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <DashboardNotificationsProvider
       initialCounts={notificationState?.counts ?? emptyDashboardNotificationCounts}
     >
+      <GoogleAdsConversionTracker />
       <div className="min-h-screen bg-white">
         <aside className="fixed inset-y-0 left-0 z-50 hidden w-64 overflow-visible border-r border-white/10 bg-[#032832] p-5 text-white shadow-[8px_0_40px_rgba(2,18,24,0.18)] lg:flex lg:flex-col">
           <div className="relative z-10 flex min-h-0 flex-1 flex-col">

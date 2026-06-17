@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { Route } from "next";
 import { redirect } from "next/navigation";
 import Stripe from "stripe";
 import {
@@ -119,7 +120,18 @@ export default async function OnboardingCheckoutSuccessPage({ searchParams }: Ch
       redirect("/onboarding");
     }
 
-    redirect(params?.welcome === "1" ? "/dashboard?welcome=1" : "/dashboard");
+    const dashboardUrl = new URL("/dashboard", "https://harlo.local");
+    const newCustomer = session.metadata?.google_ads_new_customer ?? "true";
+
+    if (params?.welcome === "1") {
+      dashboardUrl.searchParams.set("welcome", "1");
+    }
+
+    dashboardUrl.searchParams.set("gads_conversion", "checkout");
+    dashboardUrl.searchParams.set("gads_transaction_id", sessionId);
+    dashboardUrl.searchParams.set("gads_new_customer", newCustomer === "true" ? "true" : "false");
+
+    redirect(`${dashboardUrl.pathname}${dashboardUrl.search}` as Route);
   }
 
   redirect("/onboarding/checkout?checkout=processing");
