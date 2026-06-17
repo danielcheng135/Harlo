@@ -569,7 +569,7 @@ export const integrationDocs: IntegrationDoc[] = [
     requiredFields: [
       { label: "Selected spreadsheet", detail: "The Google spreadsheet created or explicitly authorized for Harlo." },
       { label: "Sheet tab name", detail: "The tab Harlo should create or append to." },
-      { label: "File access", detail: "Harlo requests drive.file access so it can work with the selected file instead of every spreadsheet in Drive." }
+      { label: "Selected spreadsheet", detail: "The spreadsheet Harlo should use for captured lead rows." }
     ],
     testSteps: [
       "Complete lead capture from the website widget.",

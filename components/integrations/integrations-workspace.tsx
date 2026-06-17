@@ -1373,7 +1373,7 @@ function ConfigurePanel({
                 <span className="flex items-center gap-2 text-sm font-semibold text-harlo-ink">
                   Google Sheets target
                   <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700">Required</span>
-                  <InfoTooltip text="With drive.file access, Harlo can write to Sheets it creates or files explicitly authorized for the app." />
+                  <InfoTooltip text="Choose the spreadsheet where Harlo should append captured lead rows." />
                 </span>
                 <p className="mt-1 text-sm leading-6 text-harlo-muted">
                   Choose an existing spreadsheet first. Harlo only receives access to the selected file.
@@ -1459,7 +1459,7 @@ function ConfigurePanel({
               </span>
             ) : null}
             <span className="mt-3 block text-xs font-medium leading-5 text-harlo-muted">
-              Picker grants Harlo access to the selected spreadsheet under Google's limited drive.file scope. Harlo creates the Leads tab and headers on save.
+              Harlo creates the Leads tab and headers on save, then appends new lead rows as conversations qualify.
             </span>
 
             {showCreateGoogleSheetModal ? (
