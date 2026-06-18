@@ -58,6 +58,37 @@ export function GET(request: NextRequest) {
     return pageUrlOverride || window.location.href;
   }
 
+  function trackHostMetaPixelEvent(eventName, params) {
+    if (typeof window.fbq !== "function") return;
+
+    try {
+      if (params && Object.keys(params).length > 0) {
+        window.fbq("track", eventName, params);
+        return;
+      }
+
+      window.fbq("track", eventName);
+    } catch (error) {}
+  }
+
+  function trackLeadCapture(conversationId) {
+    var eventId = conversationId || "";
+    var storageKey = eventId ? "harlo:meta:Lead:" + eventId : "";
+
+    try {
+      if (storageKey && window.sessionStorage.getItem(storageKey) === "sent") return;
+    } catch (error) {}
+
+    trackHostMetaPixelEvent("Lead", {
+      content_name: "Harlo lead capture",
+      event_id: eventId
+    });
+
+    try {
+      if (storageKey) window.sessionStorage.setItem(storageKey, "sent");
+    } catch (error) {}
+  }
+
   var root = document.createElement("div");
   root.id = "harlo-widget-root";
   root.style.visibility = "hidden";
@@ -1319,6 +1350,7 @@ export function GET(request: NextRequest) {
         }
         conversationId = result.json.conversationId;
         if (result.json.leadCaptured) {
+          trackLeadCapture(result.json.conversationId);
           storeCompletedConversationId(result.json.conversationId);
           if (conversationStorageKey && conversationId) {
             window.localStorage.setItem(conversationStorageKey, conversationId);

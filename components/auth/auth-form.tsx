@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { TurnstileField, type TurnstileFieldHandle } from "@/components/auth/turnstile-field";
 import { Button } from "@/components/ui/button";
+import { trackCompleteRegistration, trackStartTrial } from "@/lib/meta-pixel";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type AuthFormProps = {
@@ -55,6 +56,22 @@ export function AuthForm({ mode }: AuthFormProps) {
     setCaptchaToken(null);
     setError(getTurnstileErrorMessage(code));
   }, []);
+
+  useEffect(() => {
+    if (mode !== "sign-up") {
+      return;
+    }
+
+    const storageKey = "harlo:meta:start-trial:signup";
+    if (window.sessionStorage.getItem(storageKey) === "sent") {
+      return;
+    }
+
+    trackStartTrial({
+      content_name: "Trial signup step"
+    });
+    window.sessionStorage.setItem(storageKey, "sent");
+  }, [mode]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -107,8 +124,17 @@ export function AuthForm({ mode }: AuthFormProps) {
       }
 
       if (mode === "sign-up" && !result.data.session) {
+        trackCompleteRegistration({
+          method: "email"
+        });
         setConfirmationEmail(email);
         return;
+      }
+
+      if (mode === "sign-up") {
+        trackCompleteRegistration({
+          method: "email"
+        });
       }
 
       const destination = mode === "sign-up" ? signUpDestination : safeNextPath;
@@ -129,7 +155,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     try {
       const supabase = createSupabaseBrowserClient();
       const safeNextPath = getSafeNextPath(nextPath);
-      const destination = mode === "sign-up" ? getSignUpDestination(safeNextPath) : safeNextPath;
+      const destination = mode === "sign-up" ? withMetaRegistrationEvent(getSignUpDestination(safeNextPath)) : safeNextPath;
       const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(destination)}`;
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -365,6 +391,14 @@ function withQueryParam(path: string, key: string, value: string) {
   params.set(key, value);
 
   return `${pathname}?${params.toString()}`;
+}
+
+function withMetaRegistrationEvent(path: string) {
+  const eventId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now());
+  let nextPath = withQueryParam(path, "meta_event", "CompleteRegistration");
+  nextPath = withQueryParam(nextPath, "meta_event_id", eventId);
+
+  return nextPath;
 }
 
 function getTurnstileErrorMessage(code: string | undefined) {

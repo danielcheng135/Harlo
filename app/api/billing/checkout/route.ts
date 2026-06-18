@@ -105,7 +105,11 @@ export async function POST(request: NextRequest) {
 
   const appUrl = getAppUrl(request.url);
   const isNewCustomer = !billing?.stripe_subscription_id || billing.status === "incomplete" || billing.status === "canceled";
-  const successUrl = buildCheckoutUrl(appUrl, successPath, true, isNewCustomer);
+  const successUrl = buildCheckoutUrl(appUrl, successPath, {
+    includeSessionId: true,
+    isNewCustomer,
+    metaEvent: planKey === TRIAL_CONFIG.convertsToPlan ? "StartTrial" : "Subscribe"
+  });
   const cancelUrl = buildCheckoutUrl(appUrl, cancelPath, false);
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
@@ -151,14 +155,25 @@ function sanitizePath(value: unknown, fallback: string) {
   return value;
 }
 
-function buildCheckoutUrl(appUrl: string, path: string, includeSessionId: boolean, isNewCustomer?: boolean) {
+function buildCheckoutUrl(
+  appUrl: string,
+  path: string,
+  options: boolean | { includeSessionId: boolean; isNewCustomer?: boolean; metaEvent?: string }
+) {
   const url = new URL(path, appUrl);
+  const includeSessionId = typeof options === "boolean" ? options : options.includeSessionId;
+  const isNewCustomer = typeof options === "boolean" ? undefined : options.isNewCustomer;
+  const metaEvent = typeof options === "boolean" ? "Subscribe" : options.metaEvent;
 
   if (includeSessionId) {
     url.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
     url.searchParams.set("gads_conversion", "checkout");
     url.searchParams.set("gads_new_customer", String(Boolean(isNewCustomer)));
+    if (metaEvent) {
+      url.searchParams.set("meta_event", metaEvent);
+      url.searchParams.set("meta_event_id", "{CHECKOUT_SESSION_ID}");
+    }
   }
 
-  return url.toString().replace("%7BCHECKOUT_SESSION_ID%7D", "{CHECKOUT_SESSION_ID}");
+  return url.toString().replaceAll("%7BCHECKOUT_SESSION_ID%7D", "{CHECKOUT_SESSION_ID}");
 }

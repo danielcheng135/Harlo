@@ -22,6 +22,7 @@ import {
   type BillingInterval,
   type BillingPlanKey
 } from "@/lib/billing/plans";
+import { trackInitiateCheckout } from "@/lib/meta-pixel";
 
 type CheckoutRecoveryProps = {
   organizationName: string;
@@ -74,6 +75,9 @@ export function CheckoutRecovery({
       return;
     }
 
+    trackInitiateCheckout({
+      content_name: `${plan.name} ${interval}`
+    });
     window.location.assign(result.url);
   }
 

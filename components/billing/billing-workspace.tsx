@@ -14,6 +14,7 @@ import type { BillingOverview } from "@/lib/harlo/data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ToastViewport, useToast } from "@/components/ui/toast";
+import { trackInitiateCheckout, trackSubscribe } from "@/lib/meta-pixel";
 
 const addOnIcons: Record<AddOnKey, typeof Zap> = {
   auto_recharge_credits: Zap,
@@ -87,10 +88,16 @@ export function BillingControls({ billing }: BillingWorkspaceProps) {
       }
 
       if (payload.url) {
+        trackInitiateCheckout({
+          content_name: actionLabel
+        });
         window.location.assign(payload.url);
         return;
       }
 
+      trackSubscribe({
+        content_name: "Harlo paid subscription"
+      });
       showToast("success", "Your paid Starter subscription is active.");
       window.location.reload();
     } catch {
@@ -250,6 +257,9 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
         return;
       }
 
+      trackInitiateCheckout({
+        content_name: actionLabel
+      });
       window.location.assign(payload.url);
     } catch {
       showToast("error", "Checkout could not be started.");
@@ -271,10 +281,16 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
       }
 
       if (payload.url) {
+        trackInitiateCheckout({
+          content_name: actionLabel
+        });
         window.location.assign(payload.url);
         return;
       }
 
+      trackSubscribe({
+        content_name: "Harlo paid subscription"
+      });
       showToast("success", "Your paid Starter subscription is active.");
       router.refresh();
     } catch {
@@ -333,6 +349,9 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
       }
 
       if (payload.url) {
+        trackInitiateCheckout({
+          content_name: actionLabel
+        });
         window.location.assign(payload.url);
         return;
       }

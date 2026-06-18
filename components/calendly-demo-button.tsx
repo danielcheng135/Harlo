@@ -2,11 +2,13 @@
 
 import { useEffect } from "react";
 import type { MouseEvent, ReactNode } from "react";
+import { trackLead } from "@/lib/meta-pixel";
 
 const CALENDLY_URL = "https://calendly.com/danielcheng135/new-meeting";
 const CALENDLY_CSS_URL = "https://assets.calendly.com/assets/external/widget.css";
 const CALENDLY_SCRIPT_URL = "https://assets.calendly.com/assets/external/widget.js";
 let calendlyLoadPromise: Promise<void> | null = null;
+let calendlyLeadListenerInstalled = false;
 
 declare global {
   interface Window {
@@ -24,6 +26,26 @@ type CalendlyDemoButtonProps = {
 export function CalendlyDemoButton({ children = "Book a Demo", className }: CalendlyDemoButtonProps) {
   useEffect(() => {
     loadCalendlyAssets();
+  }, []);
+
+  useEffect(() => {
+    if (calendlyLeadListenerInstalled) {
+      return;
+    }
+
+    calendlyLeadListenerInstalled = true;
+
+    function handleCalendlyMessage(event: MessageEvent) {
+      if (event.origin !== "https://calendly.com" || event.data?.event !== "calendly.event_scheduled") {
+        return;
+      }
+
+      trackLead({
+        content_name: "Calendly demo scheduled"
+      });
+    }
+
+    window.addEventListener("message", handleCalendlyMessage);
   }, []);
 
   async function openCalendly(event: MouseEvent<HTMLAnchorElement>) {
