@@ -126,6 +126,7 @@ export default async function OnboardingCheckoutSuccessPage({ searchParams }: Ch
 
     if (params?.welcome === "1") {
       dashboardUrl.searchParams.set("welcome", "1");
+      dashboardUrl.searchParams.set("post_checkout_setup", "1");
     }
 
     dashboardUrl.searchParams.set("gads_conversion", "checkout");

@@ -75,6 +75,8 @@ export type Workspace = {
   bot: WorkspaceBot;
   bots: WorkspaceBot[];
   role: string;
+  postCheckoutSetupSeenAt: string | null;
+  postCheckoutSetupReady: boolean;
 };
 
 export type KnowledgeSourceRow = {
@@ -356,6 +358,12 @@ export async function getWorkspaceOrRedirect(): Promise<Workspace> {
   }
 
   const billingStatus = normalizeBillingStatus(billing?.status);
+  const { data: setupState, error: setupStateError } = await supabase
+    .from("memberships")
+    .select("post_checkout_setup_seen_at")
+    .eq("user_id", user.id)
+    .eq("organization_id", membership.organization_id)
+    .maybeSingle();
 
   const isInternalAdmin = isInternalAdminEmail(user.email);
   const isInternalWorkspace = isInternalAdmin || isInternalWorkspaceMetadata(organization.metadata);
@@ -397,7 +405,9 @@ export async function getWorkspaceOrRedirect(): Promise<Workspace> {
     organization,
     bot: normalizedBots[0],
     bots: normalizedBots,
-    role: membership.role
+    role: membership.role,
+    postCheckoutSetupSeenAt: typeof setupState?.post_checkout_setup_seen_at === "string" ? setupState.post_checkout_setup_seen_at : null,
+    postCheckoutSetupReady: !setupStateError
   };
 }
 
