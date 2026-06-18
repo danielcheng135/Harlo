@@ -275,8 +275,8 @@ function HeroSection() {
           </div>
         </div>
 
-        <div className="relative mx-auto w-full max-w-[28rem] sm:max-w-[34rem] lg:mx-0 lg:max-w-[520px] lg:justify-self-end xl:max-w-[600px]">
-          <HeroVideo className="rounded-lg border-white/12 shadow-[0_38px_120px_rgba(0,0,0,0.42)]" />
+        <div className="relative mx-auto w-full max-w-[26rem] sm:max-w-[29rem] lg:mx-0 lg:max-w-[480px] lg:justify-self-center xl:max-w-[500px]">
+          <HeroVideo />
         </div>
       </div>
     </section>

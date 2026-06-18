@@ -379,7 +379,7 @@ export function SeoLandingPageTemplate({ page }: SeoLandingPageTemplateProps) {
         </div>
 
         <div className="relative">
-          <HeroVideo className="mx-auto w-full max-w-[41rem]" />
+          <HeroVideo className="mx-auto w-full max-w-[30rem]" />
         </div>
         </div>
       </section>
