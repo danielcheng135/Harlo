@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { isMetaPixelEnabled, trackMetaPixelEvent, trackStartTrial, type MetaPixelEventName } from "@/lib/meta-pixel";
+import { isMetaPixelEnabled, trackMetaPixelEvent, trackStartFreeTrialClick, type MetaPixelEventName } from "@/lib/meta-pixel";
 
 const trackedMetaEvents = new Set<MetaPixelEventName>(["StartTrial", "Subscribe", "Purchase", "CompleteRegistration", "Lead"]);
 
@@ -34,8 +34,9 @@ export function MetaPixelEvents() {
       const label = target.textContent?.replace(/\s+/g, " ").trim().toLowerCase() ?? "";
 
       if (label.includes("start free trial")) {
-        trackStartTrial({
-          content_name: "Start free trial CTA"
+        trackStartFreeTrialClick({
+          content_name: "Start free trial CTA",
+          page_path: window.location.pathname
         });
       }
     }

@@ -131,7 +131,7 @@ export default async function OnboardingCheckoutSuccessPage({ searchParams }: Ch
     dashboardUrl.searchParams.set("gads_conversion", "checkout");
     dashboardUrl.searchParams.set("gads_transaction_id", sessionId);
     dashboardUrl.searchParams.set("gads_new_customer", newCustomer === "true" ? "true" : "false");
-    dashboardUrl.searchParams.set("meta_event", params?.meta_event === "StartTrial" || status === "trialing" ? "StartTrial" : "Subscribe");
+    dashboardUrl.searchParams.set("meta_event", status === "trialing" ? "StartTrial" : "Subscribe");
     dashboardUrl.searchParams.set("meta_event_id", sessionId);
 
     redirect(`${dashboardUrl.pathname}${dashboardUrl.search}` as Route);

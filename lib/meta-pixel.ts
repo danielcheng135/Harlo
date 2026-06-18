@@ -10,6 +10,7 @@ export type MetaPixelEventName =
   | "Purchase";
 
 export type MetaPixelEventParams = Record<string, string | number | boolean | null | undefined>;
+export type MetaPixelCustomEventName = "StartFreeTrialClick";
 
 declare global {
   interface Window {
@@ -44,6 +45,27 @@ export function trackMetaPixelEvent(eventName: MetaPixelEventName, params?: Meta
   } catch {
     // Tracking should never interrupt product flows.
   }
+}
+
+export function trackMetaPixelCustomEvent(eventName: MetaPixelCustomEventName, params?: MetaPixelEventParams) {
+  if (typeof window === "undefined" || !isMetaPixelEnabled() || typeof window.fbq !== "function") {
+    return;
+  }
+
+  try {
+    if (params && Object.keys(params).length > 0) {
+      window.fbq("trackCustom", eventName, cleanMetaPixelParams(params));
+      return;
+    }
+
+    window.fbq("trackCustom", eventName);
+  } catch {
+    // Tracking should never interrupt product flows.
+  }
+}
+
+export function trackStartFreeTrialClick(params?: MetaPixelEventParams) {
+  trackMetaPixelCustomEvent("StartFreeTrialClick", params);
 }
 
 export function trackStartTrial(params?: MetaPixelEventParams) {

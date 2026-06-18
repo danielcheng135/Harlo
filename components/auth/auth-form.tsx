@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { TurnstileField, type TurnstileFieldHandle } from "@/components/auth/turnstile-field";
 import { Button } from "@/components/ui/button";
-import { trackCompleteRegistration, trackStartTrial } from "@/lib/meta-pixel";
+import { trackCompleteRegistration } from "@/lib/meta-pixel";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type AuthFormProps = {
@@ -56,22 +56,6 @@ export function AuthForm({ mode }: AuthFormProps) {
     setCaptchaToken(null);
     setError(getTurnstileErrorMessage(code));
   }, []);
-
-  useEffect(() => {
-    if (mode !== "sign-up") {
-      return;
-    }
-
-    const storageKey = "harlo:meta:start-trial:signup";
-    if (window.sessionStorage.getItem(storageKey) === "sent") {
-      return;
-    }
-
-    trackStartTrial({
-      content_name: "Trial signup step"
-    });
-    window.sessionStorage.setItem(storageKey, "sent");
-  }, [mode]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
