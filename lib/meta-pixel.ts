@@ -36,8 +36,21 @@ export function trackMetaPixelEvent(eventName: MetaPixelEventName, params?: Meta
   }
 
   try {
+    const eventID = getMetaPixelEventId(params);
+    const cleanParams = params ? cleanMetaPixelParams(params) : undefined;
+
     if (params && Object.keys(params).length > 0) {
-      window.fbq("track", eventName, cleanMetaPixelParams(params));
+      if (eventID) {
+        window.fbq("track", eventName, cleanParams, { eventID });
+        return;
+      }
+
+      window.fbq("track", eventName, cleanParams);
+      return;
+    }
+
+    if (eventID) {
+      window.fbq("track", eventName, undefined, { eventID });
       return;
     }
 
@@ -53,8 +66,21 @@ export function trackMetaPixelCustomEvent(eventName: MetaPixelCustomEventName, p
   }
 
   try {
+    const eventID = getMetaPixelEventId(params);
+    const cleanParams = params ? cleanMetaPixelParams(params) : undefined;
+
     if (params && Object.keys(params).length > 0) {
-      window.fbq("trackCustom", eventName, cleanMetaPixelParams(params));
+      if (eventID) {
+        window.fbq("trackCustom", eventName, cleanParams, { eventID });
+        return;
+      }
+
+      window.fbq("trackCustom", eventName, cleanParams);
+      return;
+    }
+
+    if (eventID) {
+      window.fbq("trackCustom", eventName, undefined, { eventID });
       return;
     }
 
@@ -90,6 +116,20 @@ export function trackSubscribe(params?: MetaPixelEventParams) {
 
 function cleanMetaPixelParams(params: MetaPixelEventParams) {
   return Object.fromEntries(
-    Object.entries(params).filter(([, value]) => value !== null && value !== undefined && value !== "")
+    Object.entries(params).filter(([key, value]) => key !== "event_id" && value !== null && value !== undefined && value !== "")
   );
+}
+
+function getMetaPixelEventId(params?: MetaPixelEventParams) {
+  const eventId = params?.event_id;
+
+  if (typeof eventId === "string" && eventId.trim()) {
+    return eventId;
+  }
+
+  if (typeof eventId === "number") {
+    return String(eventId);
+  }
+
+  return undefined;
 }

@@ -36,7 +36,8 @@ export function MetaPixelEvents() {
       if (label.includes("start free trial")) {
         trackStartFreeTrialClick({
           content_name: "Start free trial CTA",
-          page_path: window.location.pathname
+          page_path: window.location.pathname,
+          event_id: `start-free-trial-click:${Date.now()}`
         });
       }
     }
