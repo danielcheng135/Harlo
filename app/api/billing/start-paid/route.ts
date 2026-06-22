@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import {
   getBillingIntervalFromStripeInterval,
@@ -7,11 +7,13 @@ import {
   isBillingInterval,
   isBillingPlanKey
 } from "@/lib/billing/stripe";
+import { buildMetaStripeMetadata, getMetaAttributionFromRequest } from "@/lib/meta/attribution";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { BillingInterval, BillingPlanKey, BillingStatus } from "@/lib/billing/plans";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   const stripe = getStripe();
+  const body = await request.json().catch(() => ({}));
 
   if (!stripe) {
     return NextResponse.json({ error: "Stripe is not configured yet." }, { status: 400 });
@@ -25,6 +27,10 @@ export async function POST() {
   if (!user) {
     return NextResponse.json({ error: "Sign in to manage billing." }, { status: 401 });
   }
+  const metaMetadata = buildMetaStripeMetadata({
+    attribution: getMetaAttributionFromRequest(request, body.eventSourceUrl),
+    userId: user.id
+  });
 
   const { data: membership } = await supabase
     .from("memberships")
@@ -70,6 +76,7 @@ export async function POST() {
       trial_end: "now",
       proration_behavior: "always_invoice",
       payment_behavior: "pending_if_incomplete",
+      metadata: metaMetadata,
       expand: ["latest_invoice"]
     });
     const resolvedPlan = await resolveSubscriptionPlan(stripe, subscription);

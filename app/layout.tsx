@@ -8,7 +8,7 @@ import { siteConfig } from "@/lib/seo";
 
 const googleVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION;
 const googleAdsId = "AW-18142694200";
-const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID;
+const metaPixelId = getMetaPixelId();
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -100,7 +100,7 @@ export default function RootLayout({
               t.src=v;s=b.getElementsByTagName(e)[0];
               s.parentNode.insertBefore(t,s)}(window, document,'script',
               'https://connect.facebook.net/en_US/fbevents.js');
-              fbq('init', '${metaPixelId}');
+              fbq('init', ${JSON.stringify(metaPixelId)});
             `}
           </Script>
         ) : null}
@@ -125,4 +125,10 @@ export default function RootLayout({
       </body>
     </html>
   );
+}
+
+function getMetaPixelId() {
+  const pixelId = process.env.META_PIXEL_ID?.trim();
+
+  return pixelId && /^\d+$/.test(pixelId) ? pixelId : undefined;
 }

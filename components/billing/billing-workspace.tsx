@@ -14,7 +14,7 @@ import type { BillingOverview } from "@/lib/harlo/data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ToastViewport, useToast } from "@/components/ui/toast";
-import { trackInitiateCheckout, trackSubscribe } from "@/lib/meta-pixel";
+import { trackInitiateCheckout } from "@/lib/meta-pixel";
 
 const addOnIcons: Record<AddOnKey, typeof Zap> = {
   auto_recharge_credits: Zap,
@@ -79,7 +79,11 @@ export function BillingControls({ billing }: BillingWorkspaceProps) {
     setPendingAction(actionLabel);
 
     try {
-      const response = await fetch("/api/billing/start-paid", { method: "POST" });
+      const response = await fetch("/api/billing/start-paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventSourceUrl: window.location.href })
+      });
       const payload = await response.json();
 
       if (!response.ok) {
@@ -95,9 +99,6 @@ export function BillingControls({ billing }: BillingWorkspaceProps) {
         return;
       }
 
-      trackSubscribe({
-        content_name: "Harlo paid subscription"
-      });
       showToast("success", "Your paid Starter subscription is active.");
       window.location.reload();
     } catch {
@@ -248,7 +249,7 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
       const response = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planKey, interval })
+        body: JSON.stringify({ planKey, interval, eventSourceUrl: window.location.href })
       });
       const payload = await response.json();
 
@@ -272,7 +273,11 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
     setPendingAction(actionLabel);
 
     try {
-      const response = await fetch("/api/billing/start-paid", { method: "POST" });
+      const response = await fetch("/api/billing/start-paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventSourceUrl: window.location.href })
+      });
       const payload = await response.json();
 
       if (!response.ok) {
@@ -288,9 +293,6 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
         return;
       }
 
-      trackSubscribe({
-        content_name: "Harlo paid subscription"
-      });
       showToast("success", "Your paid Starter subscription is active.");
       router.refresh();
     } catch {
@@ -339,7 +341,7 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
       const response = await fetch("/api/billing/add-ons", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ addOnKey, enabled, quantity })
+        body: JSON.stringify({ addOnKey, enabled, quantity, eventSourceUrl: window.location.href })
       });
       const payload = await response.json();
 

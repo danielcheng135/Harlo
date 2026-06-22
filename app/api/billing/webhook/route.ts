@@ -6,6 +6,8 @@ import {
   getPlanKeyByProductId,
   getStripe
 } from "@/lib/billing/stripe";
+import { getMetaAttributionFromStripeMetadata, mergeMetaAttribution } from "@/lib/meta/attribution";
+import { sendMetaCapiEventOnce } from "@/lib/meta/capi";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { createAutoRechargeCreditGrant } from "@/lib/billing/usage";
 import type { AddOnKey, BillingStatus } from "@/lib/billing/plans";
@@ -40,6 +42,10 @@ export async function POST(request: NextRequest) {
 
   if (event.type === "checkout.session.completed") {
     await handleCheckoutCompleted(stripe, event.data.object as Stripe.Checkout.Session);
+  }
+
+  if (event.type === "invoice.paid" || event.type === "invoice.payment_succeeded") {
+    await handleInvoicePaid(stripe, event.data.object as Stripe.Invoice);
   }
 
   if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated") {
@@ -83,6 +89,7 @@ async function handleCheckoutCompleted(stripe: Stripe, session: Stripe.Checkout.
   }
 
   await syncSubscription(stripe, subscription);
+  await sendMetaCheckoutSubscriptionEvent(stripe, session, subscription);
 }
 
 async function handleAutoRechargeCheckoutCompleted(session: Stripe.Checkout.Session) {
@@ -137,6 +144,103 @@ async function handleAutoRechargeCheckoutCompleted(session: Stripe.Checkout.Sess
     updated_at: grantedAt
   }, {
     onConflict: "organization_id,add_on_key"
+  });
+}
+
+async function sendMetaCheckoutSubscriptionEvent(
+  stripe: Stripe,
+  session: Stripe.Checkout.Session,
+  subscription: Stripe.Subscription
+) {
+  if (session.metadata?.purchase_type || isCheckoutAddOnSubscription(subscription)) {
+    return;
+  }
+
+  const isTrial = subscription.status === "trialing";
+  const isPaidSubscriptionCreation = subscription.status === "active" && session.payment_status === "paid";
+  const eventName = isTrial ? "StartTrial" : isPaidSubscriptionCreation ? "Subscribe" : null;
+
+  if (!eventName) {
+    return;
+  }
+
+  const attribution = mergeMetaAttribution(
+    getMetaAttributionFromStripeMetadata(session.metadata),
+    getMetaAttributionFromStripeMetadata(subscription.metadata)
+  );
+  const customerEmail = await resolveStripeCustomerEmail(stripe, getStripeId(subscription.customer), session.customer_details?.email ?? session.customer_email);
+  const userId = getMetaUserId(session.metadata, subscription.metadata);
+  const price = subscription.items.data[0]?.price ?? null;
+  const value = eventName === "Subscribe" ? centsToValue(session.amount_total ?? price?.unit_amount ?? null) : undefined;
+  const currency = eventName === "Subscribe" ? normalizeCurrency(session.currency ?? price?.currency ?? null) : undefined;
+
+  if (eventName === "Subscribe" && (value === undefined || !currency)) {
+    return;
+  }
+
+  await sendMetaCapiEventOnce({
+    event_name: eventName,
+    event_id: `stripe:${subscription.id}:${eventName === "StartTrial" ? "start-trial" : "subscribe"}`,
+    event_time: subscription.created ?? session.created,
+    event_source_url: attribution.eventSourceUrl,
+    user_data: {
+      email: customerEmail,
+      externalId: userId,
+      fbp: attribution.fbp,
+      fbc: attribution.fbc,
+      clientIpAddress: attribution.clientIpAddress,
+      clientUserAgent: attribution.clientUserAgent,
+      subscriptionId: subscription.id
+    },
+    custom_data: {
+      content_name: eventName === "StartTrial" ? "Harlo trial" : "Harlo paid subscription",
+      value,
+      currency
+    }
+  });
+}
+
+async function handleInvoicePaid(stripe: Stripe, invoice: Stripe.Invoice) {
+  if ((invoice.amount_paid ?? 0) <= 0) {
+    return;
+  }
+
+  const subscription = await resolveInvoiceSubscription(stripe, invoice);
+  const subscriptionId = subscription?.id ?? getInvoiceSubscriptionId(invoice);
+
+  if (invoice.billing_reason === "subscription_create" && subscription && !isCheckoutAddOnSubscription(subscription)) {
+    return;
+  }
+
+  const attribution = getMetaAttributionFromStripeMetadata(subscription?.metadata);
+  const customerEmail = await resolveStripeCustomerEmail(stripe, getStripeId(invoice.customer), invoice.customer_email);
+  const userId = subscription?.metadata?.meta_user_id;
+  const currency = normalizeCurrency(invoice.currency);
+
+  if (!currency) {
+    return;
+  }
+
+  await sendMetaCapiEventOnce({
+    event_name: "Purchase",
+    event_id: `stripe:invoice:${invoice.id}:purchase`,
+    event_time: invoice.status_transitions?.paid_at ?? invoice.created,
+    event_source_url: attribution.eventSourceUrl,
+    user_data: {
+      email: customerEmail,
+      externalId: userId,
+      fbp: attribution.fbp,
+      fbc: attribution.fbc,
+      clientIpAddress: attribution.clientIpAddress,
+      clientUserAgent: attribution.clientUserAgent,
+      subscriptionId
+    },
+    custom_data: {
+      content_name: "Harlo paid invoice",
+      order_id: invoice.id,
+      value: centsToValue(invoice.amount_paid),
+      currency
+    }
   });
 }
 
@@ -402,6 +506,54 @@ function toIso(value: number | null | undefined) {
   return value ? new Date(value * 1000).toISOString() : null;
 }
 
-function getStripeId(value: string | Stripe.Customer | Stripe.Product | Stripe.DeletedCustomer | Stripe.DeletedProduct | null | undefined) {
+async function resolveInvoiceSubscription(stripe: Stripe, invoice: Stripe.Invoice) {
+  const subscriptionId = getInvoiceSubscriptionId(invoice);
+
+  if (!subscriptionId) {
+    return null;
+  }
+
+  return stripe.subscriptions.retrieve(subscriptionId).catch(() => null);
+}
+
+async function resolveStripeCustomerEmail(stripe: Stripe, customerId: string | null, fallback?: string | null) {
+  if (fallback) {
+    return fallback;
+  }
+
+  if (!customerId) {
+    return null;
+  }
+
+  const customer = await stripe.customers.retrieve(customerId).catch(() => null);
+
+  if (!customer || "deleted" in customer) {
+    return null;
+  }
+
+  return customer.email ?? null;
+}
+
+function getInvoiceSubscriptionId(invoice: Stripe.Invoice) {
+  const value = (invoice as Stripe.Invoice & { subscription?: string | Stripe.Subscription | null }).subscription;
+
+  return getStripeId(value);
+}
+
+function getMetaUserId(primaryMetadata: Record<string, string> | null | undefined, fallbackMetadata: Record<string, string> | null | undefined) {
+  return primaryMetadata?.meta_user_id ?? fallbackMetadata?.meta_user_id ?? null;
+}
+
+function centsToValue(cents: number | null | undefined) {
+  return typeof cents === "number" ? Number((cents / 100).toFixed(2)) : undefined;
+}
+
+function normalizeCurrency(value: string | null | undefined) {
+  const currency = value?.trim().toUpperCase();
+
+  return currency || undefined;
+}
+
+function getStripeId(value: string | { id?: string | null } | null | undefined) {
   return typeof value === "string" ? value : value?.id ?? null;
 }

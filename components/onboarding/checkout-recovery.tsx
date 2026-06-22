@@ -64,7 +64,8 @@ export function CheckoutRecovery({
         planKey,
         interval,
         successPath: "/onboarding/checkout/success?welcome=1",
-        cancelPath: "/onboarding/checkout?checkout=canceled"
+        cancelPath: "/onboarding/checkout?checkout=canceled",
+        eventSourceUrl: window.location.href
       })
     });
     const result = (await response.json().catch(() => null)) as { url?: string; error?: string } | null;

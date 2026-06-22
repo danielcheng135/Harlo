@@ -7,6 +7,7 @@ import {
   getAppUrl,
   getStripe
 } from "@/lib/billing/stripe";
+import { buildMetaStripeMetadata, getMetaAttributionFromRequest } from "@/lib/meta/attribution";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { BILLING_ADD_ONS, getBillingPlan, type AddOnKey } from "@/lib/billing/plans";
 
@@ -49,6 +50,10 @@ export async function PATCH(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Sign in to manage add-ons." }, { status: 401 });
   }
+  const metaMetadata = buildMetaStripeMetadata({
+    attribution: getMetaAttributionFromRequest(request, body.eventSourceUrl),
+    userId: user.id
+  });
 
   const { data: membership } = await supabase
     .from("memberships")
@@ -148,14 +153,16 @@ export async function PATCH(request: NextRequest) {
             quantity,
             subscriptionId,
             customerId,
-            requestUrl: request.url
+            requestUrl: request.url,
+            metaMetadata
           })
           : await createMonthlyAddOnCheckout({
             addOnKey,
             organizationId: membership.organization_id,
             customerId,
             quantity,
-            requestUrl: request.url
+            requestUrl: request.url,
+            metaMetadata
           });
 
         return NextResponse.json({
@@ -237,13 +244,15 @@ async function createMonthlyAddOnCheckout({
   organizationId,
   customerId,
   quantity,
-  requestUrl
+  requestUrl,
+  metaMetadata
 }: {
   addOnKey: AddOnKey;
   organizationId: string;
   customerId: string;
   quantity: number;
   requestUrl: string;
+  metaMetadata: Record<string, string>;
 }) {
   const stripe = getStripe();
 
@@ -267,13 +276,15 @@ async function createMonthlyAddOnCheckout({
     metadata: {
       organization_id: organizationId,
       add_on_key: addOnKey,
-      purchase_type: "subscription_add_on"
+      purchase_type: "subscription_add_on",
+      ...metaMetadata
     },
     subscription_data: {
       metadata: {
         organization_id: organizationId,
         add_on_key: addOnKey,
-        purchase_type: "subscription_add_on"
+        purchase_type: "subscription_add_on",
+        ...metaMetadata
       }
     }
   });
@@ -294,7 +305,8 @@ async function updateMonthlyAddOnSubscriptionQuantity({
   organizationId,
   quantity,
   requestUrl,
-  subscriptionId
+  subscriptionId,
+  metaMetadata
 }: {
   addOnKey: AddOnKey;
   customerId: string;
@@ -302,6 +314,7 @@ async function updateMonthlyAddOnSubscriptionQuantity({
   quantity: number;
   requestUrl: string;
   subscriptionId: string;
+  metaMetadata: Record<string, string>;
 }) {
   const stripe = getStripe();
 
@@ -319,7 +332,8 @@ async function updateMonthlyAddOnSubscriptionQuantity({
       organizationId,
       customerId,
       quantity,
-      requestUrl
+      requestUrl,
+      metaMetadata
     });
   }
 
@@ -347,7 +361,8 @@ async function updateMonthlyAddOnSubscriptionQuantity({
       ...subscription.metadata,
       organization_id: organizationId,
       add_on_key: addOnKey,
-      purchase_type: "subscription_add_on"
+      purchase_type: "subscription_add_on",
+      ...metaMetadata
     }
   });
   const invoice = getExpandedInvoice(updated.latest_invoice);

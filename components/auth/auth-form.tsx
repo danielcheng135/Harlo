@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { TurnstileField, type TurnstileFieldHandle } from "@/components/auth/turnstile-field";
 import { Button } from "@/components/ui/button";
-import { trackCompleteRegistration } from "@/lib/meta-pixel";
+import { getMetaBrowserAttribution } from "@/lib/meta-pixel";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type AuthFormProps = {
@@ -79,7 +79,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       const supabase = createSupabaseBrowserClient();
       const safeNextPath = getSafeNextPath(nextPath);
       const signUpDestination = getSignUpDestination(safeNextPath);
-      const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(signUpDestination)}`;
+      const emailRedirectTo = buildAuthCallbackUrl(window.location.origin, signUpDestination, mode === "sign-up");
       const result =
         mode === "sign-up"
           ? await supabase.auth.signUp({
@@ -88,9 +88,10 @@ export function AuthForm({ mode }: AuthFormProps) {
             options: {
               emailRedirectTo,
               captchaToken: verifiedCaptchaToken ?? undefined,
-              data: {
-                business_name: businessName
-              }
+              data: cleanAuthMetadata({
+                business_name: businessName,
+                ...getMetaBrowserAttribution()
+              })
             }
           })
           : await supabase.auth.signInWithPassword({
@@ -108,17 +109,8 @@ export function AuthForm({ mode }: AuthFormProps) {
       }
 
       if (mode === "sign-up" && !result.data.session) {
-        trackCompleteRegistration({
-          method: "email"
-        });
         setConfirmationEmail(email);
         return;
-      }
-
-      if (mode === "sign-up") {
-        trackCompleteRegistration({
-          method: "email"
-        });
       }
 
       const destination = mode === "sign-up" ? signUpDestination : safeNextPath;
@@ -139,8 +131,8 @@ export function AuthForm({ mode }: AuthFormProps) {
     try {
       const supabase = createSupabaseBrowserClient();
       const safeNextPath = getSafeNextPath(nextPath);
-      const destination = mode === "sign-up" ? withMetaRegistrationEvent(getSignUpDestination(safeNextPath)) : safeNextPath;
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(destination)}`;
+      const destination = mode === "sign-up" ? getSignUpDestination(safeNextPath) : safeNextPath;
+      const redirectTo = buildAuthCallbackUrl(window.location.origin, destination, mode === "sign-up");
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -377,12 +369,21 @@ function withQueryParam(path: string, key: string, value: string) {
   return `${pathname}?${params.toString()}`;
 }
 
-function withMetaRegistrationEvent(path: string) {
-  const eventId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now());
-  let nextPath = withQueryParam(path, "meta_event", "CompleteRegistration");
-  nextPath = withQueryParam(nextPath, "meta_event_id", eventId);
+function buildAuthCallbackUrl(origin: string, nextPath: string, registration: boolean) {
+  const url = new URL("/auth/callback", origin);
+  url.searchParams.set("next", nextPath);
 
-  return nextPath;
+  if (registration) {
+    url.searchParams.set("registration", "1");
+  }
+
+  return url.toString();
+}
+
+function cleanAuthMetadata(metadata: Record<string, string | undefined>) {
+  return Object.fromEntries(
+    Object.entries(metadata).filter(([, value]) => typeof value === "string" && value.trim().length > 0)
+  );
 }
 
 function getTurnstileErrorMessage(code: string | undefined) {

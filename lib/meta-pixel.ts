@@ -2,6 +2,7 @@
 
 export type MetaPixelEventName =
   | "PageView"
+  | "ViewContent"
   | "StartTrial"
   | "Lead"
   | "CompleteRegistration"
@@ -11,6 +12,22 @@ export type MetaPixelEventName =
 
 export type MetaPixelEventParams = Record<string, string | number | boolean | null | undefined>;
 export type MetaPixelCustomEventName = "StartFreeTrialClick";
+export type MetaBrowserAttribution = {
+  meta_fbp?: string;
+  meta_fbc?: string;
+  meta_client_user_agent?: string;
+  meta_event_source_url?: string;
+};
+
+const SENSITIVE_URL_PARAMS = new Set([
+  "access_token",
+  "code",
+  "error",
+  "error_code",
+  "error_description",
+  "refresh_token",
+  "token_hash"
+]);
 
 declare global {
   interface Window {
@@ -27,7 +44,7 @@ declare global {
 }
 
 export function isMetaPixelEnabled() {
-  return Boolean(process.env.NEXT_PUBLIC_META_PIXEL_ID);
+  return typeof window !== "undefined" && typeof window.fbq === "function";
 }
 
 export function trackMetaPixelEvent(eventName: MetaPixelEventName, params?: MetaPixelEventParams) {
@@ -98,6 +115,10 @@ export function trackStartTrial(params?: MetaPixelEventParams) {
   trackMetaPixelEvent("StartTrial", params);
 }
 
+export function trackViewContent(params?: MetaPixelEventParams) {
+  trackMetaPixelEvent("ViewContent", params);
+}
+
 export function trackLead(params?: MetaPixelEventParams) {
   trackMetaPixelEvent("Lead", params);
 }
@@ -112,6 +133,19 @@ export function trackInitiateCheckout(params?: MetaPixelEventParams) {
 
 export function trackSubscribe(params?: MetaPixelEventParams) {
   trackMetaPixelEvent("Subscribe", params);
+}
+
+export function getMetaBrowserAttribution(): MetaBrowserAttribution {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  return cleanMetaBrowserAttribution({
+    meta_fbp: getBrowserCookie("_fbp"),
+    meta_fbc: getBrowserCookie("_fbc"),
+    meta_client_user_agent: window.navigator.userAgent,
+    meta_event_source_url: getBrowserEventSourceUrl()
+  });
 }
 
 function cleanMetaPixelParams(params: MetaPixelEventParams) {
@@ -132,4 +166,34 @@ function getMetaPixelEventId(params?: MetaPixelEventParams) {
   }
 
   return undefined;
+}
+
+function getBrowserCookie(name: string) {
+  const prefix = `${name}=`;
+  const cookie = document.cookie
+    .split(";")
+    .map((item) => item.trim())
+    .find((item) => item.startsWith(prefix));
+
+  return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : undefined;
+}
+
+function getBrowserEventSourceUrl() {
+  try {
+    const url = new URL(window.location.href);
+
+    for (const param of SENSITIVE_URL_PARAMS) {
+      url.searchParams.delete(param);
+    }
+
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function cleanMetaBrowserAttribution(attribution: MetaBrowserAttribution): MetaBrowserAttribution {
+  return Object.fromEntries(
+    Object.entries(attribution).filter(([, value]) => typeof value === "string" && value.trim().length > 0)
+  );
 }

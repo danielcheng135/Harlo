@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAppUrl, getStripe, isBillingInterval, isBillingPlanKey, resolvePlanPriceId } from "@/lib/billing/stripe";
 import { TRIAL_CONFIG } from "@/lib/billing/plans";
+import { buildMetaStripeMetadata, getMetaAttributionFromRequest } from "@/lib/meta/attribution";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
@@ -9,6 +10,11 @@ export async function POST(request: NextRequest) {
   const interval = body.interval;
   const successPath = sanitizePath(body.successPath, "/dashboard/billing?checkout=success");
   const cancelPath = sanitizePath(body.cancelPath, "/dashboard/billing?checkout=canceled");
+  const metaAttribution = getMetaAttributionFromRequest(request, body.eventSourceUrl);
+  const metaMetadata = buildMetaStripeMetadata({
+    attribution: metaAttribution,
+    userId: null
+  });
 
   if (!isBillingPlanKey(planKey) || !isBillingInterval(interval)) {
     return NextResponse.json({ error: "Choose a valid plan and billing interval." }, { status: 400 });
@@ -80,7 +86,9 @@ export async function POST(request: NextRequest) {
       email: user.email,
       name: organization.name,
       metadata: {
-        organization_id: organization.id
+        organization_id: organization.id,
+        meta_user_id: user.id,
+        ...metaMetadata
       }
     });
     customerId = customer.id;
@@ -107,8 +115,7 @@ export async function POST(request: NextRequest) {
   const isNewCustomer = !billing?.stripe_subscription_id || billing.status === "incomplete" || billing.status === "canceled";
   const successUrl = buildCheckoutUrl(appUrl, successPath, {
     includeSessionId: true,
-    isNewCustomer,
-    metaEvent: planKey === TRIAL_CONFIG.convertsToPlan ? "StartTrial" : "Subscribe"
+    isNewCustomer
   });
   const cancelUrl = buildCheckoutUrl(appUrl, cancelPath, false);
   const session = await stripe.checkout.sessions.create({
@@ -129,14 +136,18 @@ export async function POST(request: NextRequest) {
       metadata: {
         organization_id: organization.id,
         plan_key: planKey,
-        billing_interval: interval
+        billing_interval: interval,
+        meta_user_id: user.id,
+        ...metaMetadata
       }
     },
     metadata: {
       organization_id: organization.id,
       plan_key: planKey,
       billing_interval: interval,
-      google_ads_new_customer: String(isNewCustomer)
+      google_ads_new_customer: String(isNewCustomer),
+      meta_user_id: user.id,
+      ...metaMetadata
     }
   });
 
@@ -158,21 +169,16 @@ function sanitizePath(value: unknown, fallback: string) {
 function buildCheckoutUrl(
   appUrl: string,
   path: string,
-  options: boolean | { includeSessionId: boolean; isNewCustomer?: boolean; metaEvent?: string }
+  options: boolean | { includeSessionId: boolean; isNewCustomer?: boolean }
 ) {
   const url = new URL(path, appUrl);
   const includeSessionId = typeof options === "boolean" ? options : options.includeSessionId;
   const isNewCustomer = typeof options === "boolean" ? undefined : options.isNewCustomer;
-  const metaEvent = typeof options === "boolean" ? "Subscribe" : options.metaEvent;
 
   if (includeSessionId) {
     url.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
     url.searchParams.set("gads_conversion", "checkout");
     url.searchParams.set("gads_new_customer", String(Boolean(isNewCustomer)));
-    if (metaEvent) {
-      url.searchParams.set("meta_event", metaEvent);
-      url.searchParams.set("meta_event_id", "{CHECKOUT_SESSION_ID}");
-    }
   }
 
   return url.toString().replaceAll("%7BCHECKOUT_SESSION_ID%7D", "{CHECKOUT_SESSION_ID}");
