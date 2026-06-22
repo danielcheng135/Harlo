@@ -4,10 +4,12 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ArrowUp,
+  CheckCircle2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Sparkles
 } from "lucide-react";
-import { CalendlyDemoButton } from "@/components/calendly-demo-button";
 import { MarketingFooter } from "@/components/marketing-footer";
 import { getSignupHref } from "@/lib/onboarding/signup-url";
 
@@ -85,6 +87,16 @@ const embedTabImages: Record<(typeof embedTabs)[number], string> = {
   Support: "/landing/meta-agent-support.png",
   Integrations: "/landing/meta-agent-embed.png"
 };
+
+const heroIntegrations = [
+  { name: "Calendly", src: "/integrations/calendly.png", orbit: "outer", angle: -82 },
+  { name: "Cal.com", src: "/integrations/calcom.png", orbit: "outer", angle: -34 },
+  { name: "Jobber", src: "/integrations/jobber.png", orbit: "outer", angle: 28 },
+  { name: "Slack", src: "/integrations/slack.svg", orbit: "inner", angle: 92 },
+  { name: "HubSpot", src: "/integrations/hubspot.png", orbit: "outer", angle: 154 },
+  { name: "Mailchimp", src: "/integrations/mailchimp.png", orbit: "outer", angle: -148 },
+  { name: "Google Sheets", src: "/integrations/google-sheets.svg", orbit: "inner", angle: -142 }
+] as const;
 
 export function MetaAdsLandingPage({ isAuthenticated = false }: { isAuthenticated?: boolean }) {
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -206,6 +218,157 @@ export function MetaAdsLandingPage({ isAuthenticated = false }: { isAuthenticate
             }
           }
 
+          .meta-hero-integration-stage {
+            animation: meta-hero-integration-stage 12s ease-in-out infinite;
+          }
+
+          .meta-hero-orbit-ring {
+            animation: meta-hero-orbit-spin 18s linear infinite;
+          }
+
+          .meta-hero-orbit-ring:nth-child(3) {
+            animation-duration: 14s;
+            animation-direction: reverse;
+          }
+
+          .meta-hero-integration-icon {
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.82);
+            animation: meta-hero-integration-icon 12s ease-in-out infinite both;
+          }
+
+          .meta-hero-chat-sequence {
+            animation: meta-hero-chat-sequence 12s ease-in-out infinite;
+          }
+
+          .meta-hero-chat-card {
+            animation: meta-hero-chat-float 5.8s ease-in-out infinite;
+          }
+
+          .meta-hero-progress-fill {
+            animation: meta-hero-progress 12s ease-in-out infinite;
+          }
+
+          .meta-hero-chat-reply {
+            animation: meta-hero-reply 12s ease-in-out infinite;
+          }
+
+          .meta-hero-solved-card {
+            animation: meta-hero-solved-card 12s ease-in-out infinite;
+          }
+
+          @keyframes meta-hero-integration-stage {
+            0%, 23% {
+              opacity: 1;
+              transform: translate3d(0, 0, 0) scale(1);
+            }
+
+            31%, 100% {
+              opacity: 0;
+              transform: translate3d(0, -8px, 0) scale(0.94);
+            }
+          }
+
+          @keyframes meta-hero-orbit-spin {
+            from {
+              transform: translate(-50%, -50%) rotate(0deg);
+            }
+
+            to {
+              transform: translate(-50%, -50%) rotate(360deg);
+            }
+          }
+
+          @keyframes meta-hero-integration-icon {
+            0% {
+              opacity: 0;
+              transform: translate(-50%, -50%) scale(0.82);
+            }
+
+            5%, 23% {
+              opacity: 1;
+              transform: translate(-50%, -50%) scale(1);
+            }
+
+            31%, 100% {
+              opacity: 0;
+              transform: translate(-50%, -50%) scale(0.82);
+            }
+          }
+
+          @keyframes meta-hero-chat-sequence {
+            0%, 32% {
+              opacity: 0;
+              filter: grayscale(0) opacity(1);
+              transform: translate(-50%, -50%) translate3d(0, 18px, 0) scale(0.9);
+            }
+
+            39%, 75% {
+              opacity: 1;
+              filter: grayscale(0) opacity(1);
+              transform: translate(-50%, -50%) translate3d(0, 0, 0) scale(1);
+            }
+
+            83%, 100% {
+              opacity: 0.34;
+              filter: grayscale(1) opacity(0.72);
+              transform: translate(-50%, -50%) translate3d(54px, 18px, 0) scale(0.72);
+            }
+          }
+
+          @keyframes meta-hero-chat-float {
+            0%, 100% {
+              transform: translate3d(0, 0, 0);
+            }
+
+            50% {
+              transform: translate3d(0, -10px, 0);
+            }
+          }
+
+          @keyframes meta-hero-progress {
+            0%, 42% {
+              width: 18%;
+            }
+
+            58% {
+              width: 68%;
+            }
+
+            74%, 100% {
+              width: 94%;
+            }
+          }
+
+          @keyframes meta-hero-reply {
+            0%, 54% {
+              opacity: 0;
+              transform: translate3d(0, 10px, 0);
+            }
+
+            66%, 100% {
+              opacity: 1;
+              transform: translate3d(0, 0, 0);
+            }
+          }
+
+          @keyframes meta-hero-solved-card {
+            0%, 75% {
+              opacity: 0;
+              transform: translate3d(-18px, 22px, 0) scale(0.92);
+            }
+
+            84%, 96% {
+              opacity: 1;
+              transform: translate3d(0, 0, 0) scale(1);
+            }
+
+            100% {
+              opacity: 0;
+              transform: translate3d(8px, -8px, 0) scale(0.96);
+            }
+          }
+
           .meta-lead-cta-title {
             opacity: 0;
             clip-path: inset(0 100% 0 0);
@@ -223,6 +386,40 @@ export function MetaAdsLandingPage({ isAuthenticated = false }: { isAuthenticate
           }
 
           @media (prefers-reduced-motion: reduce) {
+            .meta-hero-integration-stage,
+            .meta-hero-orbit-ring,
+            .meta-hero-integration-icon,
+            .meta-hero-chat-sequence,
+            .meta-hero-chat-card,
+            .meta-hero-progress-fill,
+            .meta-hero-chat-reply,
+            .meta-hero-solved-card {
+              animation: none;
+            }
+
+            .meta-hero-integration-stage {
+              opacity: 0;
+              transform: none;
+            }
+
+            .meta-hero-integration-icon {
+              opacity: 0;
+              transform: translate(-50%, -50%) scale(1);
+            }
+
+            .meta-hero-chat-sequence {
+              opacity: 1;
+              filter: none;
+              transform: translate(-50%, -50%);
+            }
+
+            .meta-hero-chat-reply,
+            .meta-hero-solved-card {
+              opacity: 1;
+              filter: none;
+              transform: none;
+            }
+
             .meta-lead-cta-title {
               opacity: 1;
               animation: none;
@@ -258,25 +455,45 @@ export function MetaAdsLandingPage({ isAuthenticated = false }: { isAuthenticate
         </div>
       </header>
 
-      <section className="relative flex min-h-[calc(100svh-54px)] items-center justify-center px-5 pb-24 pt-16 text-center">
-        <div className="mx-auto max-w-[980px] -translate-y-3">
-          <h1 className="mx-auto max-w-[760px] text-[3.05rem] font-extrabold leading-[1.04] tracking-[-0.04em] text-[#020b1f]">
-            <span className="block">Turn website</span>
-            <span className="block">visitors into leads.</span>
-          </h1>
-          <div className="mx-auto mt-8 grid w-full max-w-[540px] gap-5 sm:mt-10 sm:grid-cols-2 sm:gap-6">
-            <Link
-              href={signupHref}
-              className="inline-flex h-[68px] w-full items-center justify-center rounded-[16px] bg-gradient-to-b from-[#12a7c0] to-[#087f95] px-3 text-base font-bold text-white shadow-[0_5px_0_#066375] transition hover:-translate-y-0.5 hover:shadow-[0_5px_0_#066375] sm:min-w-[250px]"
-            >
-              Start free trial
-            </Link>
-            <CalendlyDemoButton className="inline-flex h-[68px] w-full items-center justify-center rounded-[16px] border border-slate-200 bg-white px-3 text-base font-bold text-[#020b1f] shadow-[0_5px_0_#d7dde5] transition hover:-translate-y-0.5 hover:border-slate-200 hover:text-[#020b1f] hover:shadow-[0_5px_0_#d7dde5] sm:min-w-[250px]">
-              Book a demo
-            </CalendlyDemoButton>
+      <section className="relative bg-white px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pt-8">
+        <div className="relative mx-auto mb-4 flex min-h-[calc(100svh-158px)] overflow-hidden rounded-[22px] bg-harlo-blue px-5 py-12 text-white sm:mb-6 sm:min-h-[calc(100svh-174px)] sm:rounded-[24px] sm:px-10 sm:py-16 lg:mb-8 lg:px-16 xl:px-24">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_33%,rgba(255,255,255,0.14),transparent_23%),linear-gradient(135deg,rgba(255,255,255,0.08),transparent_36%)]" />
+          <div className="relative z-10 grid w-full items-center gap-12 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.72fr)] lg:gap-10">
+            <div className="max-w-[860px] text-left">
+              <h1 className="max-w-[820px] text-[clamp(2.75rem,12vw,4.35rem)] font-black leading-[0.92] tracking-[-0.055em] text-white sm:text-[clamp(4.9rem,7vw,7.6rem)] sm:tracking-[-0.06em] lg:text-[clamp(5.15rem,6.25vw,8rem)]">
+                <span className="block">
+                  <span className="inline-block rounded-[13px] bg-white px-[0.12em] pb-[0.04em] text-harlo-blue sm:rounded-[16px]">AI agents</span>{" "}
+                  for
+                </span>
+                <span className="block">websites that</span>
+                <span className="inline-block rounded-[13px] bg-white px-[0.12em] pb-[0.05em] text-harlo-blue sm:rounded-[16px]">
+                  capture leads.
+                </span>
+              </h1>
+              <p className="mt-8 max-w-[700px] text-xl font-normal leading-8 text-white/92 sm:text-2xl sm:leading-9">
+                Harlo answers questions, captures contact details, and books jobs automatically from your website.
+              </p>
+              <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm font-medium text-white/88 sm:text-base">
+                {["14 day free trial", "Cancel anytime"].map((item) => (
+                  <span key={item} className="inline-flex items-center gap-1.5">
+                    <CheckCircle2 size={18} strokeWidth={2.4} />
+                    {item}
+                  </span>
+                ))}
+              </div>
+              <div className="mt-11 w-full max-w-none sm:max-w-[280px]">
+                <Link
+                  href={signupHref}
+                  className="inline-flex h-[68px] w-full items-center justify-center rounded-[16px] bg-white px-3 text-base font-bold text-harlo-blue shadow-[0_5px_0_rgba(6,99,117,0.55)] transition hover:-translate-y-0.5 hover:bg-white hover:text-harlo-blue hover:shadow-[0_5px_0_rgba(6,99,117,0.55)]"
+                >
+                  Start free trial
+                </Link>
+              </div>
+            </div>
+            <HeroChatbotAnimation />
           </div>
         </div>
-        <div className="absolute inset-x-0 bottom-0 hidden border-t border-slate-200 bg-white/85 px-4 backdrop-blur-sm sm:block">
+        <div className="-mx-4 hidden border-t border-slate-200 bg-white/85 px-4 backdrop-blur-sm sm:-mx-6 sm:block lg:-mx-8">
           <nav
             aria-label="Legal links"
             className="meta-hero-legal-links mx-auto flex min-h-12 w-fit flex-wrap items-center justify-center gap-1.5"
@@ -419,6 +636,110 @@ export function MetaAdsLandingPage({ isAuthenticated = false }: { isAuthenticate
 
       <MarketingFooter variant="light" />
     </main>
+  );
+}
+
+function HeroChatbotAnimation() {
+  return (
+    <div className="relative mx-auto h-[322px] w-full max-w-[350px] overflow-visible sm:h-[426px] sm:max-w-[460px] lg:h-[520px] lg:max-w-[560px]" aria-hidden="true">
+      <div className="absolute left-1/2 top-1/2 h-[520px] w-[560px] origin-center -translate-x-1/2 -translate-y-1/2 scale-[0.58] sm:scale-[0.82] lg:scale-100">
+        <HeroIntegrationsOrbit />
+
+        <div className="meta-hero-chat-sequence absolute left-1/2 top-1/2 z-20 w-full max-w-[390px] -translate-x-1/2 -translate-y-1/2">
+          <div className="meta-hero-chat-card overflow-hidden rounded-[30px] border border-white/28 bg-white text-[#111827] shadow-[0_34px_90px_rgba(3,16,32,0.22)]">
+            <div className="flex min-h-16 items-center justify-between bg-gradient-to-b from-[#12a7c0] to-[#087f95] px-5 text-white">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/18 ring-1 ring-white/25">
+                  <img src="/icon.png" alt="" className="h-5 w-5 rounded-[4px]" />
+                </span>
+                <span className="truncate text-base font-bold">Harlo AI Agent</span>
+              </div>
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-300 shadow-[0_0_18px_rgba(110,231,183,0.75)]" />
+            </div>
+
+            <div className="space-y-4 bg-white px-5 py-5">
+              <div className="max-w-[82%] rounded-[17px] rounded-tl-md bg-[#f4f4f5] px-4 py-3 text-sm font-semibold leading-5 text-[#111827]">
+                Hi, I can answer questions and book the right next step.
+              </div>
+              <div className="ml-auto max-w-[78%] rounded-[17px] rounded-tr-md bg-gradient-to-br from-[#12a7c0] to-[#087f95] px-4 py-3 text-sm font-semibold leading-5 text-white">
+                I need emergency service today.
+              </div>
+
+              <div className="rounded-[20px] border border-[#e2e8ee] bg-white p-4 shadow-[0_16px_32px_rgba(15,23,42,0.08)]">
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-base font-black leading-none text-[#111827]">Capturing lead...</p>
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-harlo-mist text-harlo-blue">
+                    <Sparkles size={17} strokeWidth={2.4} />
+                  </span>
+                </div>
+                <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-slate-200">
+                  <div className="meta-hero-progress-fill h-full rounded-full bg-harlo-blue" />
+                </div>
+              </div>
+
+              <div className="meta-hero-chat-reply rounded-[20px] border border-harlo-blue/20 bg-harlo-blue/5 p-4">
+                <p className="text-sm font-black text-[#111827]">Lead captured</p>
+                <p className="mt-1 text-sm font-medium leading-5 text-[#526174]">Name, phone, service need, and conversation context sent to your team.</p>
+                <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-3 rounded-[14px] border border-harlo-blue/20 bg-white px-3 py-2">
+                  <span className="text-xs font-bold text-[#5f6876]">Ready for follow-up</span>
+                  <span className="grid h-7 w-7 place-items-center rounded-full bg-harlo-blue text-white">
+                    <ArrowUp size={15} strokeWidth={2.5} />
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="meta-hero-solved-card absolute left-[8%] top-[38%] z-30 w-[260px] rounded-[24px] border border-white/35 bg-white px-5 py-5 text-[#111827] shadow-[0_28px_70px_rgba(3,16,32,0.22)]">
+          <div className="flex items-center gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-harlo-blue text-white">
+              <CheckCircle2 size={23} strokeWidth={2.5} />
+            </span>
+            <div>
+              <p className="text-2xl font-black leading-none tracking-[-0.04em] text-[#111827]">Solved in</p>
+              <p className="mt-1 text-2xl font-black leading-none tracking-[-0.04em] text-harlo-blue">3 seconds</p>
+            </div>
+          </div>
+          <p className="mt-4 text-sm font-semibold leading-5 text-[#5f6876]">Question answered, lead routed, and next step queued.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HeroIntegrationsOrbit() {
+  return (
+    <div className="meta-hero-integration-stage absolute inset-0 z-10" aria-hidden="true">
+      <div className="absolute left-1/2 top-1/2 h-[410px] w-[410px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/24" />
+      <div className="meta-hero-orbit-ring absolute left-1/2 top-1/2 h-[410px] w-[410px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/18 border-r-white/55" />
+      <div className="meta-hero-orbit-ring absolute left-1/2 top-1/2 h-[238px] w-[238px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/20 border-l-white/50" />
+      <div className="absolute left-1/2 top-1/2 z-20 grid h-24 w-24 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-harlo-blue shadow-[0_24px_60px_rgba(3,16,32,0.18)]">
+        <img src="/icon.png" alt="" className="h-11 w-11 rounded-[10px]" />
+      </div>
+
+      {heroIntegrations.map((integration, index) => {
+        const radius = integration.orbit === "outer" ? 205 : 119;
+        const radians = (integration.angle * Math.PI) / 180;
+        const x = Math.cos(radians) * radius;
+        const y = Math.sin(radians) * radius;
+
+        return (
+          <div
+            key={integration.name}
+            className="meta-hero-integration-icon absolute z-20 grid h-11 w-11 place-items-center rounded-full border border-white/35 bg-white shadow-[0_14px_30px_rgba(3,16,32,0.16)]"
+            style={{
+              left: `calc(50% + ${x.toFixed(1)}px)`,
+              top: `calc(50% + ${y.toFixed(1)}px)`,
+              animationDelay: `${index * 170}ms`
+            }}
+            title={integration.name}
+          >
+            <img src={integration.src} alt="" className="h-6 w-6 object-contain" />
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
