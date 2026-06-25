@@ -30,6 +30,7 @@ type RefreshTokenInput = {
   provider: IntegrationProviderKey;
   requestUrl: string;
   tokenSet: OAuthTokenSet;
+  forceRefresh?: boolean;
 };
 
 export function getProviderAuthorizationUrl({ provider, requestUrl, state }: AuthorizationInput) {
@@ -102,7 +103,8 @@ export async function exchangeProviderCode({ provider, requestUrl, code }: Token
 export async function refreshProviderTokenIfNeeded({
   provider,
   requestUrl,
-  tokenSet
+  tokenSet,
+  forceRefresh = false
 }: RefreshTokenInput): Promise<OAuthTokenSet> {
   const tokenSetWithExpiry = tokenSet.expiresAt
     ? tokenSet
@@ -111,7 +113,7 @@ export async function refreshProviderTokenIfNeeded({
       expiresAt: getAccessTokenExpiresAt(tokenSet.accessToken)
     };
 
-  if (!tokenSetWithExpiry.refreshToken || !shouldRefreshToken(tokenSetWithExpiry.expiresAt)) {
+  if (!tokenSetWithExpiry.refreshToken || (!forceRefresh && !shouldRefreshToken(tokenSetWithExpiry.expiresAt))) {
     return tokenSetWithExpiry;
   }
 
@@ -155,6 +157,12 @@ export async function refreshProviderTokenIfNeeded({
       ...refreshedTokenSet.raw
     }
   });
+}
+
+export function isProviderReconnectRequiredError(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+
+  return /\b(?:expired|revoked|invalid_grant|invalid refresh token|refresh token|deleted|disabled|unauthorized_client|access_denied)\b/i.test(message);
 }
 
 export async function testProviderConnection(provider: IntegrationProviderKey, credentials: OAuthTokenSet) {

@@ -83,13 +83,16 @@ export async function retrieveKnowledgeChunks({
   matchCount?: number;
   similarityThreshold?: number;
 }): Promise<KnowledgeChunk[]> {
+  const pricingOrTrialQuery = isPricingOrTrialQuery(query);
+  const candidateCount = pricingOrTrialQuery ? Math.max(matchCount * 3, 24) : matchCount;
+  const candidateSimilarityThreshold = pricingOrTrialQuery ? Math.min(similarityThreshold, 0.3) : similarityThreshold;
   const embedding = await embedText(query);
   const vectorRows = await matchVectorChunks({
     botId,
     organizationId,
     embedding,
-    matchCount,
-    similarityThreshold
+    matchCount: candidateCount,
+    similarityThreshold: candidateSimilarityThreshold
   });
   const vectorMatches = vectorRows.map((chunk) => ({
     id: chunk.id,
@@ -101,10 +104,13 @@ export async function retrieveKnowledgeChunks({
   }));
 
   if (vectorMatches.length > 0) {
-    return vectorMatches;
+    return rerankKnowledgeChunksForQuery(vectorMatches, query).slice(0, matchCount);
   }
 
-  return retrieveKeywordFallbackChunks({ botId, organizationId, query, matchCount });
+  return rerankKnowledgeChunksForQuery(
+    await retrieveKeywordFallbackChunks({ botId, organizationId, query, matchCount: candidateCount }),
+    query
+  ).slice(0, matchCount);
 }
 
 async function matchVectorChunks({
@@ -158,6 +164,64 @@ function isMissingOrganizationMatchFunctionError(message: string) {
   return /match_organization_knowledge_chunks|could not find the function|function .*does not exist/i.test(message);
 }
 
+function rerankKnowledgeChunksForQuery(chunks: KnowledgeChunk[], query: string) {
+  if (!isPricingOrTrialQuery(query)) {
+    return chunks;
+  }
+
+  return chunks
+    .map((chunk, index) => ({
+      chunk,
+      index,
+      score: getPricingChunkScore(chunk, query)
+    }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map((item) => item.chunk);
+}
+
+function isPricingOrTrialQuery(query: string) {
+  return /\b(?:free\s+trial|trial|pricing|price|prices|cost|costs|plan|plans|tier|tiers|subscription|monthly|annual|annually|credits?)\b/i.test(query);
+}
+
+function getPricingChunkScore(chunk: KnowledgeChunk, query: string) {
+  const content = `${chunk.sourceTitle}\n${chunk.content}`;
+  const normalized = content.toLowerCase();
+  let score = chunk.similarity ?? 0;
+
+  if (/\bpricing\b|\bplans?\b|\btiers?\b|\bsubscription\b|\bper\s+month\b|\bmonthly\b|\bannual(?:ly)?\b/i.test(content)) {
+    score += 0.34;
+  }
+
+  if (/\$\s*\d+|\b\d+[\s,]*(?:message\s+)?credits?\b|\b(?:starter|growth|pro|basic|standard|premium|enterprise)\b/i.test(content)) {
+    score += 0.28;
+  }
+
+  if (/\bfree\s+trial\b|\btrial\s+credits?\b|\b\d+\s*-?\s*day\b|\bcancel\s+anytime\b|\bcard\s+required\b/i.test(content)) {
+    score += 0.26;
+  }
+
+  if (/\bfree\s+trial\b/i.test(query) && /\bstart\s+free\s+trial\b/i.test(content)) {
+    score += 0.08;
+  }
+
+  if (isCtaOrSetupHeavyChunk(normalized)) {
+    score -= 0.24;
+  }
+
+  if (/\blaunch(?:\s+in|\s+path|\s+session|\s+without| an? )\b|\bbook\s+a\s+demo\b|\bstart\s+building\b/i.test(content)) {
+    score -= 0.22;
+  }
+
+  return score;
+}
+
+function isCtaOrSetupHeavyChunk(content: string) {
+  const ctaMatches = content.match(/\b(?:start free trial|book a demo|launch|install|snippet|setup|connect sources|customize widget|review conversations)\b/g) ?? [];
+  const pricingMatches = content.match(/(?:\$\s*\d+|\b(?:pricing|plan|plans|starter|growth|pro|credits|per month|monthly|annual|trial credits)\b)/g) ?? [];
+
+  return ctaMatches.length >= 2 && pricingMatches.length === 0;
+}
+
 export function buildAnswerInstructions(chunks: KnowledgeChunk[], agent?: AgentAnswerProfile) {
   const context = chunks
     .map((chunk, index) => `Source ${index + 1}: ${chunk.sourceTitle}\n${chunk.content}`)
@@ -173,7 +237,11 @@ export function buildAnswerInstructions(chunks: KnowledgeChunk[], agent?: AgentA
     "When the answer is uncertain, do not guess or turn an unknown fact into a categorical yes or no. Respond naturally to the specific question, explain briefly what cannot be confirmed, and give the most useful next step.",
     "For certifications, policies, account details, contracts, security, legal terms, or other facts that require authoritative confirmation, say that you cannot confirm the current status and offer the relevant team or support channel.",
     "For pricing, availability, quotes, bookings, or troubleshooting, ask one focused clarifying question when the missing detail could make the question answerable.",
+    "When the visitor asks whether a free trial, discount, feature, service, booking option, or policy exists, answer yes or no first when the context supports it. Include the concrete terms from context, such as duration, credits, plan, card requirement, or cancellation terms.",
+    "For free-trial questions, do not say there are trial options unless the context lists multiple distinct trial choices. Do not treat a CTA label like \"Start free trial\" as the full answer when trial terms are also available.",
+    "Do not infer pricing plan names from marketing section labels, setup phases, implementation steps, CTAs, or headings. Only call something a plan when the context explicitly presents it as a billing or pricing plan.",
     "Never mention provided knowledge, business context, sources, documents, a database, training data, retrieval, or missing information in the system.",
+    "Never say phrases like \"the context says\", \"the business context says\", \"according to the context\", or \"the provided information says\". Just answer naturally as the business assistant.",
     "Do not respond with a generic menu of unrelated topics. Do not ask the visitor to rephrase unless the question itself is unclear.",
     "Keep answers concise, direct, and useful.",
     "Do not use em dashes. Use a period, comma, colon, or parentheses instead.",

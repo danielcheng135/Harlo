@@ -284,9 +284,10 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
     return null;
   });
   const effectiveVisitorMessage = contextualFollowUp?.resolvedMessage ?? input.message;
-  const retrievalQuery = conversationContext
-    ? `${conversationContext}\nvisitor latest: ${effectiveVisitorMessage}`
-    : effectiveVisitorMessage;
+  const standaloneInformationQuestion = isGeneralInformationQuestion(effectiveVisitorMessage.toLowerCase());
+  const retrievalQuery = standaloneInformationQuestion || !conversationContext
+    ? effectiveVisitorMessage
+    : `${conversationContext}\nvisitor latest: ${effectiveVisitorMessage}`;
   const [intent, loadedIntegrationActions] = await Promise.all([
     classifyVisitorIntent({
       message: effectiveVisitorMessage,
@@ -371,7 +372,7 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
     generateAnswer({
       question: effectiveVisitorMessage,
       chunks,
-      conversationContext,
+      conversationContext: standaloneInformationQuestion ? undefined : conversationContext,
       intent: intent.intent,
       agent
     }),
@@ -1236,6 +1237,7 @@ function isGeneralInformationQuestion(message: string) {
 
   const asksGeneralInfo =
     /\b(?:what|which|do you|can you|could you|tell me|show me|list)\b[\s\S]{0,80}\b(?:service|services|offer|offers|provide|do)\b/.test(message) ||
+    /\b(?:is there|are there|do you have|does it have|do you offer|is a|is the|any)\b[\s\S]{0,80}\b(?:free trial|trial|discount|coupon|pricing|price|cost|plan|feature|features|integration|integrations)\b/.test(message) ||
     /\b(?:what|which)\b[\s\S]{0,80}\b(?:hours|locations|areas|policies|features)\b/.test(message);
   const asksForNextStep =
     /\b(?:quote|estimate|book|booking|schedule|appointment|consultation|demo|callback|call me|contact me|email me|talk to sales|talk to someone|speak to someone|human|follow up|sign up|buy|start)\b/.test(message);

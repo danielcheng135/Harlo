@@ -11,7 +11,7 @@ import {
   normalizeGoogleSpreadsheetId
 } from "@/lib/integrations/google-sheets";
 import { getMailchimpErrorMessage, getMailchimpMarketingApiBase } from "@/lib/integrations/mailchimp";
-import { refreshProviderTokenIfNeeded, type OAuthTokenSet } from "@/lib/integrations/providers";
+import { isProviderReconnectRequiredError, refreshProviderTokenIfNeeded, type OAuthTokenSet } from "@/lib/integrations/providers";
 import type {
   IntegrationActionPayload,
   IntegrationActionResult,
@@ -141,11 +141,28 @@ export async function getEnabledIntegrationActionsForBot({
         })
       });
     } catch (error) {
-      console.error(`Could not decrypt ${integration.provider} integration credentials`, error);
+      logCredentialLoadFailure(integration.provider, integration.id, error);
     }
   }
 
   return enabledActions;
+}
+
+function logCredentialLoadFailure(provider: IntegrationProviderKey, integrationId: string, error: unknown) {
+  const message = error instanceof Error ? error.message : "Unknown credential error.";
+
+  if (isProviderReconnectRequiredError(error)) {
+    console.warn(`Skipping ${provider} integration because Google rejected the stored refresh token.`, {
+      integrationId,
+      error: message
+    });
+    return;
+  }
+
+  console.error(`Could not load ${provider} integration credentials.`, {
+    integrationId,
+    error: message
+  });
 }
 
 export async function getConnectedCalendlyBookingAction({
@@ -2068,6 +2085,7 @@ async function updateIntegrationStatus({
 }) {
   const update = result.ok
     ? {
+      status: "connected",
       last_success_at: new Date().toISOString(),
       last_error: null,
       updated_at: new Date().toISOString()

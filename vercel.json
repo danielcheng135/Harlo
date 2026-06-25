@@ -5,6 +5,10 @@
       "schedule": "0 9 * * *"
     },
     {
+      "path": "/api/cron/integration-token-refresh",
+      "schedule": "30 9 * * *"
+    },
+    {
       "path": "/api/cron/website-knowledge-sync",
       "schedule": "0 10 * * 0"
     }

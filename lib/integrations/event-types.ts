@@ -1,5 +1,5 @@
 import { decryptIntegrationCredentials, encryptIntegrationCredentials } from "@/lib/integrations/credentials";
-import { refreshProviderTokenIfNeeded, type OAuthTokenSet } from "@/lib/integrations/providers";
+import { isProviderReconnectRequiredError, refreshProviderTokenIfNeeded, type OAuthTokenSet } from "@/lib/integrations/providers";
 import type { IntegrationProviderKey } from "@/lib/integrations/types";
 import type { createSupabaseServiceClient } from "@/lib/supabase/server";
 
@@ -19,13 +19,15 @@ export async function getFreshIntegrationCredentials({
   integrationId,
   provider,
   encryptedCredentials,
-  requestUrl
+  requestUrl,
+  forceRefresh = false
 }: {
   supabase: SupabaseServiceClient;
   integrationId: string;
   provider: IntegrationProviderKey;
   encryptedCredentials: string;
   requestUrl?: string;
+  forceRefresh?: boolean;
 }) {
   const credentials = decryptIntegrationCredentials<OAuthTokenSet>(encryptedCredentials);
 
@@ -33,11 +35,26 @@ export async function getFreshIntegrationCredentials({
     return credentials;
   }
 
-  const refreshedCredentials = await refreshProviderTokenIfNeeded({
-    provider,
-    requestUrl,
-    tokenSet: credentials
-  });
+  let refreshedCredentials: OAuthTokenSet;
+
+  try {
+    refreshedCredentials = await refreshProviderTokenIfNeeded({
+      provider,
+      requestUrl,
+      tokenSet: credentials,
+      forceRefresh
+    });
+  } catch (error) {
+    if (isProviderReconnectRequiredError(error)) {
+      await recordIntegrationRefreshFailure({
+        supabase,
+        integrationId,
+        error
+      });
+    }
+
+    throw error;
+  }
 
   if (
     refreshedCredentials.accessToken !== credentials.accessToken ||
@@ -209,6 +226,28 @@ async function persistRefreshedCredentials({
 
   if (error) {
     console.error("Could not persist refreshed integration credentials", error);
+  }
+}
+
+async function recordIntegrationRefreshFailure({
+  supabase,
+  integrationId,
+  error
+}: {
+  supabase: SupabaseServiceClient;
+  integrationId: string;
+  error: unknown;
+}) {
+  const { error: updateError } = await supabase
+    .from("integrations")
+    .update({
+      last_error: error instanceof Error ? error.message : "Integration credentials need to be reconnected.",
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", integrationId);
+
+  if (updateError) {
+    console.error("Could not record integration refresh failure", updateError);
   }
 }
 
