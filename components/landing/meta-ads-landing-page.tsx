@@ -2,15 +2,25 @@
 
 import Link from "next/link";
 import type { Route } from "next";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowUp,
+  BarChart3,
+  CalendarCheck,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  MessageCircle,
   Sparkles
 } from "lucide-react";
 import { MarketingFooter } from "@/components/marketing-footer";
+import {
+  BILLING_PLANS,
+  TRIAL_CONFIG,
+  formatPrice,
+  type BillingInterval,
+  type BillingPlan
+} from "@/lib/billing/plans";
 import { getSignupHref } from "@/lib/onboarding/signup-url";
 
 type IndustryCard = {
@@ -105,6 +115,7 @@ export function MetaAdsLandingPage({ isAuthenticated = false }: { isAuthenticate
   const [canScrollNext, setCanScrollNext] = useState(false);
   const [activeEmbedTab, setActiveEmbedTab] = useState<(typeof embedTabs)[number]>("Leads");
   const [isLeadCtaVisible, setIsLeadCtaVisible] = useState(false);
+  const [pricingInterval, setPricingInterval] = useState<BillingInterval>("monthly");
   const activeEmbedTabIndex = embedTabs.indexOf(activeEmbedTab);
   const accountHref = isAuthenticated ? "/dashboard" : "/auth/sign-in";
   const accountLabel = isAuthenticated ? "Dashboard" : "Sign in";
@@ -458,7 +469,7 @@ export function MetaAdsLandingPage({ isAuthenticated = false }: { isAuthenticate
       <section className="relative bg-white px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pt-8">
         <div className="relative mx-auto mb-4 flex min-h-[calc(100svh-158px)] overflow-hidden rounded-[22px] bg-harlo-blue px-5 py-12 text-white sm:mb-6 sm:min-h-[calc(100svh-174px)] sm:rounded-[24px] sm:px-10 sm:py-16 lg:mb-8 lg:px-16 xl:px-24">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_33%,rgba(255,255,255,0.14),transparent_23%),linear-gradient(135deg,rgba(255,255,255,0.08),transparent_36%)]" />
-          <div className="relative z-10 grid w-full items-center gap-12 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.72fr)] lg:gap-10">
+          <div className="relative z-10 mx-auto grid w-full max-w-[1440px] items-center gap-12 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.72fr)] lg:gap-10">
             <div className="max-w-[860px] text-left">
               <h1 className="max-w-[820px] text-[clamp(2.75rem,12vw,4.35rem)] font-black leading-[0.92] tracking-[-0.055em] text-white sm:text-[clamp(4.9rem,7vw,7.6rem)] sm:tracking-[-0.06em] lg:text-[clamp(5.15rem,6.25vw,8rem)]">
                 <span className="block">
@@ -568,6 +579,8 @@ export function MetaAdsLandingPage({ isAuthenticated = false }: { isAuthenticate
 
       </section>
 
+      <MetaFeatureBentoSection />
+
       <section aria-labelledby="embed-agent-heading" className="border-t border-slate-200 bg-white px-5 py-16 sm:px-8 sm:py-20 lg:px-10">
         <div className="mx-auto max-w-[1180px] text-center">
           <h2 id="embed-agent-heading" className="text-[clamp(1.85rem,3vw,2.85rem)] font-black leading-none tracking-normal text-[#222222]">
@@ -619,6 +632,8 @@ export function MetaAdsLandingPage({ isAuthenticated = false }: { isAuthenticate
         </div>
       </section>
 
+      <MetaPricingSection interval={pricingInterval} onIntervalChange={setPricingInterval} signupHref={signupHref} />
+
       <section ref={leadCtaRef} aria-labelledby="never-miss-lead-heading" className="flex min-h-[520px] items-center justify-center bg-harlo-blue px-5 py-24 text-center text-white sm:min-h-[620px] sm:px-8 sm:py-32 lg:min-h-[680px] lg:px-10">
         <div className="mx-auto w-full max-w-[1120px]">
           <h2 id="never-miss-lead-heading" data-visible={isLeadCtaVisible} className="meta-lead-cta-title text-[3.15rem] font-black leading-[0.95] tracking-[-0.055em] sm:text-[clamp(3.15rem,7.2vw,6.7rem)] sm:leading-none">
@@ -636,6 +651,382 @@ export function MetaAdsLandingPage({ isAuthenticated = false }: { isAuthenticate
 
       <MarketingFooter variant="light" />
     </main>
+  );
+}
+
+function MetaPricingSection({
+  interval,
+  onIntervalChange,
+  signupHref
+}: {
+  interval: BillingInterval;
+  onIntervalChange: (interval: BillingInterval) => void;
+  signupHref: Route;
+}) {
+  return (
+    <section id="pricing" aria-labelledby="meta-pricing-heading" className="border-t border-slate-200 bg-[#f8fafc] px-5 py-16 sm:px-8 sm:py-20 lg:px-10">
+      <div className="mx-auto max-w-[1180px]">
+        <div className="mx-auto max-w-[760px] text-center">
+          <p className="text-sm font-black uppercase tracking-[0.24em] text-harlo-blue">Pricing</p>
+          <h2 id="meta-pricing-heading" className="mt-4 text-[clamp(2rem,4vw,3.65rem)] font-black leading-none tracking-normal text-[#222222]">
+            Simple plans for every website conversation.
+          </h2>
+          <p className="mx-auto mt-5 max-w-[620px] text-sm leading-6 text-[#666666] sm:text-base sm:leading-7">
+            Start with a {TRIAL_CONFIG.days}-day free trial and {TRIAL_CONFIG.credits} trial credits. Upgrade when your website traffic and follow-up workflows grow.
+          </p>
+        </div>
+
+        <fieldset className="mt-8 flex justify-center" aria-label="Billing frequency">
+          <div className="grid grid-cols-2 gap-1 rounded-full border border-slate-200 bg-white p-1 text-center text-sm font-black shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+            {[
+              { value: "monthly" as const, label: "Monthly" },
+              { value: "annual" as const, label: "Annually" }
+            ].map((option) => {
+              const isActive = interval === option.value;
+
+              return (
+                <label
+                  key={option.value}
+                  className={`relative min-w-28 cursor-pointer rounded-full px-4 py-2 transition ${isActive ? "bg-[#222222] text-white" : "text-[#666666] hover:text-[#222222]"}`}
+                >
+                  <input
+                    type="radio"
+                    name="meta-pricing-interval"
+                    value={option.value}
+                    checked={isActive}
+                    onChange={() => onIntervalChange(option.value)}
+                    className="sr-only"
+                  />
+                  {option.label}
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+
+        <div className="mt-10 grid gap-5 lg:grid-cols-3">
+          {BILLING_PLANS.map((plan) => (
+            <MetaPlanCard key={plan.key} plan={plan} interval={interval} signupHref={signupHref} />
+          ))}
+        </div>
+
+        <p className="mt-6 text-center text-sm font-semibold text-[#666666]">
+          Billed monthly or annually. Cancel anytime.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function MetaFeatureBentoSection() {
+  return (
+    <section aria-labelledby="meta-features-heading" className="border-t border-slate-200 bg-[#f8fafc] px-5 py-16 sm:px-8 sm:py-20 lg:px-10">
+      <div className="mx-auto max-w-[1180px]">
+        <div className="max-w-[720px]">
+          <p className="text-sm font-black uppercase tracking-[0.24em] text-harlo-blue">Built to convert</p>
+          <h2 id="meta-features-heading" className="mt-4 text-[clamp(2rem,4vw,3.65rem)] font-black leading-none tracking-normal text-[#222222]">
+            Everything your website needs to answer, qualify, and route leads.
+          </h2>
+          <p className="mt-5 max-w-[620px] text-sm leading-6 text-[#666666] sm:text-base sm:leading-7">
+            Harlo gives every visitor a helpful answer and gives your team the context to follow up fast.
+          </p>
+        </div>
+
+        <div className="mt-10 grid grid-cols-1 gap-4 sm:mt-14 lg:grid-cols-6">
+          <MetaBentoCard
+            eyebrow="Answers"
+            title="Instant replies from approved knowledge"
+            description="Turn website content, documents, and FAQs into accurate answers your visitors can trust."
+            className="lg:col-span-3"
+            visual={<BentoAnswerVisual />}
+          />
+          <MetaBentoCard
+            eyebrow="Lead capture"
+            title="Collect the details your team needs"
+            description="When a visitor is ready, Harlo captures contact info, service needs, and the full conversation."
+            className="lg:col-span-3"
+            visual={<BentoLeadVisual />}
+          />
+          <MetaBentoCard
+            eyebrow="Booking"
+            title="Route high-intent visitors to the next step"
+            description="Send qualified leads toward booking, scheduling, or the right handoff while intent is fresh."
+            className="lg:col-span-2"
+            visual={<BentoBookingVisual />}
+          />
+          <MetaBentoCard
+            eyebrow="Integrations"
+            title="Connect follow-up workflows"
+            description="Push captured leads into the tools your team already uses for scheduling, sales, and operations."
+            className="lg:col-span-2"
+            visual={<BentoIntegrationVisual />}
+          />
+          <MetaBentoCard
+            eyebrow="Insights"
+            title="Learn what visitors ask before they convert"
+            description="See conversation patterns and improve your website knowledge as new questions come in."
+            className="lg:col-span-2"
+            visual={<BentoInsightsVisual />}
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MetaBentoCard({
+  eyebrow,
+  title,
+  description,
+  className,
+  visual
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  className?: string;
+  visual: ReactNode;
+}) {
+  return (
+    <article className={`group relative flex h-full min-h-[500px] flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.07)] ${className ?? ""}`}>
+      <div className="relative min-h-[340px] flex-1 overflow-hidden bg-[radial-gradient(circle_at_78%_16%,rgba(9,145,168,0.16),transparent_34%),linear-gradient(135deg,#ffffff,#eefafd)] sm:min-h-[360px]">
+        {visual}
+      </div>
+      <div className="relative z-10 border-t border-slate-200 bg-white p-6 sm:p-8">
+        <h3 className="text-sm font-black uppercase tracking-[0.18em] text-harlo-blue">{eyebrow}</h3>
+        <p className="mt-2 text-xl font-black leading-tight tracking-normal text-[#222222]">{title}</p>
+        <p className="mt-3 text-sm font-semibold leading-6 text-[#666666]">{description}</p>
+      </div>
+    </article>
+  );
+}
+
+function BentoAnswerVisual() {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center px-5 py-6" aria-hidden="true">
+      <div className="w-full max-w-[470px] rounded-[24px] border border-white/80 bg-white/92 p-4 shadow-[0_28px_70px_rgba(15,23,42,0.12)] backdrop-blur sm:p-5">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-3 sm:pb-4">
+          <div className="flex items-center gap-3">
+            <span className="grid h-9 w-9 place-items-center rounded-full bg-harlo-blue text-white sm:h-10 sm:w-10">
+              <MessageCircle size={19} strokeWidth={2.4} />
+            </span>
+            <div>
+              <p className="text-sm font-black text-[#222222]">Harlo AI Agent</p>
+              <p className="text-xs font-semibold text-[#768193]">Approved knowledge</p>
+            </div>
+          </div>
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_16px_rgba(52,211,153,0.75)]" />
+        </div>
+        <div className="mt-4 space-y-3 sm:mt-5 sm:space-y-4">
+          <div className="max-w-[82%] rounded-[18px] rounded-tl-md bg-[#f1f5f9] px-4 py-2.5 text-sm font-bold leading-5 text-[#334155]">
+            Do you offer same-day appointments?
+          </div>
+          <div className="ml-auto max-w-[86%] rounded-[18px] rounded-tr-md bg-harlo-blue px-4 py-2.5 text-sm font-bold leading-5 text-white">
+            Yes. Share your zip code and I can check availability for today.
+          </div>
+          <div className="rounded-[18px] border border-harlo-blue/18 bg-harlo-mist/70 px-4 py-3">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-harlo-blue">Source matched</p>
+            <div className="mt-3 space-y-2">
+              <span className="block h-2 rounded-full bg-harlo-blue/24" />
+              <span className="block h-2 w-2/3 rounded-full bg-harlo-blue/16" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BentoLeadVisual() {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center px-5 py-6" aria-hidden="true">
+      <div className="relative w-full max-w-[460px]">
+        <div className="absolute left-0 top-8 h-28 w-28 rounded-full bg-harlo-blue/12 blur-2xl" />
+        <div className="absolute bottom-6 right-0 h-32 w-32 rounded-full bg-emerald-300/20 blur-2xl" />
+        <div className="relative rounded-[24px] border border-white/80 bg-white p-4 shadow-[0_28px_70px_rgba(15,23,42,0.12)] sm:p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-black text-[#222222]">New lead captured</p>
+              <p className="mt-1 text-xs font-semibold text-[#768193]">Emergency service request</p>
+            </div>
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-harlo-blue text-white sm:h-11 sm:w-11">
+              <CheckCircle2 size={22} strokeWidth={2.5} />
+            </span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3">
+            {["Name", "Phone", "Service", "Location"].map((item) => (
+              <div key={item} className="rounded-[16px] border border-slate-200 bg-[#f8fafc] px-3 py-2.5 sm:px-4 sm:py-3">
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#8190a3]">{item}</p>
+                <span className="mt-2 block h-2 rounded-full bg-slate-300" />
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 rounded-[18px] bg-[#031020] px-4 py-3 text-white sm:mt-4">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-sm font-black">Conversation context attached</p>
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-harlo-blue">
+                <Sparkles size={16} strokeWidth={2.5} />
+              </span>
+            </div>
+            <div className="mt-3 space-y-2">
+              <span className="block h-1.5 rounded-full bg-white/30" />
+              <span className="block h-1.5 w-4/5 rounded-full bg-white/20" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BentoBookingVisual() {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center px-5 py-8" aria-hidden="true">
+      <div className="w-full max-w-[320px] rounded-[24px] border border-white/80 bg-white p-5 shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
+        <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-harlo-mist text-harlo-blue">
+          <CalendarCheck size={31} strokeWidth={2.2} />
+        </div>
+        <div className="mt-5 rounded-[18px] border border-slate-200 p-4">
+          <p className="text-sm font-black text-[#222222]">Qualified for booking</p>
+          <div className="mt-4 space-y-3">
+            {["Need confirmed", "Area matched", "Availability offered"].map((item) => (
+              <div key={item} className="flex items-center gap-3 text-xs font-black text-[#526174]">
+                <CheckCircle2 className="h-4 w-4 text-harlo-blue" strokeWidth={2.5} />
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-[1fr_auto] items-center gap-3 rounded-[16px] bg-harlo-blue px-4 py-3 text-white">
+          <span className="text-sm font-black">Send to scheduler</span>
+          <ArrowUp size={18} strokeWidth={2.5} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BentoIntegrationVisual() {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center px-5 py-8" aria-hidden="true">
+      <div className="relative h-[245px] w-full max-w-[330px]">
+        <div className="absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full border border-harlo-blue/18" />
+        <div className="absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border border-harlo-blue/12" />
+        <div className="absolute left-1/2 top-1/2 z-10 grid h-16 w-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-white bg-white shadow-[0_14px_32px_rgba(15,23,42,0.12)]">
+          <img src="/icon.png" alt="" className="h-8 w-8 object-contain" />
+        </div>
+        {heroIntegrations.slice(0, 6).map((integration, index) => {
+          const angle = (index / 6) * Math.PI * 2 - Math.PI / 2;
+          const x = Math.cos(angle) * 122;
+          const y = Math.sin(angle) * 86;
+
+          return (
+            <div
+              key={integration.name}
+              className="absolute left-1/2 top-1/2 grid h-12 w-12 place-items-center rounded-full border border-white bg-white shadow-[0_14px_32px_rgba(15,23,42,0.12)]"
+              style={{ transform: `translate(calc(-50% + ${x.toFixed(1)}px), calc(-50% + ${y.toFixed(1)}px))` }}
+              title={integration.name}
+            >
+              <img src={integration.src} alt="" className="h-7 w-7 object-contain" />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function BentoInsightsVisual() {
+  const bars = [68, 46, 82, 58, 74];
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center px-5 py-8" aria-hidden="true">
+      <div className="w-full max-w-[330px] rounded-[24px] border border-white/80 bg-white p-5 shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-black text-[#222222]">Visitor questions</p>
+            <p className="mt-1 text-xs font-semibold text-[#768193]">This week</p>
+          </div>
+          <span className="grid h-10 w-10 place-items-center rounded-full bg-harlo-mist text-harlo-blue">
+            <BarChart3 size={21} strokeWidth={2.4} />
+          </span>
+        </div>
+        <div className="mt-7 flex h-28 items-end gap-3">
+          {bars.map((height, index) => (
+            <div key={height} className="flex flex-1 flex-col items-center gap-2">
+              <span
+                className={`w-full rounded-t-[10px] ${index === 2 ? "bg-harlo-blue" : "bg-harlo-blue/22"}`}
+                style={{ height: `${height}%` }}
+              />
+              <span className="h-1.5 w-full rounded-full bg-slate-200" />
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 rounded-[18px] bg-harlo-mist px-4 py-3">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-harlo-blue">New knowledge gap</p>
+          <span className="mt-3 block h-2 rounded-full bg-harlo-blue/24" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MetaPlanCard({
+  plan,
+  interval,
+  signupHref
+}: {
+  plan: BillingPlan;
+  interval: BillingInterval;
+  signupHref: Route;
+}) {
+  const featured = plan.key === "growth";
+  const price = interval === "annual" ? plan.annualMonthlyPrice : plan.monthlyPrice;
+  const billingNote = interval === "annual" ? "per month, billed annually" : "per month";
+
+  return (
+    <article
+      className={`flex h-full flex-col rounded-[24px] border bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] sm:p-8 ${featured
+        ? "border-harlo-blue ring-2 ring-harlo-blue/15"
+        : "border-slate-200"
+        }`}
+    >
+      <div className="flex min-h-[132px] items-start justify-between gap-4">
+        <div>
+          <h3 className="text-2xl font-black tracking-normal text-[#222222]">{plan.name}</h3>
+          <p className="mt-3 text-sm font-semibold leading-6 text-[#666666]">{plan.description}</p>
+        </div>
+        {featured ? (
+          <span className="rounded-full bg-harlo-mist px-3 py-1 text-xs font-black text-harlo-blue">
+            Popular
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-2 flex min-h-[64px] items-end gap-2">
+        <span className="text-5xl font-black tracking-normal text-[#111827]">{formatPrice(price)}</span>
+        <span className="pb-1 text-sm font-bold text-[#666666]">{billingNote}</span>
+      </div>
+
+      <Link
+        href={signupHref}
+        className={`mt-7 flex h-12 w-full items-center justify-center rounded-[14px] px-5 text-sm font-black transition hover:-translate-y-0.5 ${featured
+          ? "bg-[#222222] text-white shadow-[0_5px_0_#050505] hover:bg-[#111111]"
+          : "border border-slate-200 bg-white text-[#222222] shadow-[0_5px_0_#dbe5ea] hover:border-harlo-blue hover:text-harlo-blue"
+          }`}
+      >
+        {plan.key === TRIAL_CONFIG.convertsToPlan ? "Start free trial" : "Subscribe"}
+      </Link>
+
+      <ul className="mt-8 space-y-3">
+        {plan.features.map((feature) => (
+          <li key={feature} className="flex gap-3 text-sm font-bold leading-6 text-[#4b5563]">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-harlo-blue" strokeWidth={2.5} />
+            <span>{feature}</span>
+          </li>
+        ))}
+      </ul>
+    </article>
   );
 }
 
