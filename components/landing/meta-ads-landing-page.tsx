@@ -937,34 +937,71 @@ function BentoIntegrationVisual() {
 }
 
 function BentoInsightsVisual() {
-  const bars = [68, 46, 82, 58, 74];
+  const questionData = [
+    { label: "Pricing", value: 42, height: 50 },
+    { label: "Book", value: 31, height: 38 },
+    { label: "Hours", value: 24, height: 29 },
+    { label: "Area", value: 37, height: 44 }
+  ];
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center px-5 py-8" aria-hidden="true">
-      <div className="w-full max-w-[330px] rounded-[24px] border border-white/80 bg-white p-5 shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
+    <div className="absolute inset-0 flex items-center justify-center px-5 py-6" aria-hidden="true">
+      <div className="w-full max-w-[330px] rounded-[24px] border border-white/80 bg-white p-3 shadow-[0_24px_60px_rgba(15,23,42,0.12)] sm:p-4">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-black text-[#222222]">Visitor questions</p>
-            <p className="mt-1 text-xs font-semibold text-[#768193]">This week</p>
+            <p className="text-xs font-semibold text-[#768193]">This week</p>
           </div>
-          <span className="grid h-10 w-10 place-items-center rounded-full bg-harlo-mist text-harlo-blue">
-            <BarChart3 size={21} strokeWidth={2.4} />
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-harlo-mist text-harlo-blue">
+            <BarChart3 size={19} strokeWidth={2.4} />
           </span>
         </div>
-        <div className="mt-7 flex h-28 items-end gap-3">
-          {bars.map((height, index) => (
-            <div key={height} className="flex flex-1 flex-col items-center gap-2">
-              <span
-                className={`w-full rounded-t-[10px] ${index === 2 ? "bg-harlo-blue" : "bg-harlo-blue/22"}`}
-                style={{ height: `${height}%` }}
-              />
-              <span className="h-1.5 w-full rounded-full bg-slate-200" />
-            </div>
-          ))}
+
+        <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-3 rounded-[16px] bg-[#f8fafc] px-3 py-2.5">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#8190a3]">Answered</p>
+            <p className="mt-0.5 text-2xl font-black leading-none text-[#222222]">134</p>
+          </div>
+          <div className="rounded-full bg-harlo-mist px-3 py-1.5 text-[11px] font-black text-harlo-blue">
+            Pricing leads
+          </div>
         </div>
-        <div className="mt-5 rounded-[18px] bg-harlo-mist px-4 py-3">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-harlo-blue">New knowledge gap</p>
-          <span className="mt-3 block h-2 rounded-full bg-harlo-blue/24" />
+
+        <div className="relative mt-3 rounded-[18px] border border-slate-200 bg-white px-3 pb-3 pt-3">
+          <div className="pointer-events-none absolute inset-x-3 top-7 space-y-6">
+            <span className="block border-t border-dashed border-slate-200" />
+            <span className="block border-t border-dashed border-slate-200" />
+            <span className="block border-t border-dashed border-slate-200" />
+          </div>
+          <div className="relative flex h-16 items-end gap-2.5 sm:h-20">
+            {questionData.map((item, index) => (
+              <div key={item.label} className="flex min-w-0 flex-1 flex-col items-center">
+                <span className="mb-1 text-[11px] font-black leading-none text-[#526174]">{item.value}</span>
+                <span
+                  className="block w-full rounded-t-[10px] shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]"
+                  style={{
+                    height: `${item.height}px`,
+                    backgroundColor: index === 0 ? "#0d8faa" : "rgba(13, 143, 170, 0.28)"
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 grid grid-cols-4 gap-2">
+            {questionData.map((item) => (
+              <span key={item.label} className="truncate text-center text-[9px] font-black uppercase tracking-[0.04em] text-[#8190a3] sm:text-[10px]">
+                {item.label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-3 rounded-[16px] bg-harlo-mist px-3 py-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-harlo-blue">Knowledge gap</p>
+            <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-harlo-blue">+18%</span>
+          </div>
+          <p className="mt-1 text-xs font-bold leading-4 text-[#526174]">More visitors are asking about pricing.</p>
         </div>
       </div>
     </div>
