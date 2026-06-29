@@ -1,16 +1,33 @@
 import type { Metadata } from "next";
-import { RootHomepage } from "@/components/landing/root-homepage";
-import { homeJsonLd } from "@/lib/seo";
+import { MetaAdsLandingPage } from "@/components/landing/meta-ads-landing-page";
+import { siteConfig } from "@/lib/seo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+const title = "Harlo | Turn Website Visitors Into Leads";
+const description = "Turn website visitors into conversations, qualified leads, and warmer follow-up with Harlo's AI agent for websites.";
 
 export const metadata: Metadata = {
   title: {
-    absolute: "Harlo | AI Agent for Website Answers and Qualified Leads"
+    absolute: title
   },
-  description:
-    "Harlo is an AI website chatbot that automates customer support, answers from approved knowledge, and captures qualified leads from every website conversation.",
+  description,
   alternates: {
     canonical: "/"
+  },
+  openGraph: {
+    title,
+    description,
+    url: "/",
+    siteName: siteConfig.name,
+    images: [{ url: siteConfig.ogImage, width: 1200, height: 760, alt: "Harlo AI website chatbot product preview" }],
+    locale: "en_US",
+    type: "website"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+    images: [siteConfig.ogImage]
   }
 };
 
@@ -21,14 +38,6 @@ export default async function HomePage() {
   } = await supabase.auth.getUser();
 
   return (
-    <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(homeJsonLd())
-        }}
-      />
-      <RootHomepage isAuthenticated={Boolean(user)} />
-    </>
+    <MetaAdsLandingPage isAuthenticated={Boolean(user)} />
   );
 }

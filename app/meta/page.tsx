@@ -1,14 +1,33 @@
 import type { Metadata } from "next";
 import { MetaAdsLandingPage } from "@/components/landing/meta-ads-landing-page";
+import { siteConfig } from "@/lib/seo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+const title = "Harlo | Turn Website Visitors Into Leads";
+const description = "Turn website visitors into conversations, qualified leads, and warmer follow-up with Harlo's AI agent for websites.";
 
 export const metadata: Metadata = {
   title: {
-    absolute: "Harlo | Turn Website Visitors Into Leads"
+    absolute: title
   },
-  description: "A focused Harlo landing page for turning paid traffic into conversations, qualified leads, and warmer follow-up.",
+  description,
   alternates: {
-    canonical: "/meta"
+    canonical: "/"
+  },
+  openGraph: {
+    title,
+    description,
+    url: "/",
+    siteName: siteConfig.name,
+    images: [{ url: siteConfig.ogImage, width: 1200, height: 760, alt: "Harlo AI website chatbot product preview" }],
+    locale: "en_US",
+    type: "website"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+    images: [siteConfig.ogImage]
   },
   robots: {
     index: false,

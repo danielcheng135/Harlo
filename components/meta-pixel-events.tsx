@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { isMetaPixelEnabled, trackStartFreeTrialClick, trackViewContent } from "@/lib/meta-pixel";
 
 const viewContentPages: Record<string, string> = {
-  "/": "Harlo homepage",
+  "/": "Harlo Meta ads landing page",
   "/meta": "Harlo Meta ads landing page",
   "/slack": "Harlo Slack landing page",
   "/ai-website-chatbot": "AI website chatbot landing page",
