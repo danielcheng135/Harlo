@@ -89,6 +89,13 @@ export default function RootLayout({
             })(window, document, "clarity", "script", "xamuvy8pxh");
           `}
         </Script>
+        <Script
+          id="vtag-ai-js"
+          src="https://r2.leadsy.ai/tag.js"
+          data-pid="1qZrS5z6iLaxwxAhC"
+          data-version="062024"
+          strategy="afterInteractive"
+        />
         {metaPixelId ? (
           <Script id="meta-pixel" strategy="afterInteractive">
             {`
