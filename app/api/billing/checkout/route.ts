@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       .single(),
     service
       .from("organization_billing")
-      .select("stripe_customer_id, stripe_subscription_id, status")
+      .select("stripe_customer_id, stripe_subscription_id, status, trial_start")
       .eq("organization_id", membership.organization_id)
       .maybeSingle()
   ]);
@@ -101,12 +101,17 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  const shouldPreserveAccessStatus = billing?.status === "active" || billing?.status === "trialing";
+
   await service.from("organization_billing").upsert({
     organization_id: organization.id,
     stripe_customer_id: customerId,
-    plan_key: planKey,
-    billing_interval: interval,
-    status: "incomplete"
+    ...(shouldPreserveAccessStatus ? {} : {
+      plan_key: planKey,
+      billing_interval: interval,
+      status: "incomplete"
+    }),
+    updated_at: new Date().toISOString()
   }, {
     onConflict: "organization_id"
   });
@@ -118,6 +123,7 @@ export async function POST(request: NextRequest) {
     isNewCustomer
   });
   const cancelUrl = buildCheckoutUrl(appUrl, cancelPath, false);
+  const shouldApplyStripeTrial = planKey === TRIAL_CONFIG.convertsToPlan && billing?.status !== "trialing" && !billing?.trial_start;
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: customerId,
@@ -132,7 +138,7 @@ export async function POST(request: NextRequest) {
     success_url: successUrl,
     cancel_url: cancelUrl,
     subscription_data: {
-      ...(planKey === TRIAL_CONFIG.convertsToPlan ? { trial_period_days: TRIAL_CONFIG.days } : {}),
+      ...(shouldApplyStripeTrial ? { trial_period_days: TRIAL_CONFIG.days } : {}),
       metadata: {
         organization_id: organization.id,
         plan_key: planKey,

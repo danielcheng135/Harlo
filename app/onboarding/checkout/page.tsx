@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 import { LockKeyhole } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { CheckoutRecovery } from "@/components/onboarding/checkout-recovery";
+import { getEffectiveBillingStatus, type BillingInterval, type BillingPlanKey, type BillingStatus } from "@/lib/billing/plans";
 import { isBillingInterval, isBillingPlanKey } from "@/lib/billing/stripe";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
-import type { BillingInterval, BillingPlanKey } from "@/lib/billing/plans";
 
 export const metadata: Metadata = {
   robots: {
@@ -62,7 +62,7 @@ export default async function OnboardingCheckoutPage({ searchParams }: CheckoutP
       .maybeSingle(),
     service
       .from("organization_billing")
-      .select("plan_key, billing_interval, status")
+      .select("plan_key, billing_interval, status, trial_end, stripe_subscription_id")
       .eq("organization_id", membership.organization_id)
       .maybeSingle()
   ]);
@@ -71,38 +71,55 @@ export default async function OnboardingCheckoutPage({ searchParams }: CheckoutP
     redirect("/onboarding");
   }
 
-  if (billing?.status === "active" || billing?.status === "trialing") {
-    redirect("/dashboard?welcome=1");
+  const effectiveBillingStatus = getEffectiveBillingStatus({
+    status: normalizeBillingStatus(billing?.status),
+    trialEnd: typeof billing?.trial_end === "string" ? billing.trial_end : null,
+    stripeSubscriptionId: typeof billing?.stripe_subscription_id === "string" ? billing.stripe_subscription_id : null
+  });
+
+  if (effectiveBillingStatus === "active" || effectiveBillingStatus === "trialing") {
+    redirect("/dashboard?welcome=1&setup_intro=1");
   }
 
   const planKey = isBillingPlanKey(billing?.plan_key) ? billing.plan_key : "starter";
   const interval = isBillingInterval(billing?.billing_interval) ? billing.billing_interval : "monthly";
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#07111a] text-white">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_12%,rgba(8,127,149,0.36),transparent_32%),linear-gradient(135deg,#07111a_0%,#08131d_54%,#063f4c_100%)]" />
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:64px_64px] opacity-25" />
-      <header className="relative mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6 sm:py-7">
-        <Link href="/" aria-label="Return to Harlo home">
-          <BrandLogo tone="light" />
-        </Link>
-        <span className="inline-flex items-center gap-2 text-xs font-semibold text-white/60 sm:text-sm">
-          <LockKeyhole size={14} className="text-harlo-blue" />
-          Secure checkout
-        </span>
-      </header>
-      <CheckoutRecovery
-        organizationName={organization?.name ?? "your workspace"}
-        initialPlanKey={planKey as BillingPlanKey}
-        initialInterval={interval as BillingInterval}
-        checkoutState={params?.checkout}
-      />
-      <p className="relative pb-6 text-center text-xs leading-5 text-white/45">
-        Payments are securely processed by Stripe.{" "}
-        <Link href="/terms" className="text-white/70 underline underline-offset-4 hover:text-white">Terms</Link>
-        {" "}and{" "}
-        <Link href="/privacy" className="text-white/70 underline underline-offset-4 hover:text-white">Privacy Policy</Link>.
-      </p>
+    <main className="min-h-screen bg-white text-[#222222]">
+      <div className="mx-auto flex min-h-screen max-w-[1500px] flex-col px-5 py-5 sm:px-8 sm:py-6 lg:px-10">
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[22px] bg-harlo-blue px-5 py-5 text-white sm:rounded-[24px] sm:px-8 sm:py-6 lg:px-10 xl:px-12">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_33%,rgba(255,255,255,0.14),transparent_23%),linear-gradient(135deg,rgba(255,255,255,0.08),transparent_36%)]" />
+          <header className="relative z-10 flex items-center justify-between gap-3">
+            <Link href="/" aria-label="Return to Harlo home" className="rounded-lg px-1 py-1 transition hover:bg-white/10">
+              <BrandLogo tone="light" />
+            </Link>
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] text-harlo-blue shadow-sm sm:text-[13px]">
+              <LockKeyhole size={14} className="text-harlo-blue" />
+              Secure setup
+            </span>
+          </header>
+          <div className="relative z-10 flex flex-1 items-center py-8 lg:py-10">
+            <CheckoutRecovery
+              organizationName={organization?.name ?? "your workspace"}
+              initialPlanKey={planKey as BillingPlanKey}
+              initialInterval={interval as BillingInterval}
+              checkoutState={params?.checkout}
+            />
+          </div>
+        </div>
+        <p className="pt-2 text-center text-xs font-medium leading-5 text-slate-500">
+          Payments are securely processed by Stripe.{" "}
+          <Link href="/terms" className="font-bold text-harlo-blue underline underline-offset-4 hover:text-harlo-teal">Terms</Link>
+          {" "}and{" "}
+          <Link href="/privacy" className="font-bold text-harlo-blue underline underline-offset-4 hover:text-harlo-teal">Privacy Policy</Link>.
+        </p>
+      </div>
     </main>
   );
+}
+
+function normalizeBillingStatus(value: unknown): BillingStatus {
+  return value === "trialing" || value === "active" || value === "past_due" || value === "canceled" || value === "incomplete"
+    ? value
+    : "incomplete";
 }

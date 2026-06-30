@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  BarChart3,
-  Database,
-  LayoutDashboard,
+  ArrowRight,
+  CheckCircle2,
+  type LucideIcon,
+  MessageCircle,
   MessageSquare,
-  Settings,
   Sparkles,
   UsersRound
 } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 
 export const metadata: Metadata = {
   robots: {
@@ -19,112 +20,99 @@ export const metadata: Metadata = {
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-[#06111b] text-white lg:h-screen lg:overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(8,127,149,0.22),transparent_32%),radial-gradient(circle_at_72%_90%,rgba(8,170,190,0.48),transparent_34%),linear-gradient(135deg,#05101b_0%,#071622_50%,#075b6b_100%)]" />
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.045)_1px,transparent_1px)] bg-[size:68px_68px] opacity-20" />
+    <main className="min-h-screen bg-white text-[#031020]">
+      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
+        <div className="mx-auto flex h-[54px] max-w-[940px] items-center justify-between gap-2 px-4 sm:gap-3 sm:px-7 lg:px-9">
+          <Link
+            href="/"
+            aria-label="Harlo home"
+            className="inline-flex h-10 shrink-0 items-center rounded-lg px-2 transition hover:bg-slate-100"
+          >
+            <BrandLogo />
+          </Link>
 
-      <header className="relative z-20 mx-auto flex max-w-7xl items-center justify-center px-5 pt-8 sm:px-8 lg:absolute lg:inset-x-0 lg:justify-start lg:pt-7">
-        <Link href="/" className="inline-flex items-center gap-3 text-white">
-          <img src="/icon.png" alt="Harlo logo" className="h-10 w-10 rounded-lg object-contain sm:h-11 sm:w-11 lg:h-9 lg:w-9" />
-          <span className="text-3xl font-semibold tracking-tight sm:text-4xl lg:text-3xl">Harlo</span>
-        </Link>
+          <div className="flex items-center gap-1.5">
+            <Link
+              href="/docs"
+              className="inline-flex h-8 items-center justify-center rounded-md px-2.5 text-[13px] font-light text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 sm:px-3"
+            >
+              Docs
+            </Link>
+            <Link
+              href="/"
+              className="inline-flex h-8 items-center justify-center rounded-md px-2.5 text-[13px] font-light text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 sm:px-3"
+            >
+              Home
+            </Link>
+          </div>
+        </div>
       </header>
 
-      <div className="relative z-10 mx-auto grid min-h-[calc(100vh-88px)] max-w-7xl items-center gap-10 px-5 pb-8 pt-8 sm:px-8 lg:min-h-screen lg:grid-cols-[0.86fr_1.14fr] lg:gap-10 lg:pb-5 lg:pt-20 xl:gap-14">
-        <section className="flex justify-center lg:justify-start">{children}</section>
-        <AuthShowcase />
-      </div>
+      <section className="bg-white px-4 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-6 lg:px-8 lg:pb-8 lg:pt-8">
+        <div className="relative mx-auto flex min-h-[calc(100svh-86px)] overflow-hidden rounded-[22px] bg-harlo-blue px-5 py-8 text-white sm:min-h-[calc(100svh-102px)] sm:rounded-[24px] sm:px-10 sm:py-10 lg:min-h-[calc(100svh-119px)] lg:px-16 xl:px-20">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_33%,rgba(255,255,255,0.14),transparent_23%),linear-gradient(135deg,rgba(255,255,255,0.08),transparent_36%)]" />
+          <div className="relative z-10 mx-auto grid w-full max-w-[1440px] items-center gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(380px,0.72fr)] lg:gap-12">
+            <AuthShowcase />
+            <section className="flex min-w-0 justify-center lg:justify-end">{children}</section>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
 
 function AuthShowcase() {
-  const recent = [
-    { initials: "AJ", name: "Alex Johnson", message: "I need pricing and a callback.", status: "Captured", time: "Just now" },
-    { initials: "SM", name: "Sarah Miller", message: "How does onboarding work?", status: "Captured", time: "2m ago" },
-    { initials: "VL", name: "Visitor", message: "Do you integrate with HubSpot?", status: "In progress", time: "5m ago" }
-  ];
-
   return (
-    <aside className="hidden min-w-0 lg:block">
-      <div className="mb-5 max-w-2xl">
-        <h2 className="text-[2.7rem] font-semibold leading-[1.06] tracking-tight xl:text-5xl">
-          Turn website visitors
-          <span className="block">into <span className="text-harlo-blue">qualified leads.</span></span>
-        </h2>
-        <p className="mt-4 max-w-xl text-base leading-7 text-slate-200">
-          Harlo learns your site, answers instantly, and captures intent so your team can focus on what matters.
-        </p>
+    <aside className="min-w-0">
+      <span className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-xs font-black uppercase tracking-[0.16em] text-harlo-blue">
+        <Sparkles size={14} />
+        Website AI agent
+      </span>
+      <h1 className="mt-6 max-w-[760px] text-5xl font-black leading-[0.94] tracking-[-0.055em] text-white sm:text-6xl xl:text-7xl">
+        Start turning visitors into{" "}
+        <span className="inline-block rounded-[13px] bg-white px-[0.12em] pb-[0.04em] text-harlo-blue sm:rounded-[16px]">qualified leads.</span>
+      </h1>
+      <p className="mt-6 max-w-[640px] text-lg leading-7 text-white/92 sm:text-xl sm:leading-8">
+        Sign in to manage Harlo, or create an account to launch a no-card trial in minutes.
+      </p>
+
+      <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm font-medium text-white/88 sm:text-base">
+        {["14-day free trial", "50 trial credits", "Cancel anytime"].map((item) => (
+          <span key={item} className="inline-flex items-center gap-1.5">
+            <CheckCircle2 size={18} strokeWidth={2.4} />
+            {item}
+          </span>
+        ))}
       </div>
 
-      <div className="relative max-w-[670px] shadow-[0_32px_110px_rgba(0,0,0,0.34)]">
-        <div className="absolute -right-7 -top-7 h-28 w-28 rounded-full bg-harlo-blue/20 blur-2xl" />
-        <div className="relative grid grid-cols-[210px_minmax(0,1fr)] overflow-hidden rounded-lg border border-white/10 bg-[#071623]/88">
-          <div className="min-w-0 border-r border-white/10 bg-white/[0.04] p-4">
-            <Sparkles size={22} className="text-white" />
-            <nav className="mt-5 space-y-1.5 text-sm text-slate-200">
-              <PreviewNavItem icon={<LayoutDashboard size={16} strokeWidth={2.1} />} label="Overview" active />
-              <PreviewNavItem icon={<MessageSquare size={16} strokeWidth={2.3} />} label="Conversations" badge="83" />
-              <PreviewNavItem icon={<UsersRound size={16} strokeWidth={2.1} />} label="Leads" badge="32" />
-              <PreviewNavItem icon={<Database size={16} strokeWidth={2.1} />} label="Knowledge" />
-              <PreviewNavItem icon={<BarChart3 size={16} strokeWidth={2.1} />} label="Analytics" />
-              <PreviewNavItem icon={<Settings size={16} strokeWidth={2.1} />} label="Settings" />
-            </nav>
+      <div className="mt-9 hidden max-w-[620px] overflow-hidden rounded-[22px] border border-white/35 bg-white shadow-[0_24px_80px_rgba(3,16,32,0.22)] md:block">
+        <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-[#ff6b6b]" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[#f6c453]" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[#4fc98b]" />
           </div>
-
-          <div className="min-w-0 space-y-2.5 p-4">
-            <div className="rounded-lg bg-white p-3.5 text-harlo-ink shadow-sm">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-sm font-semibold">Lead captured</div>
-                  <div className="mt-2 flex items-center gap-3">
-                    <span className="grid h-8 w-8 place-items-center rounded-full bg-harlo-mist text-xs font-bold text-harlo-teal">AJ</span>
-                    <div>
-                      <p className="text-sm font-semibold">Alex Johnson</p>
-                      <p className="text-xs text-harlo-muted">alex@acme.com <span className="mx-1">-</span> Pricing</p>
-                    </div>
-                  </div>
-                  <p className="mt-2 text-sm font-semibold text-harlo-teal">View lead -&gt;</p>
-                </div>
-                <div className="text-right">
-                  <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">New lead</span>
-                  <p className="mt-3 text-xs text-harlo-muted">Just now</p>
-                </div>
+          <span className="text-xs font-semibold text-slate-400">dashboard.harloai.co</span>
+        </div>
+        <div className="grid gap-4 p-5 text-[#031020] sm:grid-cols-[0.9fr_1fr]">
+          <div className="rounded-[18px] bg-[#f8fafc] p-4">
+            <div className="flex items-center gap-3">
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-harlo-mist text-harlo-blue">
+                <MessageCircle size={18} />
+              </span>
+              <div>
+                <p className="text-sm font-black">Questions answered</p>
+                <p className="text-xs text-slate-500">Without human help</p>
               </div>
             </div>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              <MetricCard title="Conversations" value="2.4K" caption="Handled this month" />
-              <div className="rounded-lg bg-white p-3.5 text-harlo-ink shadow-sm">
-                <p className="text-sm font-semibold">Answered</p>
-                <p className="mt-2 text-3xl font-semibold tracking-tight">84%</p>
-                <p className="text-xs text-harlo-muted">Without human help</p>
-                <div className="mt-3 flex justify-center">
-                  <div className="grid h-14 w-14 place-items-center rounded-full border-[7px] border-harlo-teal border-t-harlo-mist text-xs font-bold">84%</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-lg bg-white p-3.5 text-harlo-ink shadow-sm">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">Recent conversations</p>
-                <p className="text-sm font-semibold text-harlo-teal">View all -&gt;</p>
-              </div>
-              <div className="mt-2.5 space-y-1.5">
-                {recent.map((item) => (
-                  <div key={item.name} className="grid grid-cols-[32px_1fr_auto] items-center gap-3">
-                    <span className="grid h-8 w-8 place-items-center rounded-full bg-harlo-teal text-xs font-bold text-white">{item.initials}</span>
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-semibold">{item.name}</p>
-                      <p className="truncate text-xs text-harlo-muted">{item.message}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">{item.status}</span>
-                      <p className="mt-1 text-[10px] text-harlo-muted">{item.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <p className="mt-5 text-4xl font-black tracking-[-0.05em]">84%</p>
+          </div>
+          <div className="grid gap-3">
+            <PreviewRow icon={MessageSquare} title="Conversation captured" body="Do you offer a free trial?" />
+            <PreviewRow icon={UsersRound} title="Lead ready" body="Name, email, and context saved." />
+            <div className="flex items-center justify-between rounded-[16px] bg-harlo-blue px-4 py-3 text-sm font-bold text-white">
+              Open dashboard
+              <ArrowRight size={16} />
             </div>
           </div>
         </div>
@@ -133,28 +121,15 @@ function AuthShowcase() {
   );
 }
 
-function PreviewNavItem({ icon, label, active, badge }: { icon: React.ReactNode; label: string; active?: boolean; badge?: string }) {
+function PreviewRow({ icon: Icon, title, body }: { icon: LucideIcon; title: string; body: string }) {
   return (
-    <div className={`flex min-w-0 items-center justify-between gap-5 rounded-md px-3 py-1.5 ${active ? "bg-white/12 text-white" : "text-slate-300"}`}>
-      <span className="flex min-w-0 items-center gap-2">
-        <span className="grid h-4 w-4 shrink-0 place-items-center">{icon}</span>
-        <span className="whitespace-nowrap">{label}</span>
+    <div className="flex items-center gap-3 rounded-[16px] border border-slate-200 bg-white p-3">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-harlo-mist text-harlo-blue">
+        <Icon size={16} />
       </span>
-      {badge ? <span className="shrink-0 rounded-full bg-harlo-teal px-1.5 py-0.5 text-[10px] font-bold text-white">{badge}</span> : null}
-    </div>
-  );
-}
-
-function MetricCard({ title, value, caption }: { title: string; value: string; caption: string }) {
-  return (
-    <div className="rounded-lg bg-white p-3.5 text-harlo-ink shadow-sm">
-      <p className="text-sm font-semibold">{title}</p>
-      <p className="mt-4 text-3xl font-semibold tracking-tight">{value}</p>
-      <p className="text-xs text-harlo-muted">{caption}</p>
-      <div className="mt-3 flex items-end gap-1.5 text-harlo-teal">
-        {[18, 28, 20, 34, 27, 39, 31, 46].map((height, index) => (
-          <span key={index} style={{ height }} className="w-4 rounded-t-sm bg-current opacity-80" />
-        ))}
+      <div className="min-w-0">
+        <p className="truncate text-sm font-black">{title}</p>
+        <p className="truncate text-xs text-slate-500">{body}</p>
       </div>
     </div>
   );

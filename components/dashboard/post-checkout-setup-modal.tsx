@@ -45,7 +45,11 @@ const steps = [
 export function PostCheckoutSetupModal({ organizationId, enabled, hasSeen }: PostCheckoutSetupModalProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const shouldOpen = enabled && !hasSeen && searchParams.get("post_checkout_setup") === "1";
+  const setupIntroRequested =
+    searchParams.get("setup_intro") === "1" ||
+    searchParams.get("post_checkout_setup") === "1" ||
+    searchParams.get("welcome") === "1";
+  const shouldOpen = enabled && !hasSeen && setupIntroRequested;
   const [isOpen, setIsOpen] = useState(shouldOpen);
   const [activeStep, setActiveStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -114,20 +118,20 @@ export function PostCheckoutSetupModal({ organizationId, enabled, hasSeen }: Pos
         aria-labelledby="post-checkout-setup-title"
         className="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-white/15 bg-white shadow-[0_28px_90px_rgba(1,15,20,0.38)]"
       >
-        <div className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_20%_20%,rgba(9,155,180,0.28),transparent_34%),linear-gradient(135deg,#032832,#075566)]" />
+        <div className="absolute inset-x-0 top-0 h-32 bg-harlo-blue" />
         <div className="relative p-5 sm:p-7">
           <div className="rounded-2xl border border-white/15 bg-[#031820] p-5 text-white shadow-xl shadow-harlo-teal/10 sm:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">
                   <CheckCircle2 size={14} />
-                  Checkout complete
+                  Workspace ready
                 </p>
                 <h2 id="post-checkout-setup-title" className="mt-4 max-w-xl text-3xl font-bold tracking-tight sm:text-4xl">
                   You are almost ready to launch.
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-white/70 sm:text-base">
-                  Your AI agent and starter knowledge are already set up. The only remaining step is installing the widget on your website.
+                  Your AI agent, trial, and starter knowledge are already set up. The only remaining step is installing the widget on your website.
                 </p>
               </div>
               <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-harlo-teal to-cyan-400 text-white shadow-lg shadow-harlo-teal/25">
@@ -150,25 +154,25 @@ export function PostCheckoutSetupModal({ organizationId, enabled, hasSeen }: Pos
                   className={cn(
                     "rounded-xl border p-4 text-left transition",
                     isActive
-                      ? "border-harlo-teal bg-harlo-mist shadow-sm shadow-harlo-teal/15"
-                      : "border-harlo-line bg-white hover:border-harlo-teal/60 hover:bg-cyan-50/50"
+                      ? "border-harlo-blue bg-harlo-mist shadow-sm shadow-harlo-blue/15"
+                      : "border-harlo-line bg-white hover:border-harlo-blue/60 hover:bg-cyan-50/50"
                   )}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <span className={cn(
                       "grid h-10 w-10 place-items-center rounded-xl",
-                      index < 2 || isActive || isDone ? "bg-harlo-teal text-white" : "bg-slate-100 text-harlo-muted"
+                      index < 2 || isActive || isDone ? "bg-harlo-blue text-white" : "bg-slate-100 text-harlo-muted"
                     )}>
                       {index < 2 || isDone ? <CheckCircle2 size={18} /> : <Icon size={18} />}
                     </span>
                     <span className={cn(
                       "rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em]",
-                      index < 2 ? "bg-emerald-50 text-emerald-700" : "bg-cyan-50 text-harlo-teal"
+                      index < 2 ? "bg-emerald-50 text-emerald-700" : "bg-cyan-50 text-harlo-blue"
                     )}>
                       {step.status}
                     </span>
                   </div>
-                  <p className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-harlo-teal">{step.eyebrow}</p>
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-harlo-blue">{step.eyebrow}</p>
                   <p className="mt-1 text-base font-semibold text-harlo-ink">{step.title}</p>
                 </button>
               );
@@ -178,12 +182,12 @@ export function PostCheckoutSetupModal({ organizationId, enabled, hasSeen }: Pos
           <div className="mt-5 rounded-2xl border border-harlo-line bg-gradient-to-br from-white via-white to-cyan-50/70 p-5 sm:p-6">
             <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-center">
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-harlo-teal">{currentStep.eyebrow}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-harlo-blue">{currentStep.eyebrow}</p>
                 <h3 className="mt-2 text-2xl font-bold tracking-tight text-harlo-ink">{currentStep.title}</h3>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-harlo-muted">{currentStep.description}</p>
                 <p className="mt-4 rounded-xl border border-harlo-line bg-white px-4 py-3 text-sm font-medium text-harlo-ink shadow-sm">
                   {activeStep < 2 ? "Already completed. You can revisit it any time at " : "Next destination: "}
-                  <span className="text-harlo-teal">{currentStep.href}</span>.
+                  <span className="text-harlo-blue">{currentStep.href}</span>.
                 </p>
               </div>
               <StepVisual type={currentStep.visual} />
@@ -196,7 +200,7 @@ export function PostCheckoutSetupModal({ organizationId, enabled, hasSeen }: Pos
 
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs leading-5 text-harlo-muted">
-              This intro appears once after checkout. Completing it sends you to Widget install.
+              This intro appears once after setup. Completing it sends you to Widget install.
             </p>
             <Button
               type="button"
@@ -220,7 +224,7 @@ function StepVisual({ type }: { type: string }) {
     return (
       <div className="overflow-hidden rounded-2xl border border-harlo-line bg-white p-4 shadow-sm">
         <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-harlo-teal text-white">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-harlo-blue text-white">
             <WandSparkles size={18} />
           </span>
           <div>
@@ -232,7 +236,7 @@ function StepVisual({ type }: { type: string }) {
           {["Greeting", "Lead questions", "Brand color"].map((item, index) => (
             <div key={item} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
               <span className="text-xs font-semibold text-harlo-muted">{item}</span>
-              <span className={cn("h-2 rounded-full", index === 0 ? "w-16 bg-harlo-teal" : index === 1 ? "w-20 bg-cyan-400" : "w-12 bg-slate-300")} />
+              <span className={cn("h-2 rounded-full", index === 0 ? "w-16 bg-harlo-blue" : index === 1 ? "w-20 bg-cyan-400" : "w-12 bg-slate-300")} />
             </div>
           ))}
         </div>
@@ -244,14 +248,14 @@ function StepVisual({ type }: { type: string }) {
     return (
       <div className="overflow-hidden rounded-2xl border border-harlo-line bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#032832] text-cyan-200">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-harlo-blue text-white">
             <BookOpenText size={18} />
           </span>
           <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">Synced</span>
         </div>
         <div className="mt-4 rounded-xl bg-harlo-mist p-3">
           <div className="flex items-center gap-2 text-xs font-bold text-harlo-ink">
-            <Globe2 size={14} className="text-harlo-teal" />
+            <Globe2 size={14} className="text-harlo-blue" />
             Website knowledge
           </div>
           <div className="mt-3 space-y-2">
@@ -281,7 +285,7 @@ function StepVisual({ type }: { type: string }) {
         <p>&gt;&lt;/script&gt;</p>
       </div>
       <div className="mt-3 flex items-center gap-2 rounded-xl border border-cyan-100 bg-cyan-50 px-3 py-2 text-xs font-semibold text-harlo-ink">
-        <MousePointerClick size={14} className="text-harlo-teal" />
+        <MousePointerClick size={14} className="text-harlo-blue" />
         Copy, paste, launch
       </div>
     </div>

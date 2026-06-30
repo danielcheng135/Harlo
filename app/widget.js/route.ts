@@ -9,6 +9,8 @@ export function GET(request: NextRequest) {
   var organizationId = currentScript && (currentScript.getAttribute("data-harlo-organization") || currentScript.getAttribute("data-harlo-org"));
   var pageUrlOverride = currentScript && currentScript.getAttribute("data-harlo-page-url");
   var suppressGreetingNudge = currentScript && currentScript.getAttribute("data-harlo-hide-greeting") === "true";
+  var greetingOverride = currentScript && currentScript.getAttribute("data-harlo-greeting");
+  var promptOverrides = parsePromptOverrides(currentScript && currentScript.getAttribute("data-harlo-prompts"));
   if ((!botId && !organizationId) || document.getElementById("harlo-widget-root")) return;
   var baseUrl = new URL(currentScript.src).origin;
   var greetingNudgeScope = organizationId ? "organization:" + organizationId : "bot:" + botId;
@@ -56,6 +58,22 @@ export function GET(request: NextRequest) {
 
   function getCurrentPageUrl() {
     return pageUrlOverride || window.location.href;
+  }
+
+  function parsePromptOverrides(value) {
+    if (!value) return [];
+
+    try {
+      var parsed = JSON.parse(value);
+      if (!Array.isArray(parsed)) return [];
+
+      return parsed
+        .filter(function (prompt) { return typeof prompt === "string" && prompt.trim(); })
+        .map(function (prompt) { return prompt.trim(); })
+        .slice(0, 4);
+    } catch (error) {
+      return [];
+    }
   }
 
   function trackHostMetaPixelEvent(eventName, params) {
@@ -115,7 +133,7 @@ export function GET(request: NextRequest) {
     ".harlo-message[data-kind=integration-actions]{display:block;width:100%;max-width:100%;padding:0;background:transparent;border:0;box-shadow:none}.harlo-action-stack{display:grid;gap:10px}.harlo-action-card{overflow:hidden;border:1px solid color-mix(in srgb,var(--harlo-accent,#087f95) 22%,#dbe5ea);border-radius:18px;background:#fff;box-shadow:none}.harlo-action-head{display:flex;gap:11px;padding:15px 15px 12px}.harlo-action-icon{width:36px;height:36px;flex:0 0 36px;border-radius:13px;display:grid;place-items:center;background:color-mix(in srgb,var(--harlo-accent,#087f95) 10%,#fff);color:var(--harlo-accent,#087f95)}.harlo-action-icon .harlo-icon{width:18px;height:18px;stroke-width:2.25}.harlo-action-title{font-size:14px;font-weight:850;color:#111827;letter-spacing:0}.harlo-action-copy{margin:3px 0 0;color:#5f6876;font-size:12.5px;line-height:1.45}.harlo-action-footer{display:grid;gap:8px;padding:0 15px 15px}.harlo-action-button{width:100%;min-height:44px;border:0;border-radius:14px;background:linear-gradient(135deg,var(--harlo-accent,#087f95),color-mix(in srgb,var(--harlo-accent,#087f95) 82%,#111827));color:var(--harlo-accent-text,#fff);font-size:14px;font-weight:850;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;box-shadow:0 14px 28px color-mix(in srgb,var(--harlo-accent,#087f95) 18%,transparent);transition:transform .16s ease,box-shadow .16s ease}.harlo-action-button:hover{transform:translateY(-1px);box-shadow:0 18px 32px color-mix(in srgb,var(--harlo-accent,#087f95) 22%,transparent)}.harlo-action-button .harlo-icon{width:16px;height:16px}.harlo-action-button:disabled{cursor:wait;opacity:.7;transform:none}.harlo-action-note{margin:0;text-align:center;color:#7c8986;font-size:11px;line-height:1.35}.harlo-booking-options{display:grid;gap:8px;padding:0 14px 10px}.harlo-booking-option{width:100%;min-height:58px;border:1px solid #dbe5ea;border-radius:14px;background:#fff;color:#111827;padding:10px 11px;display:flex;align-items:center;gap:10px;text-align:left;cursor:pointer;transition:border-color .16s ease,background .16s ease,transform .16s ease,box-shadow .16s ease}.harlo-booking-option:hover{border-color:var(--harlo-accent,#087f95);background:color-mix(in srgb,var(--harlo-accent,#087f95) 5%,#fff);box-shadow:0 8px 20px rgba(15,23,42,.06);transform:translateY(-1px)}.harlo-booking-option:disabled{cursor:wait;opacity:.7;transform:none}.harlo-booking-logo{width:28px;height:28px;flex:0 0 28px;display:grid;place-items:center}.harlo-booking-logo img{max-width:100%;max-height:100%;object-fit:contain}.harlo-booking-copy{min-width:0;flex:1}.harlo-booking-name{display:block;font-size:13px;font-weight:850;color:#111827;line-height:1.25;letter-spacing:0;white-space:normal}.harlo-booking-meta{display:block;margin-top:5px;color:#657386;font-size:11.5px;font-weight:700;line-height:1.25}.harlo-booking-chevron{width:18px;height:18px;flex:0 0 18px;color:#7c8986}.harlo-slot-list{display:grid;gap:8px;padding:0 15px 14px}.harlo-slot-button{width:100%;min-height:42px;border:1px solid #dbe5ea;border-radius:13px;background:#fbfdff;color:#111827;text-align:left;padding:9px 11px;font-size:13px;font-weight:800;cursor:pointer;transition:border-color .16s ease,background .16s ease,color .16s ease}.harlo-slot-button:hover,.harlo-slot-button[data-selected=true]{border-color:var(--harlo-accent,#087f95);background:color-mix(in srgb,var(--harlo-accent,#087f95) 8%,#fff);color:var(--harlo-accent,#087f95)}.harlo-book-form{display:none;gap:9px;padding:0 15px 15px}.harlo-action-card[data-selected=true] .harlo-book-form{display:grid}.harlo-book-input{width:100%;min-height:40px;border:1px solid #dbe5ea;border-radius:12px;background:#fbfdff;color:#111827;font:inherit;font-size:13px;padding:9px 10px;outline:none}.harlo-book-input:focus{border-color:var(--harlo-accent,#087f95);box-shadow:0 0 0 3px color-mix(in srgb,var(--harlo-accent,#087f95) 12%,transparent)}.harlo-book-status{min-height:17px;color:#5f6876;font-size:11px;font-weight:700;text-align:center}.harlo-book-status[data-error=true]{color:#dc2626}.harlo-book-links{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}.harlo-book-links a{color:var(--harlo-accent,#087f95);font-size:12px;font-weight:800;text-decoration:none}",
     ".harlo-scheduler-modal{position:fixed;inset:0;z-index:2147483646;background:rgba(15,23,42,.56);display:grid;place-items:center;padding:24px}.harlo-scheduler-dialog{position:relative;width:min(1060px,calc(100vw - 48px));height:min(760px,calc(100vh - 48px));border-radius:20px;overflow:hidden;background:#fff;box-shadow:0 32px 90px rgba(15,23,42,.35)}.harlo-scheduler-frame{width:100%;height:100%;border:0;background:#fff}.harlo-scheduler-close{position:absolute;right:12px;top:12px;width:38px;height:38px;border:0;border-radius:999px;background:rgba(17,24,39,.82);color:#fff;display:grid;place-items:center;cursor:pointer;z-index:2}.harlo-scheduler-close .harlo-icon{width:19px;height:19px}@media(max-width:768px){.harlo-scheduler-modal{padding:0}.harlo-scheduler-dialog{width:100vw;height:100vh;height:100dvh;border-radius:0}}",
     ".harlo-message-time{font-size:11px;font-weight:500;color:#7c8986;margin-top:5px}.harlo-entry[data-role=assistant] .harlo-message-time{margin-left:0}.harlo-entry[data-kind=integration-actions] .harlo-message-time{margin-left:0}.harlo-entry[data-role=user] .harlo-message-time{text-align:right;margin-right:2px}.harlo-typing{display:flex;align-items:center;gap:4px;min-width:34px;height:20px}.harlo-typing span{width:6px;height:6px;border-radius:999px;background:var(--harlo-accent,#087f95);opacity:.35;animation:harloTyping 1s infinite ease-in-out}.harlo-typing span:nth-child(2){animation-delay:.14s}.harlo-typing span:nth-child(3){animation-delay:.28s}@keyframes harloTyping{0%,80%,100%{transform:translateY(0);opacity:.35}40%{transform:translateY(-3px);opacity:1}}.harlo-message p{margin:0 0 8px}.harlo-message p:last-child{margin-bottom:0}.harlo-message strong{font-weight:750}.harlo-message ul{display:block;list-style-type:disc!important;list-style-position:outside!important;margin:7px 0 0 0!important;padding-left:22px!important}.harlo-message li{display:list-item!important;list-style-type:disc!important;margin:3px 0;padding-left:2px}.harlo-message li::marker{color:#c4c4c7}",
-    ".harlo-suggestions{display:none;width:100%;background:#fff;padding:0 18px 4px}.harlo-suggestions[data-visible=true]{display:block}.harlo-suggestion-stack{display:flex;flex-direction:column;align-items:flex-end;gap:10px;width:100%;margin:0;padding:12px 0 5px}.harlo-suggestion-row{display:flex;justify-content:flex-end;align-items:center;gap:10px;width:auto;max-width:100%;min-width:0}.harlo-prompt{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:auto;max-width:100%;min-height:40px;border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:11px 16px;font-size:14px;font-weight:600;line-height:1.3;color:#1f2937;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.04);transition:border-color .16s ease,color .16s ease,background .16s ease,box-shadow .16s ease,transform .16s ease}.harlo-prompt:hover{border-color:var(--harlo-accent,#087f95);background:var(--harlo-accent,#087f95);color:var(--harlo-accent-text,#fff);box-shadow:0 3px 8px rgba(15,23,42,.06);transform:translateY(-1px)}.harlo-meta{font-size:11px;color:#5f6876;margin-top:8px}",
+    ".harlo-suggestions{display:none;width:100%;background:#fff;padding:0 18px 4px;overflow:hidden}.harlo-suggestions[data-visible=true]{display:block}.harlo-suggestion-stack{display:flex;flex-direction:column;align-items:flex-end;gap:10px;width:100%;min-width:0;margin:0;padding:12px 0 5px}.harlo-suggestion-row{display:flex;justify-content:flex-end;align-items:center;gap:10px;width:100%;max-width:100%;min-width:0}.harlo-prompt{display:inline-flex;align-items:center;justify-content:center;flex:0 1 auto;width:auto;max-width:100%;min-width:0;min-height:40px;border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:11px 16px;font-size:14px;font-weight:600;line-height:1.3;color:#1f2937;text-align:center;white-space:normal;overflow-wrap:anywhere;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.04);transition:border-color .16s ease,color .16s ease,background .16s ease,box-shadow .16s ease,transform .16s ease}.harlo-prompt:hover{border-color:var(--harlo-accent,#087f95);background:var(--harlo-accent,#087f95);color:var(--harlo-accent-text,#fff);box-shadow:0 3px 8px rgba(15,23,42,.06);transform:translateY(-1px)}.harlo-meta{font-size:11px;color:#5f6876;margin-top:8px}",
     ".harlo-powered{display:flex;justify-content:center;padding:8px 18px;background:#fff}.harlo-powered-link{display:inline-flex;align-items:center;gap:6px;color:#A1A1A1;font-size:12px;font-weight:400;text-decoration:none}.harlo-powered-link:hover{color:#A1A1A1}.harlo-powered-logo{display:grid;width:17px;height:17px;place-items:center;border-radius:4px;background:#A1A1A1;color:#fff}.harlo-powered-logo .harlo-icon{width:10px;height:10px;stroke:currentColor;stroke-width:2.2}.harlo-powered-link strong{font-weight:500;color:inherit}.harlo-input{position:relative;display:flex;padding:6px 18px 16px;background:#fff}.harlo-input input{width:100%;min-width:0;min-height:45px;border:1px solid #e4e4e7;border-radius:999px;padding:10px 45px 10px 15px;font-size:13.5px;outline:none;background:#fff;box-shadow:0 4px 14px rgba(15,23,42,.09);transition:border-color .16s ease,box-shadow .16s ease}.harlo-input input:focus{border-color:var(--harlo-accent,#087f95);background:#fff;box-shadow:0 4px 14px rgba(15,23,42,.09)}.harlo-input button{position:absolute;right:28px;top:14.5px;width:28px;height:28px;display:grid;place-items:center;border:0;border-radius:999px;background:linear-gradient(135deg,var(--harlo-accent,#087f95),color-mix(in srgb,var(--harlo-accent,#087f95) 82%,#111827));color:white;padding:0;cursor:pointer;box-shadow:none;transition:transform .16s ease,filter .16s ease}.harlo-input button:hover{transform:translateY(-1px);filter:brightness(.98)}.harlo-input button .harlo-icon{width:14px;height:14px}.harlo-input button:disabled{opacity:.6;cursor:wait;transform:none}",
     "@media(max-width:768px){.harlo-launcher{right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));width:56px;height:56px}.harlo-launcher .harlo-icon{width:30px;height:30px}.harlo-nudge{left:auto;right:max(16px,env(safe-area-inset-right));bottom:88px;width:fit-content;max-width:min(330px,calc(100vw - 96px));padding:12px 14px;border-radius:16px}.harlo-nudge-text{font-size:14px;line-height:1.38}.harlo-nudge-close{right:-7px;top:-7px}.harlo-nudge[data-side=right]:after{right:42px}.harlo-nudge[data-side=left]:after{left:42px}.harlo-panel{inset:0;width:100vw;height:100vh;height:100dvh;max-height:none;border:0;border-radius:0;box-shadow:none}.harlo-panel[data-open=true]{animation:harloPanelSheetIn .2s ease-out}.harlo-panel[data-open=true]~.harlo-launcher{display:none}.harlo-head{min-height:62px;padding:calc(13px + env(safe-area-inset-top)) 18px 13px}.harlo-mark{width:34px;height:34px;border-radius:999px}.harlo-close{width:32px;height:32px}.harlo-body{padding:14px;font-size:14px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}.harlo-entry[data-continued=true]{margin-left:0}.harlo-assistant-row{max-width:100%}.harlo-message{max-width:90%;padding:11px 12px;border-radius:15px}.harlo-entry[data-role=assistant] .harlo-message-time{margin-left:0}.harlo-entry[data-kind=integration-actions] .harlo-message-time{margin-left:0}.harlo-suggestions{padding:0 16px 4px}.harlo-powered{padding:8px 16px}.harlo-input{padding:6px 16px max(15px,calc(env(safe-area-inset-bottom) + 3px))}.harlo-input input{font-size:16px;padding:10px 43px 10px 15px}.harlo-input button{right:26px;top:14.5px;width:28px;height:28px}}@keyframes harloPanelSheetIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}"
   ].join("");
@@ -485,10 +503,10 @@ export function GET(request: NextRequest) {
             return "What is " + getBusinessLabel() + "?";
           }
           return trimmed.toLowerCase() === "i want to book a demo" ? "Can I book a demo?" : prompt;
-        })
+      })
       : [];
     var promptsToShow = config && messages.length === 1
-      ? (configuredPrompts.length ? configuredPrompts : defaultPrompts)
+      ? (promptOverrides.length ? promptOverrides : configuredPrompts.length ? configuredPrompts : defaultPrompts)
       : [];
     promptsToShow = promptsToShow.slice(0, 4);
 
@@ -501,7 +519,7 @@ export function GET(request: NextRequest) {
     var prompts = document.createElement("div");
     prompts.className = "harlo-suggestion-stack";
     prompts.setAttribute("aria-label", "Suggested questions");
-    buildSuggestionRows(promptsToShow).forEach(function (row) {
+    buildSuggestionRows(promptsToShow, promptOverrides.length > 0).forEach(function (row) {
       var rowElement = document.createElement("div");
       rowElement.className = "harlo-suggestion-row";
       rowElement.setAttribute("data-row-size", row.length > 1 ? "pair" : "single");
@@ -520,7 +538,7 @@ export function GET(request: NextRequest) {
     suggestions.appendChild(prompts);
   }
 
-  function buildSuggestionRows(promptsForRows) {
+  function buildSuggestionRows(promptsForRows, preferSingleRows) {
     var ordered = promptsForRows
       .map(function (prompt, index) {
         var text = String(prompt || "").trim();
@@ -537,7 +555,7 @@ export function GET(request: NextRequest) {
       })
       .map(function (item) { return item.text; });
 
-    if (ordered.length <= 2) {
+    if (preferSingleRows || ordered.length <= 2) {
       return ordered.map(function (prompt) { return [prompt]; });
     }
 
@@ -1420,7 +1438,7 @@ export function GET(request: NextRequest) {
       renderBrandMark(mark);
       setLauncherPosition(getStoredLauncherPosition() || config.theme.launcherPosition);
       if (powered && config.removeBranding) powered.style.display = "none";
-      greetingMessage = config.greeting || defaultGreetingMessage();
+      greetingMessage = greetingOverride || config.greeting || defaultGreetingMessage();
       addMessage("assistant", greetingMessage);
       revealWidget();
       if (!suppressGreetingNudge) scheduleGreetingNudge(greetingMessage);

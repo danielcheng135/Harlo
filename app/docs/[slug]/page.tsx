@@ -59,7 +59,7 @@ export default async function DocsSectionPage({ params }: DocsSectionPageProps) 
   }
 
   return (
-    <main className="min-h-screen bg-harlo-canvas text-harlo-ink">
+    <main className="min-h-screen bg-white text-harlo-ink">
       <DocsNav />
       <DocsWorkspace initialDocId={doc.id} />
       <MarketingFooter />

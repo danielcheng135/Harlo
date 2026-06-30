@@ -54,6 +54,52 @@ export const TRIAL_CONFIG = {
   convertsToPlan: "starter" satisfies BillingPlanKey
 };
 
+export function getTrialPeriod(now = new Date()) {
+  const start = new Date(now);
+  const end = new Date(now);
+
+  end.setDate(end.getDate() + TRIAL_CONFIG.days);
+
+  return {
+    start: start.toISOString(),
+    end: end.toISOString()
+  };
+}
+
+export function isCardlessTrialExpired({
+  status,
+  trialEnd,
+  stripeSubscriptionId,
+  now = new Date()
+}: {
+  status: BillingStatus;
+  trialEnd: string | null | undefined;
+  stripeSubscriptionId?: string | null;
+  now?: Date;
+}) {
+  if (status !== "trialing" || stripeSubscriptionId || !trialEnd) {
+    return false;
+  }
+
+  const trialEndTime = new Date(trialEnd).getTime();
+
+  return Number.isFinite(trialEndTime) && trialEndTime <= now.getTime();
+}
+
+export function getEffectiveBillingStatus({
+  status,
+  trialEnd,
+  stripeSubscriptionId,
+  now = new Date()
+}: {
+  status: BillingStatus;
+  trialEnd: string | null | undefined;
+  stripeSubscriptionId?: string | null;
+  now?: Date;
+}) {
+  return isCardlessTrialExpired({ status, trialEnd, stripeSubscriptionId, now }) ? "incomplete" : status;
+}
+
 export const BILLING_PLANS: BillingPlan[] = [
   {
     key: "starter",
@@ -206,12 +252,16 @@ export function getBillingPlan(planKey: string | null | undefined) {
   return BILLING_PLANS.find((plan) => plan.key === planKey) ?? BILLING_PLANS[0];
 }
 
-export function getIntegrationEntitlements(planKey: BillingPlanKey) {
+export function getIntegrationEntitlements(planKey: BillingPlanKey, status: BillingStatus = "active") {
+  if (status !== "active" && status !== "trialing") {
+    return INTEGRATION_ENTITLEMENTS.starter;
+  }
+
   return INTEGRATION_ENTITLEMENTS[planKey];
 }
 
-export function canUseIntegrationProvider(planKey: BillingPlanKey, provider: IntegrationCatalogKey) {
-  return getIntegrationEntitlements(planKey).providers.includes(provider);
+export function canUseIntegrationProvider(planKey: BillingPlanKey, provider: IntegrationCatalogKey, status: BillingStatus = "active") {
+  return getIntegrationEntitlements(planKey, status).providers.includes(provider);
 }
 
 export function hasHigherTier(planKey: BillingPlanKey) {
@@ -221,6 +271,10 @@ export function hasHigherTier(planKey: BillingPlanKey) {
 export function getPlanCreditLimit(planKey: BillingPlanKey, status: BillingStatus) {
   if (status === "trialing") {
     return TRIAL_CONFIG.credits;
+  }
+
+  if (status !== "active") {
+    return 0;
   }
 
   return getBillingPlan(planKey).monthlyCredits;

@@ -31,28 +31,28 @@ const planKeys = new Set(["starter", "growth", "pro"]);
 const intervals = new Set(["monthly", "annual"]);
 
 const formSteps = [
-  { label: "Business", description: "Your website and brand" },
-  { label: "AI agent", description: "Behavior and voice" },
-  { label: "Review", description: "Confirm your setup" }
+  { label: "Business" },
+  { label: "AI agent" },
+  { label: "Review" }
 ] as const;
 
 const goals: Array<{ value: PrimaryGoal; label: string; description: string; icon: LucideIcon }> = [
   {
     value: "support",
     label: "Answer questions",
-    description: "Give visitors clear answers from your approved website knowledge.",
+    description: "Answer FAQs from your site.",
     icon: Headphones
   },
   {
     value: "lead_capture",
     label: "Capture leads",
-    description: "Collect buying intent, contact details, and useful handoff context.",
+    description: "Collect contact details.",
     icon: Target
   },
   {
     value: "both",
     label: "Do both",
-    description: "Answer questions first, then capture qualified opportunities.",
+    description: "Answer, then qualify.",
     icon: Sparkles
   }
 ];
@@ -67,7 +67,7 @@ const prepSteps = [
   "Finding your brand",
   "Creating your AI agent",
   "Adding website knowledge",
-  "Preparing checkout"
+  "Starting your trial"
 ];
 
 type OnboardingFormProps = {
@@ -212,24 +212,24 @@ export function OnboardingForm({
 
   if (phase === "preparing") {
     return (
-      <div className="grid min-h-[560px] overflow-hidden rounded-lg border border-white/10 bg-white shadow-[0_32px_100px_rgba(0,0,0,0.28)] lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.72fr)]">
-        <div className="relative flex flex-col justify-between overflow-hidden bg-[#07111a] p-6 text-white sm:p-10 lg:p-12">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_12%,rgba(13,143,170,0.36),transparent_38%),linear-gradient(rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.045)_1px,transparent_1px)] bg-[size:auto,56px_56px,56px_56px]" />
+      <div className="grid min-h-[410px] overflow-hidden rounded-[18px] border border-white/20 bg-white shadow-[0_5px_0_rgba(6,99,117,0.55)] lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.48fr)]">
+        <div className="relative flex flex-col justify-between overflow-hidden bg-white p-5 text-[#222222] sm:p-6">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(13,143,170,0.14),transparent_36%)]" />
           <div className="relative">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.08] px-3 py-1.5 text-xs font-semibold uppercase text-white/75">
-              <Loader2 className="animate-spin text-harlo-blue" size={14} />
+            <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-harlo-mist px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] text-harlo-blue">
+              <Loader2 className="animate-spin" size={14} />
               Building your workspace
             </span>
-            <h2 className="mt-6 max-w-xl text-4xl font-semibold leading-[1.04] tracking-tight sm:text-5xl">
+            <h2 className="mt-5 max-w-xl text-3xl font-black leading-[0.96] tracking-[-0.04em] sm:text-4xl">
               Your AI agent is almost ready.
             </h2>
-            <p className="mt-5 max-w-xl text-base leading-7 text-slate-300">
-              Harlo is using your website and preferences to prepare a useful first version. You will continue automatically.
+            <p className="mt-3 max-w-xl text-sm font-medium leading-6 text-slate-600">
+              Harlo is preparing your website knowledge, agent, and trial. You will continue automatically.
             </p>
           </div>
 
-          <div className="relative mt-10 flex items-center gap-4 border-t border-white/10 pt-6">
-            <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-lg border border-white/15 bg-white/10">
+          <div className="relative mt-6 flex items-center gap-3 border-t border-slate-200 pt-4">
+            <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-[14px] border border-slate-200 bg-harlo-mist">
               {brandLogoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -243,24 +243,24 @@ export function OnboardingForm({
               )}
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase text-white/50">Workspace</p>
-              <p className="mt-1 truncate text-lg font-semibold text-white">{businessName || "Your business"}</p>
-              <p className="mt-1 text-sm text-slate-400">{websiteUrl}</p>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Workspace</p>
+              <p className="mt-1 truncate text-base font-black text-[#222222]">{businessName || "Your business"}</p>
+              <p className="mt-1 text-sm font-medium text-slate-500">{websiteUrl}</p>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col justify-center bg-white p-6 sm:p-10">
-          <p className="text-xs font-semibold uppercase text-harlo-teal">Setup progress</p>
-          <div className="mt-6 grid gap-2">
+        <div className="flex flex-col justify-center bg-harlo-mist p-5">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-harlo-blue">Setup progress</p>
+          <div className="mt-4 grid gap-1">
             {preparationChecklist.map((item) => (
-              <div key={item.label} className="flex min-h-14 items-center gap-3 border-b border-harlo-line py-3 last:border-0">
+              <div key={item.label} className="flex min-h-11 items-center gap-3 border-b border-harlo-line py-2 last:border-0">
                 <span
-                  className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${
+                  className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${
                     item.status === "done"
-                      ? "bg-harlo-teal text-white"
+                      ? "bg-harlo-blue text-white"
                       : item.status === "active"
-                        ? "bg-harlo-mist text-harlo-teal"
+                        ? "bg-white text-harlo-blue"
                         : "bg-slate-100 text-slate-400"
                   }`}
                 >
@@ -278,7 +278,7 @@ export function OnboardingForm({
               </div>
             ))}
           </div>
-          <div className="mt-8 border-t border-harlo-line pt-6">
+          <div className="mt-6 border-t border-harlo-line pt-5">
             <p className="text-sm font-semibold text-harlo-ink">{plan.name} plan</p>
             <p className="mt-1 text-sm text-harlo-muted">
               {formatPrice(price)}/month{initialInterval === "annual" ? ", billed annually" : ""}
@@ -291,12 +291,12 @@ export function OnboardingForm({
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      <div className="overflow-hidden rounded-lg border border-white/10 bg-white shadow-[0_32px_100px_rgba(0,0,0,0.28)]">
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="min-w-0 p-5 sm:p-8 lg:p-10">
+      <div className="overflow-hidden rounded-[18px] border border-white/20 bg-white shadow-[0_5px_0_rgba(6,99,117,0.55)]">
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_250px] xl:grid-cols-[minmax(0,1fr)_270px]">
+          <div className="min-w-0 p-4 sm:p-5 lg:p-6">
             <StepNavigation currentStep={step} onStepChange={setStep} />
 
-            <div className="mt-8 min-h-[390px]">
+            <div className="mt-4 min-h-[250px]">
               {step === 0 ? (
                 <BusinessStep
                   businessName={businessName}
@@ -332,22 +332,22 @@ export function OnboardingForm({
             </div>
 
             {error ? (
-              <div role="alert" className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              <div role="alert" className="mt-3 rounded-[14px] border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
                 {error}
               </div>
             ) : null}
 
-            <div className="mt-7 flex items-center justify-between gap-3 border-t border-harlo-line pt-5">
+            <div className="mt-3 flex items-center justify-between gap-3 border-t border-harlo-line pt-4">
               {step > 0 ? (
                 <Button type="button" variant="ghost" onClick={goBack} className="px-2 sm:px-4">
                   <ArrowLeft size={16} />
                   Back
                 </Button>
               ) : (
-                <p className="hidden text-xs font-medium text-harlo-muted sm:block">Takes about 2 minutes</p>
+                <p className="hidden text-xs font-medium text-harlo-muted sm:block">About 2 minutes</p>
               )}
 
-              <Button type="submit" className="h-11 min-w-36 bg-harlo-blue px-5 hover:bg-harlo-teal">
+              <Button type="submit" className="h-11 min-w-36 rounded-lg bg-harlo-ink px-5 text-sm font-semibold text-white transition hover:bg-harlo-navy focus-visible:ring-2 focus-visible:ring-harlo-teal focus-visible:ring-offset-2">
                 {step === 2 ? "Create workspace" : "Continue"}
                 <ArrowRight size={16} />
               </Button>
@@ -358,7 +358,6 @@ export function OnboardingForm({
             planName={plan.name}
             price={price}
             interval={initialInterval}
-            isTrial={initialPlanKey === "starter"}
             businessName={businessName}
             botName={botName}
             accent={accent}
@@ -378,7 +377,7 @@ function StepNavigation({
 }) {
   return (
     <nav aria-label="Onboarding progress">
-      <ol className="grid grid-cols-3 gap-2 sm:gap-3">
+      <ol className="grid grid-cols-3 gap-2">
         {formSteps.map((item, index) => {
           const isCurrent = currentStep === index;
           const isComplete = currentStep > index;
@@ -391,17 +390,16 @@ function StepNavigation({
                 disabled={!isAvailable}
                 onClick={() => onStepChange(index as FormStep)}
                 aria-current={isCurrent ? "step" : undefined}
-                className={`w-full border-t-2 pt-3 text-left transition ${
-                  isCurrent || isComplete ? "border-harlo-teal" : "border-harlo-line"
-                } ${isAvailable ? "cursor-pointer" : "cursor-default"}`}
+                className={`flex h-11 w-full items-center gap-2 rounded-[14px] border px-2.5 text-left transition sm:px-3 ${
+                  isCurrent || isComplete ? "border-harlo-blue bg-harlo-mist text-harlo-blue" : "border-harlo-line bg-white text-slate-400"
+                } ${isAvailable ? "cursor-pointer hover:border-harlo-blue/70" : "cursor-default"}`}
               >
-                <span className={`block text-xs font-semibold ${isCurrent || isComplete ? "text-harlo-teal" : "text-slate-400"}`}>
+                <span className="text-xs font-black">
                   0{index + 1}
                 </span>
-                <span className={`mt-1 block text-sm font-semibold ${isCurrent ? "text-harlo-ink" : "text-harlo-muted"}`}>
+                <span className={`min-w-0 truncate text-xs font-black sm:text-sm ${isCurrent ? "text-harlo-ink" : ""}`}>
                   {item.label}
                 </span>
-                <span className="mt-0.5 hidden text-xs text-harlo-muted sm:block">{item.description}</span>
               </button>
             </li>
           );
@@ -425,11 +423,12 @@ function BusinessStep({
   return (
     <section aria-labelledby="business-step-title">
       <StepHeading
+        id="business-step-title"
         eyebrow="Tell us about your business"
         title="Start with your website."
-        description="Harlo uses this to discover your brand and create the first knowledge source for your AI agent."
+        description="We use public pages to prepare your first answers."
       />
-      <div className="mt-7 grid gap-5">
+      <div className="mt-4 grid gap-3">
         <Field label="Business name" icon={Users}>
           <input
             value={businessName}
@@ -454,10 +453,10 @@ function BusinessStep({
           />
         </Field>
       </div>
-      <div className="mt-7 flex items-start gap-3 rounded-lg bg-harlo-mist/70 px-4 py-3.5">
-        <ShieldCheck className="mt-0.5 shrink-0 text-harlo-teal" size={17} />
-        <p className="text-sm leading-6 text-harlo-muted">
-          Harlo only uses publicly available website content during setup. You can review or remove the source later.
+      <div className="mt-4 flex items-start gap-3 rounded-[16px] border border-harlo-blue/15 bg-harlo-mist/80 px-3 py-2.5">
+        <ShieldCheck className="mt-0.5 shrink-0 text-harlo-blue" size={17} />
+        <p className="text-xs font-medium leading-5 text-harlo-muted">
+          Harlo only uses public website content during setup. You can review or remove it later.
         </p>
       </div>
     </section>
@@ -486,12 +485,13 @@ function AgentStep({
   return (
     <section aria-labelledby="agent-step-title">
       <StepHeading
+        id="agent-step-title"
         eyebrow="Shape the experience"
         title="Make the agent feel like your team."
-        description="Choose the job it should prioritize and the tone visitors will hear."
+        description="Pick the job it should prioritize and the tone visitors will hear."
       />
 
-      <div className="mt-7">
+      <div className="mt-4">
         <Field label="AI agent name" icon={Bot}>
           <input
             value={botName}
@@ -504,9 +504,9 @@ function AgentStep({
         </Field>
       </div>
 
-      <fieldset className="mt-6">
+      <fieldset className="mt-4">
         <legend className="text-sm font-semibold text-harlo-ink">Primary goal</legend>
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
+        <div className="mt-2 grid gap-2 md:grid-cols-3">
           {goals.map((goal) => {
             const Icon = goal.icon;
             const selected = primaryGoal === goal.value;
@@ -517,27 +517,27 @@ function AgentStep({
                 type="button"
                 aria-pressed={selected}
                 onClick={() => onGoalChange(goal.value)}
-                className={`min-h-40 border p-4 text-left transition ${
+                className={`min-h-28 border p-3 text-left transition ${
                   selected
-                    ? "border-harlo-teal bg-harlo-mist/70"
-                    : "border-harlo-line bg-white hover:border-harlo-teal/60"
-                } rounded-lg`}
+                    ? "border-harlo-blue bg-harlo-mist/80 shadow-sm"
+                    : "border-harlo-line bg-white hover:-translate-y-0.5 hover:border-harlo-blue/60 hover:shadow-sm"
+                } rounded-[16px]`}
               >
-                <span className={`grid h-9 w-9 place-items-center rounded-lg ${selected ? "bg-harlo-teal text-white" : "bg-slate-100 text-harlo-muted"}`}>
+                <span className={`grid h-9 w-9 place-items-center rounded-full ${selected ? "bg-harlo-blue text-white" : "bg-slate-100 text-harlo-muted"}`}>
                   <Icon size={17} />
                 </span>
-                <span className="mt-4 block text-sm font-semibold text-harlo-ink">{goal.label}</span>
-                <span className="mt-1.5 block text-xs leading-5 text-harlo-muted">{goal.description}</span>
+                <span className="mt-3 block text-sm font-semibold text-harlo-ink">{goal.label}</span>
+                <span className="mt-1 block text-[11px] leading-4 text-harlo-muted sm:text-xs">{goal.description}</span>
               </button>
             );
           })}
         </div>
       </fieldset>
 
-      <div className="mt-6 grid gap-5 sm:grid-cols-[minmax(0,1fr)_190px]">
+      <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px]">
         <fieldset>
           <legend className="text-sm font-semibold text-harlo-ink">Voice</legend>
-          <div className="mt-3 grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1">
+          <div className="mt-2 grid grid-cols-3 gap-1 rounded-[16px] bg-slate-100 p-1">
             {tones.map((item) => (
               <button
                 key={item.value}
@@ -545,7 +545,7 @@ function AgentStep({
                 aria-pressed={tone === item.value}
                 onClick={() => onToneChange(item.value)}
                 title={item.description}
-                className={`min-h-11 rounded-md px-2 text-xs font-semibold transition sm:text-sm ${
+                className={`min-h-10 rounded-[13px] px-2 text-xs font-bold transition sm:text-sm ${
                   tone === item.value ? "bg-harlo-ink text-white" : "text-harlo-muted hover:bg-white hover:text-harlo-ink"
                 }`}
               >
@@ -556,7 +556,7 @@ function AgentStep({
         </fieldset>
 
         <Field label="Brand accent" icon={Palette}>
-          <div className="flex h-12 items-center gap-2 rounded-lg border border-harlo-line bg-white p-1.5 focus-within:border-harlo-teal focus-within:ring-4 focus-within:ring-harlo-mist">
+          <div className="flex h-11 items-center gap-2 rounded-[14px] border border-harlo-line bg-white p-1.5 focus-within:border-harlo-blue focus-within:ring-4 focus-within:ring-harlo-mist">
             <input
               value={accent}
               onChange={(event) => onAccentChange(event.target.value)}
@@ -597,12 +597,13 @@ function ReviewStep({
   return (
     <section aria-labelledby="review-step-title">
       <StepHeading
+        id="review-step-title"
         eyebrow="Ready to build"
         title="Review your first version."
-        description="Harlo will create the workspace and add your website as a knowledge source. Everything remains editable."
+        description="Harlo will create the workspace, start the trial, and add your website."
       />
 
-      <dl className="mt-7 divide-y divide-harlo-line border-y border-harlo-line">
+      <dl className="mt-4 divide-y divide-harlo-line border-y border-harlo-line">
         <ReviewRow icon={Globe2} label="Business" value={businessName} detail={websiteUrl} />
         <ReviewRow icon={Bot} label="AI agent" value={botName} detail={`${goal?.label ?? "Do both"} · ${capitalize(tone)} voice`} />
         <ReviewRow icon={Palette} label="Widget accent" value={accent.toUpperCase()}>
@@ -610,7 +611,7 @@ function ReviewStep({
         </ReviewRow>
       </dl>
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
         {[
           { icon: Sparkles, label: "Brand discovered" },
           { icon: MessageSquareText, label: "Agent prepared" },
@@ -619,8 +620,8 @@ function ReviewStep({
           const Icon = item.icon;
 
           return (
-            <div key={item.label} className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-3 text-xs font-semibold text-harlo-muted">
-              <Icon size={15} className="shrink-0 text-harlo-teal" />
+            <div key={item.label} className="flex items-center gap-2 rounded-[16px] border border-slate-100 bg-slate-50 px-3 py-3 text-xs font-bold text-harlo-muted">
+              <Icon size={15} className="shrink-0 text-harlo-blue" />
               {item.label}
             </div>
           );
@@ -634,7 +635,6 @@ function SetupSummary({
   planName,
   price,
   interval,
-  isTrial,
   businessName,
   botName,
   accent
@@ -642,58 +642,57 @@ function SetupSummary({
   planName: string;
   price: number;
   interval: BillingInterval;
-  isTrial: boolean;
   businessName: string;
   botName: string;
   accent: string;
 }) {
   return (
-    <aside className="relative overflow-hidden bg-[#07111a] p-6 text-white sm:p-8 lg:min-h-[650px]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_100%_0%,rgba(13,143,170,0.38),transparent_38%),linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:auto,48px_48px,48px_48px]" />
+    <aside className="relative overflow-hidden bg-harlo-blue p-4 text-white sm:p-5">
       <div className="relative flex h-full flex-col">
         <div>
-          <p className="text-xs font-semibold uppercase text-white/50">Your setup</p>
-          <div className="mt-5 flex items-center gap-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg" style={{ backgroundColor: accent }}>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-white/70">Your setup</p>
+          <div className="mt-4 flex items-center gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/25" style={{ backgroundColor: accent }}>
               <Bot size={20} />
             </span>
             <div className="min-w-0">
-              <p className="truncate text-base font-semibold">{botName || getDefaultAgentName(businessName)}</p>
-              <p className="mt-0.5 truncate text-sm text-slate-400">{businessName || "Your business"}</p>
+              <p className="truncate text-base font-black">{botName || getDefaultAgentName(businessName)}</p>
+              <p className="mt-0.5 truncate text-sm font-semibold text-white/70">{businessName || "Your business"}</p>
             </div>
           </div>
         </div>
 
-        <div className="mt-8 border-t border-white/10 pt-6">
+        <div className="mt-5 border-t border-white/10 pt-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-white">{planName}</p>
-              <p className="mt-1 text-xs text-slate-400">{interval === "annual" ? "Annual billing" : "Monthly billing"}</p>
+              <p className="text-sm font-black text-white">{planName}</p>
+              <p className="mt-1 text-xs font-semibold text-white/70">{interval === "annual" ? "Annual billing" : "Monthly billing"}</p>
             </div>
             <p className="text-right text-2xl font-semibold">
               {formatPrice(price)}
-              <span className="block text-xs font-medium text-slate-400">per month</span>
+              <span className="block text-xs font-semibold text-white/70">per month</span>
             </p>
           </div>
         </div>
 
-        <div className="mt-7 grid gap-3 text-sm text-slate-300">
+        <div className="mt-5 grid gap-2 text-xs font-semibold leading-5 text-white/82 sm:text-sm">
           {[
-            isTrial ? `${TRIAL_CONFIG.days}-day free trial` : "Plan starts after checkout",
-            "Secure card checkout next",
+            `${TRIAL_CONFIG.days}-day free trial`,
+            `${TRIAL_CONFIG.credits} trial credits included`,
+            "No credit card required",
             "Edit every setting later"
           ].map((item) => (
             <span key={item} className="flex items-center gap-2.5">
-              <CheckCircle2 size={15} className="shrink-0 text-harlo-blue" />
+              <CheckCircle2 size={15} className="shrink-0 text-white" />
               {item}
             </span>
           ))}
         </div>
 
-        <div className="mt-8 rounded-lg border border-white/10 bg-white/5 p-4 lg:mt-auto">
-          <p className="text-sm font-semibold text-white">What happens next?</p>
-          <p className="mt-2 text-xs leading-5 text-slate-400">
-            We prepare the workspace, then send you to secure checkout. Your setup is kept if you need to return later.
+        <div className="mt-5 rounded-[16px] border border-white/18 bg-white/10 p-3 xl:mt-auto">
+          <p className="text-sm font-black text-white">What happens next?</p>
+          <p className="mt-1.5 text-xs font-medium leading-5 text-white/70">
+            We prepare the workspace and start your trial. Add payment details later for a paid plan.
           </p>
         </div>
       </div>
@@ -702,19 +701,21 @@ function SetupSummary({
 }
 
 function StepHeading({
+  id,
   eyebrow,
   title,
   description
 }: {
+  id: string;
   eyebrow: string;
   title: string;
   description: string;
 }) {
   return (
     <div>
-      <p className="text-xs font-semibold uppercase text-harlo-teal">{eyebrow}</p>
-      <h2 className="mt-2 text-2xl font-semibold text-harlo-ink sm:text-3xl">{title}</h2>
-      <p className="mt-3 max-w-2xl text-sm leading-6 text-harlo-muted sm:text-base">{description}</p>
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-harlo-blue">{eyebrow}</p>
+      <h2 id={id} className="mt-1.5 text-xl font-black tracking-[-0.03em] text-harlo-ink sm:text-2xl">{title}</h2>
+      <p className="mt-1.5 max-w-2xl text-sm font-medium leading-5 text-harlo-muted">{description}</p>
     </div>
   );
 }
@@ -733,8 +734,8 @@ function ReviewRow({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3 py-4">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-harlo-mist text-harlo-teal">
+    <div className="flex items-center gap-3 py-3">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-harlo-mist text-harlo-blue">
         <Icon size={16} />
       </span>
       <dt className="w-20 shrink-0 text-xs font-semibold uppercase text-harlo-muted">{label}</dt>
@@ -762,9 +763,9 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-2 flex items-center justify-between gap-3">
-        <span className="flex items-center gap-2 text-sm font-semibold text-harlo-ink">
-          <Icon size={15} className="text-harlo-teal" />
+      <span className="mb-1.5 flex items-center justify-between gap-3">
+        <span className="flex items-center gap-2 text-sm font-bold text-harlo-ink">
+          <Icon size={15} className="text-harlo-blue" />
           {label}
         </span>
         {hint ? <span className="hidden text-xs text-harlo-muted sm:block">{hint}</span> : null}
@@ -775,7 +776,7 @@ function Field({
 }
 
 const inputClassName =
-  "h-12 w-full rounded-lg border border-harlo-line bg-white px-3.5 text-base text-harlo-ink outline-none transition placeholder:text-slate-400 focus:border-harlo-teal focus:ring-4 focus:ring-harlo-mist";
+  "h-11 w-full rounded-[14px] border border-harlo-line bg-white px-3.5 text-sm font-medium text-harlo-ink outline-none transition placeholder:text-slate-400 focus:border-harlo-blue focus:ring-4 focus:ring-harlo-mist";
 
 function validateStep(
   step: FormStep,

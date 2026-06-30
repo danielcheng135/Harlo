@@ -10,10 +10,12 @@ import {
 import {
   BILLING_ADD_ONS,
   canUseIntegrationProvider,
+  getEffectiveBillingStatus,
   getBillingPlan,
   getIntegrationEntitlements,
   getPlanCreditLimit,
   hasHigherTier,
+  isCardlessTrialExpired,
   type AddOnKey,
   type BillingInterval,
   type BillingPlanKey,
@@ -24,6 +26,7 @@ import { isIntegrationOAuthConfigured } from "@/lib/integrations/oauth";
 import type { IntegrationActionType, IntegrationProviderKey, IntegrationStatus, IntegrationTriggerType } from "@/lib/integrations/types";
 import { normalizeAgentType, type AgentType } from "@/lib/agents";
 import { normalizeLeadFields, normalizeLeadMetadata, type LeadCaptureField } from "@/lib/lead-fields";
+import { getFallbackLogoUrl } from "@/lib/onboarding/website";
 import {
   INTERNAL_WORKSPACE_AGENT_LIMIT,
   INTERNAL_WORKSPACE_CREDIT_LIMIT,
@@ -204,6 +207,9 @@ export type BillingOverview = {
   periodStart: string;
   periodEnd: string;
   cancelAtPeriodEnd: boolean;
+  hasStripeCustomer: boolean;
+  hasStripeSubscription: boolean;
+  trialExpired: boolean;
   creditsUsed: number;
   creditLimit: number;
   planCreditLimit: number;
@@ -347,7 +353,7 @@ export async function getWorkspaceOrRedirect(): Promise<Workspace> {
     getWorkspaceBots(supabase, membership.organization_id),
     supabase
       .from("organization_billing")
-      .select("status")
+      .select("status, trial_end, stripe_subscription_id")
       .eq("organization_id", membership.organization_id)
       .maybeSingle()
   ]);
@@ -357,7 +363,6 @@ export async function getWorkspaceOrRedirect(): Promise<Workspace> {
     redirect("/onboarding");
   }
 
-  const billingStatus = normalizeBillingStatus(billing?.status);
   const { data: setupState, error: setupStateError } = await supabase
     .from("memberships")
     .select("post_checkout_setup_seen_at")
@@ -367,6 +372,16 @@ export async function getWorkspaceOrRedirect(): Promise<Workspace> {
 
   const isInternalAdmin = isInternalAdminEmail(user.email);
   const isInternalWorkspace = isInternalAdmin || isInternalWorkspaceMetadata(organization.metadata);
+  const rawBillingStatus = normalizeBillingStatus(billing?.status);
+  const billingTrialEnd = typeof billing?.trial_end === "string" ? billing.trial_end : null;
+  const billingStripeSubscriptionId = typeof billing?.stripe_subscription_id === "string" ? billing.stripe_subscription_id : null;
+  const billingStatus = isInternalWorkspace
+    ? "active"
+    : getEffectiveBillingStatus({
+      status: rawBillingStatus,
+      trialEnd: billingTrialEnd,
+      stripeSubscriptionId: billingStripeSubscriptionId
+    });
 
   if (isInternalAdmin && !isInternalWorkspaceMetadata(organization.metadata)) {
     const service = createSupabaseServiceClient();
@@ -391,24 +406,76 @@ export async function getWorkspaceOrRedirect(): Promise<Workspace> {
     organization.metadata = withInternalWorkspaceMetadata(organization.metadata);
   }
 
-  if (!isInternalWorkspace && billingStatus !== "active" && billingStatus !== "trialing") {
-    redirect("/onboarding/checkout?checkout=required");
+  if (!isInternalWorkspace && isCardlessTrialExpired({
+    status: rawBillingStatus,
+    trialEnd: billingTrialEnd,
+    stripeSubscriptionId: billingStripeSubscriptionId
+  })) {
+    const service = createSupabaseServiceClient();
+
+    await service
+      .from("organization_billing")
+      .update({
+        status: "incomplete",
+        updated_at: new Date().toISOString()
+      })
+      .eq("organization_id", membership.organization_id)
+      .eq("status", "trialing")
+      .is("stripe_subscription_id", null);
   }
 
-  const normalizedBots = bots.map((bot) => normalizeWorkspaceBot(bot, organization.name));
+  if (!isInternalWorkspace && billingStatus !== "active" && billingStatus !== "trialing") {
+    redirect(`/onboarding/checkout?checkout=${rawBillingStatus === "trialing" ? "trial-ended" : "required"}`);
+  }
+
+  const workspaceOrganization = withBrandLogoFallback(organization);
+  const normalizedBots = bots.map((bot) => normalizeWorkspaceBot(bot, workspaceOrganization.name));
 
   return {
     user: {
       id: user.id,
       email: user.email ?? null
     },
-    organization,
+    organization: workspaceOrganization,
     bot: normalizedBots[0],
     bots: normalizedBots,
     role: membership.role,
     postCheckoutSetupSeenAt: typeof setupState?.post_checkout_setup_seen_at === "string" ? setupState.post_checkout_setup_seen_at : null,
     postCheckoutSetupReady: !setupStateError
   };
+}
+
+function withBrandLogoFallback<T extends { website_url?: string | null; brand_logo_url?: string | null }>(organization: T) {
+  if (!organization.website_url) {
+    return organization;
+  }
+
+  try {
+    const fallbackLogoUrl = getFallbackLogoUrl(organization.website_url);
+
+    if (organization.brand_logo_url && !isGenericSameOriginIcon(organization.brand_logo_url, organization.website_url)) {
+      return organization;
+    }
+
+    return {
+      ...organization,
+      brand_logo_url: fallbackLogoUrl
+    };
+  } catch {
+    return organization;
+  }
+}
+
+function isGenericSameOriginIcon(logoUrl: string, websiteUrl: string) {
+  try {
+    const logo = new URL(logoUrl);
+    const website = new URL(websiteUrl);
+    const genericIconPaths = new Set(["/apple-touch-icon.png", "/favicon.ico", "/icon.png"]);
+
+    return logo.origin === website.origin && genericIconPaths.has(logo.pathname.toLowerCase());
+  } catch {
+    return false;
+  }
 }
 
 async function getWorkspaceBots(
@@ -547,7 +614,7 @@ export async function getBillingOverview(workspace: Workspace): Promise<BillingO
   const [{ data: billing }, { data: organization }] = await Promise.all([
     supabase
       .from("organization_billing")
-      .select("plan_key, billing_interval, status, trial_start, trial_end, current_period_start, current_period_end, cancel_at_period_end")
+      .select("plan_key, billing_interval, status, trial_start, trial_end, current_period_start, current_period_end, cancel_at_period_end, stripe_customer_id, stripe_subscription_id")
       .eq("organization_id", workspace.organization.id)
       .maybeSingle(),
     supabase
@@ -559,11 +626,35 @@ export async function getBillingOverview(workspace: Workspace): Promise<BillingO
   const isInternalWorkspace = isInternalWorkspaceMetadata(workspace.organization.metadata ?? organization?.metadata);
   const fallbackPeriod = getFallbackBillingPeriod();
   const planKey = isInternalWorkspace ? "pro" : normalizePlanKey(billing?.plan_key);
-  const status = isInternalWorkspace ? "active" : normalizeBillingStatus(billing?.status);
+  const rawStatus = normalizeBillingStatus(billing?.status);
+  const trialEnd = typeof billing?.trial_end === "string" ? billing.trial_end : null;
+  const stripeSubscriptionId = typeof billing?.stripe_subscription_id === "string" ? billing.stripe_subscription_id : null;
+  const trialExpired = !isInternalWorkspace && isCardlessTrialExpired({
+    status: rawStatus,
+    trialEnd,
+    stripeSubscriptionId
+  });
+  const status = isInternalWorkspace ? "active" : getEffectiveBillingStatus({
+    status: rawStatus,
+    trialEnd,
+    stripeSubscriptionId
+  });
   const interval = normalizeBillingInterval(billing?.billing_interval);
   const periodStart = typeof billing?.current_period_start === "string" ? billing.current_period_start : fallbackPeriod.start;
   const periodEnd = typeof billing?.current_period_end === "string" ? billing.current_period_end : fallbackPeriod.end;
   const planCreditLimit = isInternalWorkspace ? INTERNAL_WORKSPACE_CREDIT_LIMIT : getPlanCreditLimit(planKey, status);
+
+  if (trialExpired) {
+    await service
+      .from("organization_billing")
+      .update({
+        status: "incomplete",
+        updated_at: new Date().toISOString()
+      })
+      .eq("organization_id", workspace.organization.id)
+      .eq("status", "trialing")
+      .is("stripe_subscription_id", null);
+  }
 
   const [
     { data: usageEvents },
@@ -621,6 +712,7 @@ export async function getBillingOverview(workspace: Workspace): Promise<BillingO
   const addOnCreditsAvailable = activeCreditGrants.reduce((total, grant) => total + grant.creditsRemaining, 0);
   const planCreditsUsed = Math.max(0, creditsUsed - addOnCreditsUsed);
   const creditLimit = planCreditLimit + addOnCreditsUsed + addOnCreditsAvailable;
+  const planAccessAvailable = status === "active" || status === "trialing";
   const addOnsAvailable = status === "active";
   const addOnsByKey = new Map(
     ((addOnRows ?? []) as Array<{ add_on_key: AddOnKey; enabled: boolean; quantity: number; metadata?: Record<string, unknown> | null }>).map((row) => [row.add_on_key, row])
@@ -628,8 +720,18 @@ export async function getBillingOverview(workspace: Workspace): Promise<BillingO
   const autoRechargeRow = addOnsByKey.get("auto_recharge_credits");
   const extraAgentQuantity = addOnsAvailable && !isInternalWorkspace ? getEnabledAddOnQuantity(addOnsByKey.get("extra_agent")) : 0;
   const extraSeatQuantity = addOnsAvailable && !isInternalWorkspace ? getEnabledAddOnQuantity(addOnsByKey.get("extra_seat")) : 0;
-  const agentLimit = isInternalWorkspace ? INTERNAL_WORKSPACE_AGENT_LIMIT : getBillingPlan(planKey).includedAgents + extraAgentQuantity;
-  const seatLimit = isInternalWorkspace ? INTERNAL_WORKSPACE_SEAT_LIMIT : getBillingPlan(planKey).seats + extraSeatQuantity;
+  const baseAgentLimit = isInternalWorkspace
+    ? INTERNAL_WORKSPACE_AGENT_LIMIT
+    : planAccessAvailable
+      ? getBillingPlan(planKey).includedAgents
+      : 0;
+  const baseSeatLimit = isInternalWorkspace
+    ? INTERNAL_WORKSPACE_SEAT_LIMIT
+    : planAccessAvailable
+      ? getBillingPlan(planKey).seats
+      : 0;
+  const agentLimit = baseAgentLimit + extraAgentQuantity;
+  const seatLimit = baseSeatLimit + extraSeatQuantity;
   const autoRechargeMetadata = isRecord(autoRechargeRow?.metadata) ? autoRechargeRow.metadata : {};
   const autoRechargeFailure = addOnsAvailable &&
     autoRechargeRow?.enabled === true &&
@@ -647,10 +749,13 @@ export async function getBillingOverview(workspace: Workspace): Promise<BillingO
     interval,
     status,
     trialStart: typeof billing?.trial_start === "string" ? billing.trial_start : null,
-    trialEnd: typeof billing?.trial_end === "string" ? billing.trial_end : null,
+    trialEnd,
     periodStart,
     periodEnd,
     cancelAtPeriodEnd: billing?.cancel_at_period_end === true,
+    hasStripeCustomer: typeof billing?.stripe_customer_id === "string" && billing.stripe_customer_id.length > 0,
+    hasStripeSubscription: typeof billing?.stripe_subscription_id === "string" && billing.stripe_subscription_id.length > 0,
+    trialExpired,
     creditsUsed,
     creditLimit,
     planCreditLimit,
@@ -673,14 +778,14 @@ export async function getBillingOverview(workspace: Workspace): Promise<BillingO
     }),
     capacity: {
       agents: {
-        included: isInternalWorkspace ? INTERNAL_WORKSPACE_AGENT_LIMIT : getBillingPlan(planKey).includedAgents,
+        included: baseAgentLimit,
         extra: extraAgentQuantity,
         used: botCount,
         limit: agentLimit,
         remaining: Math.max(0, agentLimit - botCount)
       },
       seats: {
-        included: isInternalWorkspace ? INTERNAL_WORKSPACE_SEAT_LIMIT : getBillingPlan(planKey).seats,
+        included: baseSeatLimit,
         extra: extraSeatQuantity,
         used: memberCount,
         pending: pendingInviteCount,
@@ -700,7 +805,7 @@ export async function getIntegrationOverview(
   } = {}
 ): Promise<IntegrationOverview> {
   const supabase = await createSupabaseServerClient();
-  const entitlements = getIntegrationEntitlements(billing.planKey);
+  const entitlements = getIntegrationEntitlements(billing.planKey, billing.status);
   const historyPageSize = 10;
   const historyPage = Math.max(1, options.historyPage ?? 1);
   const integrationResult = await supabase
@@ -763,7 +868,7 @@ export async function getIntegrationOverview(
       name: provider.name,
       description: provider.description,
       actionTypes: provider.actionTypes,
-      planAllowed: canUseIntegrationProvider(billing.planKey, provider.key),
+      planAllowed: canUseIntegrationProvider(billing.planKey, provider.key, billing.status),
       requiredPlan: provider.growthEnabled ? "Growth" as const : "Pro" as const,
       oauthConfigured: isIntegrationOAuthConfigured(provider.key),
       integrationId: row?.id ?? null,

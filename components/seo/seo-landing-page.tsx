@@ -1044,7 +1044,7 @@ function PricingCard({ plan, interval }: { plan: (typeof BILLING_PLANS)[number];
               role="tooltip"
               className="pointer-events-none absolute right-0 top-[calc(100%+0.6rem)] z-10 w-64 rounded-lg border border-harlo-line bg-white p-3 text-left text-xs leading-5 text-harlo-muted opacity-0 shadow-soft transition group-hover/trial:opacity-100 group-focus-within/trial:opacity-100"
             >
-              Includes {TRIAL_CONFIG.credits} trial credits before converting to Starter. Card required.
+              Includes {TRIAL_CONFIG.credits} trial credits before choosing a paid plan. No card required.
             </span>
           </span>
         ) : isGrowth ? <span className="rounded-full bg-harlo-mist px-3 py-1 text-xs font-semibold text-harlo-teal">Popular</span> : null}

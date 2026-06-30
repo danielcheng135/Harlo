@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { getStripe } from "@/lib/billing/stripe";
+import {
+  getBillingIntervalFromStripeInterval,
+  getPlanKeyByProductId,
+  getStripe,
+  isBillingInterval,
+  isBillingPlanKey
+} from "@/lib/billing/stripe";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
-import type { AddOnKey } from "@/lib/billing/plans";
+import type { AddOnKey, BillingInterval, BillingPlanKey, BillingStatus } from "@/lib/billing/plans";
 
 const QUANTITY_ADD_ONS = new Set<AddOnKey>(["extra_agent", "extra_seat"]);
 
@@ -52,10 +58,6 @@ export async function POST(request: NextRequest) {
     .eq("organization_id", membership.organization_id)
     .maybeSingle();
 
-  if (billing?.status !== "active") {
-    return NextResponse.json({ error: "Add-ons are only available on an active paid plan." }, { status: 400 });
-  }
-
   let session: Stripe.Checkout.Session;
 
   try {
@@ -68,16 +70,29 @@ export async function POST(request: NextRequest) {
   const organizationId = session.metadata?.organization_id;
   const addOnKey = session.metadata?.add_on_key;
 
-  if (session.metadata?.purchase_type !== "subscription_add_on" || !isAddOnKey(addOnKey)) {
-    return NextResponse.json({ error: "This checkout session is not an add-on purchase." }, { status: 400 });
-  }
-
-  if (organizationId !== membership.organization_id) {
+  if (typeof organizationId !== "string" || organizationId !== membership.organization_id) {
     return NextResponse.json({ error: "This checkout session belongs to another workspace." }, { status: 403 });
   }
 
-  if (billing.stripe_customer_id && getStripeId(session.customer) !== billing.stripe_customer_id) {
+  if (billing?.stripe_customer_id && getStripeId(session.customer) !== billing.stripe_customer_id) {
     return NextResponse.json({ error: "This checkout session belongs to another Stripe customer." }, { status: 403 });
+  }
+
+  if (session.metadata?.purchase_type !== "subscription_add_on") {
+    return syncPlanSubscriptionCheckout({
+      stripe,
+      service,
+      session,
+      organizationId
+    });
+  }
+
+  if (!isAddOnKey(addOnKey)) {
+    return NextResponse.json({ error: "This checkout session is missing an add-on." }, { status: 400 });
+  }
+
+  if (billing?.status !== "active") {
+    return NextResponse.json({ error: "Add-ons are only available on an active paid plan." }, { status: 400 });
   }
 
   if (session.status !== "complete" || session.payment_status !== "paid") {
@@ -130,6 +145,75 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ ok: true, addOnKey, enabled: quantity > 0, quantity });
 }
 
+async function syncPlanSubscriptionCheckout({
+  stripe,
+  service,
+  session,
+  organizationId
+}: {
+  stripe: Stripe;
+  service: ReturnType<typeof createSupabaseServiceClient>;
+  session: Stripe.Checkout.Session;
+  organizationId: string;
+}) {
+  if (session.metadata?.purchase_type && session.metadata.purchase_type !== "subscription_conversion") {
+    return NextResponse.json({ error: "This checkout session is not a plan subscription." }, { status: 400 });
+  }
+
+  if (session.status !== "complete") {
+    return NextResponse.json({ error: "Stripe checkout has not completed yet." }, { status: 402 });
+  }
+
+  let subscription: Stripe.Subscription | null;
+
+  try {
+    subscription = await resolveCheckoutSubscription(stripe, session);
+  } catch (error) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 400 });
+  }
+
+  if (!subscription) {
+    return NextResponse.json({ error: "Stripe did not return a subscription." }, { status: 400 });
+  }
+
+  const resolvedPlan = await resolveSubscriptionPlan(stripe, subscription);
+  const planKey = isBillingPlanKey(subscription.metadata.plan_key) ? subscription.metadata.plan_key : resolvedPlan?.planKey;
+  const interval = isBillingInterval(subscription.metadata.billing_interval) ? subscription.metadata.billing_interval : resolvedPlan?.interval;
+  const status = normalizeStripeStatus(subscription.status);
+
+  if (!planKey || !interval) {
+    return NextResponse.json({ error: "Stripe subscription plan could not be resolved." }, { status: 400 });
+  }
+
+  if (status !== "active" && status !== "trialing") {
+    return NextResponse.json({ error: "Stripe subscription is not active yet." }, { status: 402 });
+  }
+
+  await service.from("organization_billing").upsert({
+    organization_id: organizationId,
+    plan_key: planKey,
+    billing_interval: interval,
+    status,
+    trial_start: toIso(subscription.trial_start),
+    trial_end: toIso(subscription.trial_end),
+    current_period_start: toIso(subscription.current_period_start),
+    current_period_end: toIso(subscription.current_period_end),
+    cancel_at_period_end: subscription.cancel_at_period_end,
+    stripe_customer_id: getStripeId(subscription.customer),
+    stripe_subscription_id: subscription.id,
+    updated_at: new Date().toISOString()
+  }, {
+    onConflict: "organization_id"
+  });
+
+  return NextResponse.json({
+    ok: true,
+    planKey,
+    interval,
+    status
+  });
+}
+
 async function resolveCheckoutSubscription(stripe: Stripe, session: Stripe.Checkout.Session) {
   const subscription = session.subscription;
 
@@ -148,11 +232,48 @@ function isAddOnKey(value: string | null | undefined): value is AddOnKey {
   return value === "auto_recharge_credits" || value === "extra_agent" || value === "extra_seat" || value === "remove_branding";
 }
 
+async function resolveSubscriptionPlan(stripe: Stripe, subscription: Stripe.Subscription): Promise<{
+  planKey: BillingPlanKey;
+  interval: BillingInterval;
+} | null> {
+  for (const item of subscription.items.data) {
+    const productId = getStripeId(item.price?.product);
+    const interval = item.price?.recurring?.interval ? getBillingIntervalFromStripeInterval(item.price.recurring.interval) : null;
+
+    if (!productId || !interval) {
+      continue;
+    }
+
+    const planKey = getPlanKeyByProductId(productId);
+
+    if (planKey) {
+      return { planKey, interval };
+    }
+
+    const product = await stripe.products.retrieve(productId);
+    const metadataPlanKey = product.metadata.plan_key;
+
+    if (isBillingPlanKey(metadataPlanKey)) {
+      return { planKey: metadataPlanKey, interval };
+    }
+  }
+
+  return null;
+}
+
+function normalizeStripeStatus(status: Stripe.Subscription.Status): BillingStatus {
+  if (status === "trialing" || status === "active" || status === "past_due" || status === "canceled" || status === "incomplete") {
+    return status;
+  }
+
+  return "incomplete";
+}
+
 function toIso(value: number | null | undefined) {
   return value ? new Date(value * 1000).toISOString() : null;
 }
 
-function getStripeId(value: string | Stripe.Customer | Stripe.DeletedCustomer | null | undefined) {
+function getStripeId(value: string | Stripe.Customer | Stripe.Product | Stripe.DeletedCustomer | Stripe.DeletedProduct | null | undefined) {
   return typeof value === "string" ? value : value?.id ?? null;
 }
 

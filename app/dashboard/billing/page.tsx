@@ -10,8 +10,14 @@ export default async function BillingPage() {
   const billing = await getBillingOverview(workspace);
   const formatter = new Intl.NumberFormat("en");
   const periodEnd = new Date(billing.periodEnd);
+  const hasPlanAccess = billing.status === "active" || billing.status === "trialing";
+  const periodLabel = billing.status === "trialing" ? "Trial ends" : "Renews";
   const planRemaining = Math.max(0, billing.planCreditLimit - billing.planCreditsUsed);
   const hasAddOnCredits = billing.addOnCreditsAvailable > 0 || billing.addOnCreditsUsed > 0;
+  const planName = hasPlanAccess ? billing.plan.name : "No active plan";
+  const creditSummary = hasPlanAccess
+    ? `${billing.status === "trialing" ? `${TRIAL_CONFIG.credits} trial credits` : `${billing.plan.monthlyCredits.toLocaleString()} monthly plan credits`} · ${periodLabel} ${formatDate(periodEnd)}`
+    : "Complete checkout to activate plan credits and paid features.";
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -28,7 +34,7 @@ export default async function BillingPage() {
               <div>
                 <h2 className="text-lg font-semibold text-harlo-ink">Current plan</h2>
                 <p className="mt-1 text-sm text-harlo-muted">
-                  {billing.status === "trialing" ? `${TRIAL_CONFIG.credits} trial credits` : `${billing.plan.monthlyCredits.toLocaleString()} monthly plan credits`} · Renews {formatDate(periodEnd)}
+                  {creditSummary}
                 </p>
               </div>
               <Badge>{formatBillingStatus(billing.status)}</Badge>
@@ -37,7 +43,7 @@ export default async function BillingPage() {
           <CardBody>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p className="text-3xl font-semibold text-harlo-ink">{billing.plan.name}</p>
+                <p className="text-3xl font-semibold text-harlo-ink">{planName}</p>
                 <p className="mt-2 text-sm text-harlo-muted">
                   {formatter.format(billing.creditsUsed)} of {formatter.format(billing.creditLimit)} total available credits used this period.
                 </p>
@@ -55,7 +61,7 @@ export default async function BillingPage() {
               <CreditStat
                 label="Plan credits"
                 value={`${formatter.format(billing.planCreditsUsed)} / ${formatter.format(billing.planCreditLimit)}`}
-                detail={`${formatter.format(planRemaining)} resets on ${formatDate(periodEnd)}`}
+                detail={hasPlanAccess ? `${formatter.format(planRemaining)} ${billing.status === "trialing" ? "available until" : "resets on"} ${formatDate(periodEnd)}` : "Unavailable until checkout is complete"}
               />
               <CreditStat
                 label="Add-on credits used"

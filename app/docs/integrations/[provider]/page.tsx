@@ -59,7 +59,7 @@ export default async function IntegrationProviderPage({ params }: IntegrationPro
   }
 
   return (
-    <main className="min-h-screen bg-harlo-canvas text-harlo-ink">
+    <main className="min-h-screen bg-white text-harlo-ink">
       <DocsNav />
       <IntegrationDocPageContent doc={doc} />
       <MarketingFooter />

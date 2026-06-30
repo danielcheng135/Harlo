@@ -197,7 +197,7 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
   }
 
   let creditUsage = await getCreditUsageStatus(supabase, organizationId);
-  let integrationActionLimit = getIntegrationEntitlements(creditUsage.planKey).actionsPerVisitorFlow;
+  let integrationActionLimit = getIntegrationEntitlements(creditUsage.planKey, creditUsage.status).actionsPerVisitorFlow;
   let autoRechargeSkipped: string | null = null;
   let autoRechargePaymentIntentId: string | null = null;
 
@@ -208,7 +208,7 @@ export async function processAgentMessage(input: ProcessAgentMessageInput): Prom
 
     if (autoRecharge.recharged) {
       creditUsage = await getCreditUsageStatus(supabase, organizationId);
-      integrationActionLimit = getIntegrationEntitlements(creditUsage.planKey).actionsPerVisitorFlow;
+      integrationActionLimit = getIntegrationEntitlements(creditUsage.planKey, creditUsage.status).actionsPerVisitorFlow;
     }
   }
 

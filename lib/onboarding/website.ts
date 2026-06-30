@@ -41,9 +41,9 @@ export function getWebsiteIdentity(input: string): WebsiteIdentity {
 }
 
 export function getFallbackLogoUrl(input: string) {
-  const { origin } = getWebsiteIdentity(input);
+  const { hostname } = getWebsiteIdentity(input);
 
-  return `${origin}/favicon.ico`;
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=128`;
 }
 
 export async function discoverWebsiteLogo(input: string): Promise<LogoDiscoveryResult> {
@@ -139,8 +139,10 @@ function extractLogoCandidates(html: string, baseUrl: string) {
   }
 
   const origin = new URL(baseUrl).origin;
+  const hostname = new URL(baseUrl).hostname;
   candidates.push({ href: `${origin}/apple-touch-icon.png`, weight: 12 });
   candidates.push({ href: `${origin}/favicon.ico`, weight: 10 });
+  candidates.push({ href: getFallbackLogoUrl(hostname), weight: 5 });
 
   return dedupeCandidates(candidates);
 }

@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import {
   getBillingIntervalFromStripeInterval,
+  getAppUrl,
   getPlanKeyByProductId,
   getStripe,
   isBillingInterval,
-  isBillingPlanKey
+  isBillingPlanKey,
+  resolvePlanPriceId
 } from "@/lib/billing/stripe";
 import { buildMetaStripeMetadata, getMetaAttributionFromRequest } from "@/lib/meta/attribution";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
@@ -51,7 +53,7 @@ export async function POST(request: NextRequest) {
   const service = createSupabaseServiceClient();
   const { data: billing } = await service
     .from("organization_billing")
-    .select("plan_key, billing_interval, status, stripe_subscription_id")
+    .select("plan_key, billing_interval, status, stripe_customer_id, stripe_subscription_id")
     .eq("organization_id", membership.organization_id)
     .maybeSingle();
 
@@ -67,8 +69,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Only trialing subscriptions can be started early." }, { status: 400 });
   }
 
+  const planKey = isBillingPlanKey(billing.plan_key) ? billing.plan_key : "starter";
+  const interval = isBillingInterval(billing.billing_interval) ? billing.billing_interval : "monthly";
+
   if (!billing.stripe_subscription_id) {
-    return NextResponse.json({ error: "No active Stripe subscription was found for this trial." }, { status: 400 });
+    return startCardlessTrialCheckout({
+      request,
+      stripe,
+      service,
+      organizationId: membership.organization_id,
+      user: {
+        id: user.id,
+        email: user.email ?? null
+      },
+      planKey,
+      interval,
+      customerId: typeof billing.stripe_customer_id === "string" ? billing.stripe_customer_id : null,
+      metaMetadata
+    });
   }
 
   try {
@@ -80,16 +98,16 @@ export async function POST(request: NextRequest) {
       expand: ["latest_invoice"]
     });
     const resolvedPlan = await resolveSubscriptionPlan(stripe, subscription);
-    const planKey = isBillingPlanKey(billing.plan_key) ? billing.plan_key : resolvedPlan?.planKey ?? "starter";
-    const interval = isBillingInterval(billing.billing_interval) ? billing.billing_interval : resolvedPlan?.interval ?? "monthly";
+    const syncedPlanKey = resolvedPlan?.planKey ?? planKey;
+    const syncedInterval = resolvedPlan?.interval ?? interval;
     const status = normalizeStripeStatus(subscription.status);
 
     await syncBillingFromSubscription({
       service,
       organizationId: membership.organization_id,
       subscription,
-      planKey,
-      interval,
+      planKey: syncedPlanKey,
+      interval: syncedInterval,
       status
     });
 
@@ -117,6 +135,116 @@ export async function POST(request: NextRequest) {
       paymentRequired: true
     }, { status: 402 });
   }
+}
+
+async function startCardlessTrialCheckout({
+  request,
+  stripe,
+  service,
+  organizationId,
+  user,
+  planKey,
+  interval,
+  customerId,
+  metaMetadata
+}: {
+  request: NextRequest;
+  stripe: Stripe;
+  service: ReturnType<typeof createSupabaseServiceClient>;
+  organizationId: string;
+  user: {
+    id: string;
+    email: string | null;
+  };
+  planKey: BillingPlanKey;
+  interval: BillingInterval;
+  customerId: string | null;
+  metaMetadata: Record<string, string>;
+}) {
+  const priceId = await resolvePlanPriceId(stripe, planKey, interval);
+
+  if (!priceId) {
+    return NextResponse.json({
+      error: "Stripe price not found for this plan and interval. Add price IDs or product IDs to the environment."
+    }, { status: 400 });
+  }
+
+  const { data: organization } = await service
+    .from("organizations")
+    .select("id, name")
+    .eq("id", organizationId)
+    .single();
+
+  if (!organization) {
+    return NextResponse.json({ error: "Organization not found." }, { status: 404 });
+  }
+
+  let resolvedCustomerId = customerId;
+
+  if (!resolvedCustomerId) {
+    const customer = await stripe.customers.create({
+      email: user.email ?? undefined,
+      name: organization.name,
+      metadata: {
+        organization_id: organization.id,
+        meta_user_id: user.id,
+        ...metaMetadata
+      }
+    });
+    resolvedCustomerId = customer.id;
+  }
+
+  await service.from("organization_billing").upsert({
+    organization_id: organization.id,
+    stripe_customer_id: resolvedCustomerId,
+    updated_at: new Date().toISOString()
+  }, {
+    onConflict: "organization_id"
+  });
+
+  const appUrl = getAppUrl(request.url);
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    customer: resolvedCustomerId,
+    payment_method_collection: "always",
+    line_items: [
+      {
+        price: priceId,
+        quantity: 1
+      }
+    ],
+    allow_promotion_codes: true,
+    success_url: `${appUrl}/dashboard/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${appUrl}/dashboard/billing?checkout=canceled`,
+    subscription_data: {
+      metadata: {
+        organization_id: organization.id,
+        plan_key: planKey,
+        billing_interval: interval,
+        meta_user_id: user.id,
+        ...metaMetadata
+      }
+    },
+    metadata: {
+      organization_id: organization.id,
+      plan_key: planKey,
+      billing_interval: interval,
+      purchase_type: "subscription_conversion",
+      google_ads_new_customer: "true",
+      meta_user_id: user.id,
+      ...metaMetadata
+    }
+  });
+
+  if (!session.url) {
+    return NextResponse.json({ error: "Stripe did not return a checkout URL." }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    status: "checkout_required",
+    url: session.url
+  });
 }
 
 async function syncBillingFromSubscription({

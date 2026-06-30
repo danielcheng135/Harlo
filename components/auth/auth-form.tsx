@@ -152,28 +152,28 @@ export function AuthForm({ mode }: AuthFormProps) {
 
   if (confirmationEmail) {
     return (
-      <div className="w-full max-w-[560px] rounded-lg border border-white/80 bg-white p-6 shadow-[0_28px_90px_rgba(0,0,0,0.22)] sm:p-8">
+      <div className="w-full max-w-[520px] rounded-[22px] border border-white/35 bg-white p-6 text-harlo-ink shadow-[0_24px_80px_rgba(3,16,32,0.22)] sm:p-8">
         <div className="flex items-start gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-harlo-teal text-white shadow-sm shadow-harlo-teal/20">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-harlo-blue text-white shadow-[0_4px_0_#066375]">
             <Mail size={20} />
           </span>
           <div>
-            <h2 className="text-lg font-semibold text-harlo-ink">Check your email</h2>
+            <h2 className="text-2xl font-black tracking-[-0.04em] text-harlo-ink">Check your email</h2>
             <p className="mt-1 text-sm leading-6 text-harlo-muted">
               We sent a confirmation link to <span className="font-semibold text-harlo-ink">{confirmationEmail}</span>. Open it to finish creating your Harlo account.
             </p>
           </div>
         </div>
-        <div className="mt-5 rounded-lg border border-harlo-line bg-white p-3">
+        <div className="mt-5 rounded-[16px] border border-harlo-line bg-harlo-canvas p-3">
           <div className="flex items-start gap-2 text-sm text-harlo-muted">
-            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-harlo-teal" />
+            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-harlo-blue" />
             <p>The link will return you to {isInviteSignUp ? "the workspace invite" : "onboarding"} after your email is confirmed.</p>
           </div>
         </div>
         <button
           type="button"
           onClick={() => setConfirmationEmail(null)}
-          className="mt-4 text-sm font-semibold text-harlo-teal"
+          className="mt-4 text-sm font-bold text-harlo-blue"
         >
           Use a different email
         </button>
@@ -186,28 +186,28 @@ export function AuthForm({ mode }: AuthFormProps) {
   const isSignUp = mode === "sign-up";
 
   return (
-    <div className="w-full max-w-[560px] overflow-hidden rounded-lg border border-white/80 bg-white text-harlo-ink shadow-[0_28px_90px_rgba(0,0,0,0.22)] lg:max-w-[500px]">
-      <div className="px-6 pb-7 pt-6 sm:px-10 sm:pb-10 sm:pt-9 lg:px-7 lg:pb-6 lg:pt-6">
+    <div className="w-full max-w-[540px] overflow-hidden rounded-[22px] border border-white/35 bg-white text-harlo-ink shadow-[0_24px_80px_rgba(3,16,32,0.22)] lg:max-w-[500px]">
+      <div className="px-6 pb-7 pt-6 sm:px-9 sm:pb-9 sm:pt-8 lg:px-7 lg:pb-6 lg:pt-6">
         <div className="grid grid-cols-2 border-b border-harlo-line text-center text-sm font-semibold">
           <Link
             href={signUpHref as Route}
-            className={`border-b-2 px-4 pb-4 transition ${isSignUp ? "border-harlo-teal text-harlo-teal" : "border-transparent text-harlo-muted hover:text-harlo-ink"}`}
+            className={`border-b-2 px-4 pb-3 transition ${isSignUp ? "border-harlo-blue text-harlo-blue" : "border-transparent text-harlo-muted hover:text-harlo-ink"}`}
           >
             Create account
           </Link>
           <Link
             href={signInHref as Route}
-            className={`border-b-2 px-4 pb-4 transition ${!isSignUp ? "border-harlo-teal text-harlo-teal" : "border-transparent text-harlo-muted hover:text-harlo-ink"}`}
+            className={`border-b-2 px-4 pb-3 transition ${!isSignUp ? "border-harlo-blue text-harlo-blue" : "border-transparent text-harlo-muted hover:text-harlo-ink"}`}
           >
             Sign in
           </Link>
         </div>
 
-        <div className="mt-8 lg:mt-7">
-          <h1 className="text-2xl font-semibold tracking-tight text-harlo-ink sm:text-3xl lg:text-[1.7rem]">
+        <div className="mt-7 lg:mt-6">
+          <h1 className="text-3xl font-black leading-none tracking-[-0.04em] text-harlo-ink sm:text-4xl lg:text-[2rem]">
             {isSignUp ? "Create your Harlo account" : "Welcome back to Harlo"}
           </h1>
-          <p className="mt-2 text-sm leading-6 text-harlo-muted sm:text-base lg:text-sm lg:leading-5">
+          <p className="mt-3 text-sm font-medium leading-6 text-harlo-muted lg:text-sm lg:leading-5">
             {isSignUp
               ? isInviteSignUp
                 ? "Use the email address your invite was sent to. Harlo will add you to the workspace after confirmation."
@@ -284,7 +284,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           <button
             type="submit"
             disabled={isPending}
-            className="mt-2 inline-flex h-12 w-full items-center justify-center rounded-lg bg-gradient-to-r from-harlo-teal to-harlo-blue px-4 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-70 lg:h-10"
+            className="mt-2 inline-flex h-12 w-full items-center justify-center rounded-[16px] bg-harlo-blue px-4 text-sm font-extrabold text-white shadow-[0_5px_0_#066375] transition hover:-translate-y-0.5 disabled:cursor-wait disabled:translate-y-0 disabled:opacity-70 disabled:shadow-none lg:h-11"
           >
             <span className="grid h-5 w-5 place-items-center">
               {isPending ? <Loader2 className="animate-spin" size={16} /> : null}
@@ -305,14 +305,14 @@ export function AuthForm({ mode }: AuthFormProps) {
           variant="secondary"
           onClick={handleGoogleAuth}
           disabled={oauthPending || isPending}
-          className="mt-5 h-12 w-full bg-white text-base lg:mt-3 lg:h-10 lg:text-sm"
+          className="mt-5 h-12 w-full rounded-[16px] bg-white text-base font-bold lg:mt-3 lg:h-11 lg:text-sm"
         >
           {oauthPending ? <Loader2 className="animate-spin" size={17} /> : <GoogleIcon />}
           Continue with Google
         </Button>
 
         <div className="mt-6 flex items-start justify-center gap-2 text-center text-xs leading-5 text-harlo-muted lg:mt-4">
-          <ShieldCheck size={15} className="mt-0.5 shrink-0 text-harlo-teal" />
+          <ShieldCheck size={15} className="mt-0.5 shrink-0 text-harlo-blue" />
           <span>Your data is encrypted and secure. We never share your information.</span>
         </div>
       </div>
@@ -335,8 +335,8 @@ function GoogleIcon() {
 function AuthField({ label, icon, action, children }: { label: string; icon: React.ReactNode; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="text-sm font-medium text-harlo-ink">{label}</span>
-      <span className="relative mt-2 block rounded-lg border border-harlo-line bg-white shadow-[0_1px_0_rgba(15,23,42,0.02)] focus-within:border-harlo-teal">
+      <span className="text-sm font-bold text-harlo-ink">{label}</span>
+      <span className="relative mt-2 block rounded-[16px] border border-harlo-line bg-white shadow-[0_1px_0_rgba(15,23,42,0.02)] focus-within:border-harlo-blue focus-within:ring-4 focus-within:ring-harlo-mist">
         <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-harlo-muted">{icon}</span>
         {children}
         {action ? <span className="absolute right-2 top-1/2 -translate-y-1/2">{action}</span> : null}

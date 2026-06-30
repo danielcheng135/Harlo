@@ -141,7 +141,7 @@ function CreditUsageBanner({ canManageBilling, status, used, limit }: { canManag
   if (isOverLimit) {
     const trialing = status === "trialing";
     const href = canManageBilling ? "/dashboard/billing#start-paid" : "/dashboard/billing";
-    const cta = canManageBilling && trialing ? "Start paid now" : "Open billing";
+    const cta = canManageBilling && trialing ? "Continue to Stripe" : "Open billing";
 
     return (
       <div className="mb-5 overflow-hidden rounded-lg border border-harlo-teal/25 bg-gradient-to-r from-harlo-mist via-white to-cyan-50 p-[1px] shadow-sm shadow-harlo-teal/10">
@@ -154,7 +154,7 @@ function CreditUsageBanner({ canManageBilling, status, used, limit }: { canManag
               <div>
                 <p className="font-semibold text-harlo-ink">Message credits are used up</p>
                 <p className="mt-1 text-sm leading-6 text-harlo-muted">
-                  {formatter.format(used)} of {formatter.format(limit)} credits used. {trialing ? "Start your paid Starter subscription to unlock monthly credits and resume the website chatbot." : "The website chatbot is paused until credits renew, auto-recharge succeeds, or the plan is updated."}
+                  {formatter.format(used)} of {formatter.format(limit)} credits used. {trialing ? "Continue to Stripe to start a paid plan, unlock monthly credits, and resume the website chatbot." : "The website chatbot is paused until credits renew, auto-recharge succeeds, or the plan is updated."}
                 </p>
               </div>
             </div>

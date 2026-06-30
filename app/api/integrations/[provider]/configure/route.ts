@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { canUseIntegrationProvider, type BillingPlanKey } from "@/lib/billing/plans";
+import { canUseIntegrationProvider, type BillingPlanKey, type BillingStatus } from "@/lib/billing/plans";
 import { getIntegrationAdminAuth } from "@/lib/integrations/auth";
 import { getFreshIntegrationCredentials, normalizeSelectedEventTypes } from "@/lib/integrations/event-types";
 import {
@@ -45,9 +45,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const service = createSupabaseServiceClient();
-  const planKey = await getOrganizationPlanKey(auth.organizationId);
+  const billing = await getOrganizationBillingAccess(auth.organizationId);
 
-  if (!canUseIntegrationProvider(planKey, provider)) {
+  if (!canUseIntegrationProvider(billing.planKey, provider, billing.status)) {
     redirectUrl.searchParams.set("status", "plan_locked");
     if (wantsJson(request)) {
       return NextResponse.json({ ok: false, error: "This integration is not included in the current plan." }, { status: 403 });
@@ -201,15 +201,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
   return NextResponse.redirect(redirectUrl, { status: 303 });
 }
 
-async function getOrganizationPlanKey(organizationId: string): Promise<BillingPlanKey> {
+async function getOrganizationBillingAccess(organizationId: string): Promise<{ planKey: BillingPlanKey; status: BillingStatus }> {
   const supabase = createSupabaseServiceClient();
   const { data } = await supabase
     .from("organization_billing")
-    .select("plan_key")
+    .select("plan_key, status")
     .eq("organization_id", organizationId)
     .maybeSingle();
+  const status = data?.status === "trialing" || data?.status === "active" || data?.status === "past_due" || data?.status === "canceled" || data?.status === "incomplete"
+    ? data.status
+    : "incomplete";
 
-  return data?.plan_key === "growth" || data?.plan_key === "pro" ? data.plan_key : "starter";
+  return {
+    planKey: data?.plan_key === "growth" || data?.plan_key === "pro" ? data.plan_key : "starter",
+    status
+  };
 }
 
 function normalizeActionType(value: FormDataEntryValue | null, allowed: IntegrationActionType[]) {

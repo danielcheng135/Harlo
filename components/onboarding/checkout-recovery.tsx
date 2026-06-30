@@ -16,7 +16,6 @@ import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   BILLING_PLANS,
-  TRIAL_CONFIG,
   formatPrice,
   getBillingPlan,
   type BillingInterval,
@@ -83,36 +82,41 @@ export function CheckoutRecovery({
   }
 
   return (
-    <section className="relative mx-auto max-w-7xl px-4 pb-10 pt-5 sm:px-6 sm:pb-14 sm:pt-9">
+    <section className="relative w-full">
       <div className="mb-8 grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(400px,1.1fr)] lg:items-end">
         <div>
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.08] px-3 py-1.5 text-xs font-semibold uppercase text-white/75">
-            <CheckCircle2 size={14} className="text-harlo-blue" />
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-white/85">
+            <CheckCircle2 size={14} className="text-white" />
             Workspace ready
           </span>
-          <h1 className="mt-5 max-w-2xl text-4xl font-semibold leading-[1.04] text-white sm:text-5xl lg:text-6xl">
+          <h1 className="mt-5 max-w-3xl text-[clamp(2.5rem,7vw,5.25rem)] font-black leading-[0.92] tracking-[-0.04em] text-white">
             Choose how {organizationName} launches.
           </h1>
         </div>
-        <p className="max-w-xl text-base leading-7 text-slate-300 sm:text-lg lg:pb-1">
+        <p className="max-w-xl text-base font-semibold leading-7 text-white/82 sm:text-lg lg:pb-2">
           Select the plan that fits your traffic today. You can change plans as your website conversations grow.
         </p>
       </div>
 
       {checkoutState === "canceled" ? (
-        <div className="mb-5 rounded-lg border border-amber-300/30 bg-amber-200/10 px-4 py-3 text-sm font-medium text-amber-100">
+        <div className="mb-5 rounded-[16px] border border-white/25 bg-white px-4 py-3 text-sm font-bold text-amber-800 shadow-sm">
           Checkout was canceled. Your workspace is saved, so you can continue whenever you are ready.
         </div>
       ) : null}
+      {checkoutState === "trial-ended" ? (
+        <div className="mb-5 rounded-[16px] border border-white/25 bg-white px-4 py-3 text-sm font-bold text-harlo-ink shadow-sm">
+          Your free trial has ended. Choose a paid plan and continue to Stripe to keep Harlo active.
+        </div>
+      ) : null}
 
-      <div className="overflow-hidden rounded-lg border border-white/10 bg-white shadow-[0_32px_100px_rgba(0,0,0,0.28)]">
+      <div className="overflow-hidden rounded-[18px] border border-white/20 bg-white shadow-[0_5px_0_rgba(6,99,117,0.55)]">
         <div className="grid xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="min-w-0 p-5 sm:p-8 lg:p-10">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase text-harlo-teal">Plan selection</p>
-                <h2 className="mt-2 text-2xl font-semibold text-harlo-ink sm:text-3xl">Pick the right starting point.</h2>
-                <p className="mt-2 text-sm leading-6 text-harlo-muted">All plans include the website widget, inbox, knowledge, and lead capture.</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-harlo-blue">Plan selection</p>
+                <h2 className="mt-2 text-2xl font-black tracking-[-0.03em] text-harlo-ink sm:text-3xl">Pick the right starting point.</h2>
+                <p className="mt-2 text-sm font-medium leading-6 text-harlo-muted">All plans include the website widget, inbox, knowledge, and lead capture.</p>
               </div>
               <BillingIntervalToggle interval={interval} onChange={setInterval} />
             </div>
@@ -129,17 +133,17 @@ export function CheckoutRecovery({
                     type="button"
                     aria-pressed={selected}
                     onClick={() => setPlanKey(item.key)}
-                    className={`relative flex min-h-56 flex-col rounded-lg border p-5 text-left transition ${selected
-                      ? "border-harlo-teal bg-harlo-mist/60 shadow-sm"
-                      : "border-harlo-line bg-white hover:-translate-y-0.5 hover:border-harlo-teal/60 hover:shadow-sm"
+                    className={`relative flex min-h-56 flex-col rounded-[16px] border p-5 text-left transition ${selected
+                      ? "border-harlo-blue bg-harlo-mist/80 shadow-sm"
+                      : "border-harlo-line bg-white hover:-translate-y-0.5 hover:border-harlo-blue/60 hover:shadow-sm"
                       }`}
                   >
                     {item.key === "growth" ? (
-                      <span className="absolute right-4 top-4 rounded-full bg-harlo-ink px-2.5 py-1 text-[10px] font-semibold uppercase text-white">
+                      <span className="absolute right-4 top-4 rounded-full bg-harlo-blue px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white">
                         Popular
                       </span>
                     ) : null}
-                    <span className={`grid h-10 w-10 place-items-center rounded-lg ${selected ? "bg-harlo-teal text-white" : "bg-slate-100 text-harlo-muted"}`}>
+                    <span className={`grid h-10 w-10 place-items-center rounded-full ${selected ? "bg-harlo-blue text-white" : "bg-slate-100 text-harlo-muted"}`}>
                       <Icon size={18} />
                     </span>
                     <span className="mt-5 text-lg font-semibold text-harlo-ink">{item.name}</span>
@@ -148,7 +152,7 @@ export function CheckoutRecovery({
                       <span className="pb-1 text-xs font-medium text-harlo-muted">/month</span>
                     </span>
                     <span className="mt-3 text-xs leading-5 text-harlo-muted">{item.description}</span>
-                    <span className={`mt-auto pt-5 text-xs font-semibold ${selected ? "text-harlo-teal" : "text-harlo-muted"}`}>
+                    <span className={`mt-auto pt-5 text-xs font-semibold ${selected ? "text-harlo-blue" : "text-harlo-muted"}`}>
                       {selected ? "Selected" : "Choose plan"}
                     </span>
                   </button>
@@ -159,32 +163,31 @@ export function CheckoutRecovery({
             <div className="mt-7 grid gap-x-8 gap-y-3 border-t border-harlo-line pt-6 sm:grid-cols-2">
               {plan.features.map((feature) => (
                 <span key={feature} className="flex items-start gap-2.5 text-sm font-medium text-harlo-muted">
-                  <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-harlo-teal" />
+                  <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-harlo-blue" />
                   {feature}
                 </span>
               ))}
             </div>
           </div>
 
-          <aside className="relative overflow-hidden bg-[#07111a] p-6 text-white sm:p-8 xl:min-h-[680px]">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_100%_0%,rgba(13,143,170,0.38),transparent_38%),linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:auto,48px_48px,48px_48px]" />
-            <div className="relative flex h-full flex-col">
+          <aside className="bg-harlo-mist p-6 text-harlo-ink sm:p-8 xl:min-h-[680px]">
+            <div className="flex h-full flex-col">
               <div>
-                <p className="text-xs font-semibold uppercase text-white/50">Order summary</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-harlo-blue">Order summary</p>
                 <div className="mt-5 flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-xl font-semibold">{plan.name}</p>
-                    <p className="mt-1 text-sm text-slate-400">{interval === "annual" ? "Annual billing" : "Monthly billing"}</p>
+                    <p className="text-xl font-black">{plan.name}</p>
+                    <p className="mt-1 text-sm font-semibold text-harlo-muted">{interval === "annual" ? "Annual billing" : "Monthly billing"}</p>
                   </div>
                   <CreditCard size={23} className="text-harlo-blue" />
                 </div>
 
-                <div className="mt-7 border-y border-white/10 py-6">
+                <div className="mt-7 border-y border-harlo-line py-6">
                   <div className="flex items-end justify-between gap-3">
-                    <span className="text-sm text-slate-400">Plan price</span>
+                    <span className="text-sm font-semibold text-harlo-muted">Plan price</span>
                     <span className="text-3xl font-semibold">
                       {formatPrice(price)}
-                      <span className="ml-1 text-xs font-medium text-slate-400">/month</span>
+                      <span className="ml-1 text-xs font-semibold text-harlo-muted">/month</span>
                     </span>
                   </div>
                   {interval === "annual" ? (
@@ -192,7 +195,7 @@ export function CheckoutRecovery({
                   ) : null}
                 </div>
 
-                <div className="mt-6 grid gap-3 text-sm text-slate-300">
+                <div className="mt-6 grid gap-3 text-sm font-semibold text-harlo-muted">
                   <span className="flex items-center gap-2.5">
                     <ShieldCheck size={16} className="shrink-0 text-harlo-blue" />
                     Secure Stripe checkout
@@ -203,16 +206,14 @@ export function CheckoutRecovery({
                   </span>
                   <span className="flex items-center gap-2.5">
                     <CheckCircle2 size={16} className="shrink-0 text-harlo-blue" />
-                    {planKey === "starter"
-                      ? `${TRIAL_CONFIG.days}-day trial with ${TRIAL_CONFIG.credits} credits`
-                      : "Access starts after checkout"}
+                    {`${plan.monthlyCredits.toLocaleString()} monthly credits after payment`}
                   </span>
                 </div>
               </div>
 
               <div className="mt-8 xl:mt-auto">
                 {error ? (
-                  <div role="alert" className="mb-4 rounded-lg border border-red-300/30 bg-red-300/10 px-3 py-3 text-sm text-red-100">
+                  <div role="alert" className="mb-4 rounded-[16px] border border-red-200 bg-red-50 px-3 py-3 text-sm font-medium text-red-700">
                     {error}
                   </div>
                 ) : null}
@@ -220,13 +221,13 @@ export function CheckoutRecovery({
                   type="button"
                   onClick={handleCheckout}
                   disabled={isPending}
-                  className="h-14 w-full border border-white/20 text-base font-semibold text-harlo-ink shadow-[0_12px_34px_rgba(255,255,255,0.18)] transition-[transform,background-color,box-shadow] hover:-translate-y-0.5 hover:bg-harlo-blue hover:shadow-[0_16px_40px_rgba(255,255,255,0.24)] focus-visible:ring-2 focus-visible:ring-harlo-blue focus-visible:ring-offset-2 focus-visible:ring-offset-harlo-ink disabled:translate-y-0 disabled:bg-white/70 disabled:shadow-none"
+                  className="h-14 w-full rounded-[16px] bg-harlo-blue text-base font-extrabold text-white shadow-[0_5px_0_#066375] transition hover:-translate-y-0.5 hover:bg-harlo-blue hover:shadow-[0_5px_0_#066375] focus-visible:ring-2 focus-visible:ring-harlo-blue focus-visible:ring-offset-2 disabled:translate-y-0 disabled:opacity-70 disabled:shadow-none"
                 >
                   {isPending ? <Loader2 className="animate-spin" size={17} /> : null}
                   Continue to checkout
                   <ArrowRight size={17} />
                 </Button>
-                <p className="mt-3 text-center text-xs leading-5 text-slate-500">
+                <p className="mt-3 text-center text-xs font-medium leading-5 text-harlo-muted">
                   Your workspace setup is already saved.
                 </p>
               </div>
@@ -246,15 +247,15 @@ function BillingIntervalToggle({
   onChange: (interval: BillingInterval) => void;
 }) {
   return (
-    <div className="grid w-full shrink-0 grid-cols-2 rounded-full border border-harlo-line bg-white/95 p-1.5 shadow-[0_14px_34px_rgba(15,23,42,0.08)] sm:inline-grid sm:w-auto sm:min-w-max">
+    <div className="grid w-full shrink-0 grid-cols-2 rounded-[16px] border border-harlo-line bg-white/95 p-1.5 shadow-[0_14px_34px_rgba(15,23,42,0.08)] sm:inline-grid sm:w-auto sm:min-w-max">
       {(["monthly", "annual"] as const).map((option) => (
         <button
           key={option}
           type="button"
           aria-pressed={interval === option}
           onClick={() => onChange(option)}
-          className={`inline-flex min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-full px-4 py-2.5 text-sm font-semibold capitalize transition sm:min-w-28 ${interval === option
-            ? "bg-harlo-ink text-white shadow-[0_10px_24px_rgba(17,24,39,0.18)]"
+          className={`inline-flex min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-[13px] px-4 py-2.5 text-sm font-bold capitalize transition sm:min-w-28 ${interval === option
+            ? "bg-harlo-blue text-white shadow-sm"
             : "text-harlo-muted hover:bg-harlo-mist hover:text-harlo-ink"
             }`}
         >

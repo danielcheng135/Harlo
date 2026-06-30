@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { canUseIntegrationProvider, type BillingPlanKey } from "@/lib/billing/plans";
+import { canUseIntegrationProvider, type BillingPlanKey, type BillingStatus } from "@/lib/billing/plans";
 import { getIntegrationAdminAuth } from "@/lib/integrations/auth";
 import { getProviderAuthorizationUrl } from "@/lib/integrations/providers";
 import { createIntegrationOAuthState } from "@/lib/integrations/state";
@@ -24,9 +24,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return auth.response;
   }
 
-  const planKey = await getOrganizationPlanKey(auth.organizationId);
+  const billing = await getOrganizationBillingAccess(auth.organizationId);
 
-  if (!canUseIntegrationProvider(planKey, provider)) {
+  if (!canUseIntegrationProvider(billing.planKey, provider, billing.status)) {
     return NextResponse.redirect(new URL(`/dashboard/integrations?integration=${provider}&status=plan_locked`, request.url));
   }
 
@@ -53,13 +53,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
   return NextResponse.redirect(authorizationUrl);
 }
 
-async function getOrganizationPlanKey(organizationId: string): Promise<BillingPlanKey> {
+async function getOrganizationBillingAccess(organizationId: string): Promise<{ planKey: BillingPlanKey; status: BillingStatus }> {
   const supabase = createSupabaseServiceClient();
   const { data } = await supabase
     .from("organization_billing")
-    .select("plan_key")
+    .select("plan_key, status")
     .eq("organization_id", organizationId)
     .maybeSingle();
+  const status = data?.status === "trialing" || data?.status === "active" || data?.status === "past_due" || data?.status === "canceled" || data?.status === "incomplete"
+    ? data.status
+    : "incomplete";
 
-  return data?.plan_key === "growth" || data?.plan_key === "pro" ? data.plan_key : "starter";
+  return {
+    planKey: data?.plan_key === "growth" || data?.plan_key === "pro" ? data.plan_key : "starter",
+    status
+  };
 }

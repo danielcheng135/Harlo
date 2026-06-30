@@ -5,7 +5,7 @@ import { discoverWebsiteLogo, getFallbackLogoUrl, getWebsiteIdentity } from "@/l
 import { isBillingInterval, isBillingPlanKey } from "@/lib/billing/stripe";
 import { isInternalAdminEmail, isInternalWorkspaceMetadata, withInternalWorkspaceMetadata } from "@/lib/internal-admin";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
-import type { BillingInterval, BillingPlanKey } from "@/lib/billing/plans";
+import { getTrialPeriod, type BillingInterval, type BillingPlanKey } from "@/lib/billing/plans";
 
 type OnboardingRequest = {
   businessName?: string;
@@ -22,6 +22,7 @@ const VALID_GOALS = new Set(["support", "lead_capture", "both"]);
 const VALID_TONES = new Set(["professional", "friendly", "direct"]);
 const ACCENT_PATTERN = /^#[0-9a-f]{6}$/i;
 const LOGO_DISCOVERY_TIMEOUT_MS = 9000;
+const DASHBOARD_SETUP_INTRO_PATH = "/dashboard?welcome=1&setup_intro=1";
 
 type LogoDiscovery = Awaited<ReturnType<typeof discoverWebsiteLogo>>;
 type ServiceClient = ReturnType<typeof createSupabaseServiceClient>;
@@ -177,31 +178,57 @@ export async function POST(request: NextRequest) {
 
     const { data: existingBilling } = await serviceClient
       .from("organization_billing")
-      .select("status")
+      .select("status, trial_start, trial_end, stripe_subscription_id")
       .eq("organization_id", existingMembership.organization_id)
       .maybeSingle();
+    let nextPath = "/onboarding/checkout";
 
     if (!existingBilling) {
+      const trialPeriod = getTrialPeriod();
       const { error: billingRepairError } = await serviceClient.from("organization_billing").insert({
         organization_id: existingMembership.organization_id,
         plan_key: isInternalWorkspace ? "pro" : planKey,
         billing_interval: isInternalWorkspace ? "monthly" : interval,
-        status: isInternalWorkspace ? "active" : "incomplete"
+        status: isInternalWorkspace ? "active" : "trialing",
+        ...(isInternalWorkspace ? {} : {
+          trial_start: trialPeriod.start,
+          trial_end: trialPeriod.end,
+          current_period_start: trialPeriod.start,
+          current_period_end: trialPeriod.end
+        })
       });
 
       if (billingRepairError) {
         return NextResponse.json({ error: billingRepairError.message }, { status: 500 });
       }
+      nextPath = DASHBOARD_SETUP_INTRO_PATH;
     } else if (isInternalWorkspace || (existingBilling.status !== "active" && existingBilling.status !== "trialing")) {
+      const shouldStartTrial = !isInternalWorkspace &&
+        existingBilling.status === "incomplete" &&
+        !existingBilling.trial_start &&
+        !existingBilling.trial_end &&
+        !existingBilling.stripe_subscription_id;
+      const trialPeriod = shouldStartTrial ? getTrialPeriod() : null;
+
       await serviceClient
         .from("organization_billing")
         .update({
           plan_key: isInternalWorkspace ? "pro" : planKey,
           billing_interval: isInternalWorkspace ? "monthly" : interval,
           ...(isInternalWorkspace ? { status: "active" } : {}),
+          ...(trialPeriod ? {
+            status: "trialing",
+            trial_start: trialPeriod.start,
+            trial_end: trialPeriod.end,
+            current_period_start: trialPeriod.start,
+            current_period_end: trialPeriod.end
+          } : {}),
           updated_at: new Date().toISOString()
         })
         .eq("organization_id", existingMembership.organization_id);
+      nextPath = isInternalWorkspace || trialPeriod ? DASHBOARD_SETUP_INTRO_PATH : "/onboarding/checkout";
+    } else {
+      nextPath = DASHBOARD_SETUP_INTRO_PATH;
     }
 
     const sourceId = await ensureInitialUrlSource({
@@ -220,7 +247,7 @@ export async function POST(request: NextRequest) {
       websiteUrl: website.normalizedUrl,
       planKey,
       interval,
-      nextPath: isInternalWorkspace ? "/dashboard?welcome=1" : "/onboarding/checkout"
+      nextPath: isInternalWorkspace ? DASHBOARD_SETUP_INTRO_PATH : nextPath
     });
   }
 
@@ -320,11 +347,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: membershipError.message }, { status: 500 });
   }
 
+  const trialPeriod = getTrialPeriod();
   const { error: billingError } = await serviceClient.from("organization_billing").insert({
     organization_id: organization.id,
     plan_key: isInternalAdmin ? "pro" : planKey,
     billing_interval: isInternalAdmin ? "monthly" : interval,
-    status: isInternalAdmin ? "active" : "incomplete"
+    status: isInternalAdmin ? "active" : "trialing",
+    ...(isInternalAdmin ? {} : {
+      trial_start: trialPeriod.start,
+      trial_end: trialPeriod.end,
+      current_period_start: trialPeriod.start,
+      current_period_end: trialPeriod.end
+    })
   });
 
   if (billingError) {
@@ -389,7 +423,7 @@ export async function POST(request: NextRequest) {
     websiteUrl: website.normalizedUrl,
     planKey,
     interval,
-    nextPath: isInternalAdmin ? "/dashboard?welcome=1" : "/onboarding/checkout"
+    nextPath: DASHBOARD_SETUP_INTRO_PATH
   });
 }
 

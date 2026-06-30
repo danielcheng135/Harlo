@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { CheckCircle2, LockKeyhole, Sparkles } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { OnboardingForm } from "@/components/onboarding/onboarding-form";
+import { getEffectiveBillingStatus, type BillingStatus } from "@/lib/billing/plans";
 import { isInternalAdminEmail, isInternalWorkspaceMetadata, withInternalWorkspaceMetadata } from "@/lib/internal-admin";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 
@@ -52,7 +53,7 @@ export default async function OnboardingPage() {
           .maybeSingle(),
         service
           .from("organization_billing")
-          .select("status")
+          .select("status, trial_end, stripe_subscription_id")
           .eq("organization_id", membership.organization_id)
           .maybeSingle()
       ]);
@@ -83,8 +84,15 @@ export default async function OnboardingPage() {
         ]);
       }
 
-      if (organization && bot && (isInternalWorkspace || billing?.status === "active" || billing?.status === "trialing")) {
-        redirect("/dashboard?welcome=1");
+      const billingStatus = normalizeBillingStatus(billing?.status);
+      const effectiveBillingStatus = getEffectiveBillingStatus({
+        status: billingStatus,
+        trialEnd: typeof billing?.trial_end === "string" ? billing.trial_end : null,
+        stripeSubscriptionId: typeof billing?.stripe_subscription_id === "string" ? billing.stripe_subscription_id : null
+      });
+
+      if (organization && bot && (isInternalWorkspace || effectiveBillingStatus === "active" || effectiveBillingStatus === "trialing")) {
+        redirect("/dashboard?welcome=1&setup_intro=1");
       }
 
       if (organization && bot) {
@@ -94,70 +102,73 @@ export default async function OnboardingPage() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#07111a] text-white">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_12%,rgba(8,127,149,0.36),transparent_32%),linear-gradient(135deg,#07111a_0%,#08131d_54%,#063f4c_100%)]" />
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:64px_64px] opacity-25" />
-
-      <header className="relative mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6 sm:py-7">
-        <Link href="/" aria-label="Return to Harlo home">
-          <BrandLogo tone="light" />
-        </Link>
-        <span className="inline-flex items-center gap-2 text-xs font-semibold text-white/60 sm:text-sm">
-          <LockKeyhole size={14} className="text-harlo-blue" />
-          Secure workspace setup
-        </span>
-      </header>
-
-      <section className="relative mx-auto max-w-7xl px-4 pb-8 pt-4 sm:px-6 sm:pb-12 sm:pt-8">
-        <div className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(420px,1.1fr)] lg:items-end">
-          <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.08] px-3 py-1.5 text-xs font-semibold uppercase text-white/75">
-              <Sparkles size={14} className="text-harlo-blue" />
-              Workspace setup
+    <main className="min-h-screen bg-white text-[#222222]">
+      <section className="mx-auto flex min-h-screen max-w-[1500px] flex-col px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6">
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[22px] bg-harlo-blue px-4 py-4 text-white sm:rounded-[24px] sm:px-6 sm:py-5 lg:px-7 lg:py-5 xl:px-8">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_33%,rgba(255,255,255,0.14),transparent_23%),linear-gradient(135deg,rgba(255,255,255,0.08),transparent_36%)]" />
+          <header className="relative z-10 flex items-center justify-between gap-3">
+            <Link href="/" aria-label="Return to Harlo home" className="rounded-lg px-1 py-1 transition hover:bg-white/10">
+              <BrandLogo tone="light" />
+            </Link>
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-harlo-blue shadow-sm sm:text-xs">
+              <LockKeyhole size={14} className="text-harlo-blue" />
+              Secure setup
             </span>
-            <h1 className="mt-5 max-w-2xl text-4xl font-semibold leading-[1.04] sm:text-5xl lg:text-6xl">
-              Build your first AI agent in minutes.
-            </h1>
-          </div>
-          <div className="lg:pb-1">
-            <p className="max-w-xl text-base leading-7 text-slate-300 sm:text-lg">
-              Share your website, choose how Harlo should help, and review the setup before your workspace is created.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs font-semibold text-slate-400">
-              {["Website knowledge added", "Fully editable later", "No code required yet"].map((item) => (
-                <span key={item} className="inline-flex items-center gap-2">
-                  <CheckCircle2 size={14} className="text-harlo-blue" />
-                  {item}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
+          </header>
 
-        <div>
-          <Suspense
-            fallback={
-              <div className="flex min-h-[620px] items-center justify-center rounded-lg border border-white/10 bg-white text-sm font-semibold text-harlo-muted shadow-[0_32px_100px_rgba(0,0,0,0.28)]">
-                Preparing setup...
+          <div className="relative z-10 grid flex-1 gap-5 py-8 lg:grid-cols-[minmax(260px,0.42fr)_minmax(0,1fr)] lg:items-center lg:py-5 xl:grid-cols-[minmax(320px,0.44fr)_minmax(0,1fr)]">
+            <div className="min-w-0 lg:pr-1 xl:pr-4">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-white/85">
+                <Sparkles size={14} className="text-white" />
+                Workspace setup
+              </span>
+              <h1 className="mt-4 max-w-2xl text-5xl font-black leading-[0.92] tracking-[-0.055em] sm:text-6xl xl:text-7xl">
+                Build your first{" "}
+                <span className="inline-block rounded-[13px] bg-white px-[0.12em] pb-[0.04em] text-harlo-blue sm:rounded-[16px]">AI agent.</span>
+              </h1>
+              <p className="mt-5 max-w-xl text-sm font-semibold leading-6 text-white/86 xl:text-base xl:leading-7">
+                Add your business, website, and agent preferences. Harlo starts a no-card trial when setup is complete.
+              </p>
+              <div className="mt-5 grid gap-2 text-xs font-black uppercase tracking-[0.12em] text-white/78">
+                {["Website knowledge added", "Editable later", "No card required"].map((item) => (
+                  <span key={item} className="inline-flex items-center gap-2">
+                    <CheckCircle2 size={14} className="text-white" />
+                    {item}
+                  </span>
+                ))}
               </div>
-            }
-          >
-            <OnboardingForm
-              initialAssistantName={initialAssistantName}
-              initialBusinessName={initialBusinessName}
-              initialWebsiteUrl={initialWebsiteUrl}
-            />
-          </Suspense>
+            </div>
+
+            <Suspense
+              fallback={
+                <div className="flex min-h-[520px] items-center justify-center rounded-[18px] border border-white/20 bg-white text-sm font-bold text-harlo-muted shadow-[0_5px_0_rgba(6,99,117,0.55)]">
+                  Preparing setup...
+                </div>
+              }
+            >
+              <OnboardingForm
+                initialAssistantName={initialAssistantName}
+                initialBusinessName={initialBusinessName}
+                initialWebsiteUrl={initialWebsiteUrl}
+              />
+            </Suspense>
+          </div>
         </div>
-        <p className="mt-5 text-center text-xs leading-5 text-white/45">
+        <p className="mt-2 text-center text-xs font-medium leading-5 text-slate-500">
           By continuing, you agree to Harlo&apos;s{" "}
-          <Link href="/terms" className="text-white/70 underline underline-offset-4 hover:text-white">Terms</Link>
+          <Link href="/terms" className="font-bold text-harlo-blue underline underline-offset-4 hover:text-harlo-teal">Terms</Link>
           {" "}and{" "}
-          <Link href="/privacy" className="text-white/70 underline underline-offset-4 hover:text-white">Privacy Policy</Link>.
+          <Link href="/privacy" className="font-bold text-harlo-blue underline underline-offset-4 hover:text-harlo-teal">Privacy Policy</Link>.
         </p>
       </section>
     </main>
   );
+}
+
+function normalizeBillingStatus(value: unknown): BillingStatus {
+  return value === "trialing" || value === "active" || value === "past_due" || value === "canceled" || value === "incomplete"
+    ? value
+    : "incomplete";
 }
 
 function getBusinessName(metadata: unknown) {

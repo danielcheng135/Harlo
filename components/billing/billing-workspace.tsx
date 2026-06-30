@@ -74,8 +74,9 @@ export function BillingControls({ billing }: BillingWorkspaceProps) {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const { toast, showToast, dismissToast } = useToast();
   const periodEnd = new Date(billing.periodEnd);
+  const isTrialing = billing.status === "trialing";
 
-  async function startPaidNow(actionLabel = "Start paid now") {
+  async function startPaidNow(actionLabel = "Continue to Stripe") {
     setPendingAction(actionLabel);
 
     try {
@@ -99,7 +100,7 @@ export function BillingControls({ billing }: BillingWorkspaceProps) {
         return;
       }
 
-      showToast("success", "Your paid Starter subscription is active.");
+      showToast("success", `Your paid ${billing.plan.name} plan is active.`);
       window.location.reload();
     } catch {
       showToast("error", "Payment could not be collected.");
@@ -138,7 +139,11 @@ export function BillingControls({ billing }: BillingWorkspaceProps) {
           </span>
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-harlo-ink">Subscription</h2>
-            <p className="mt-1 text-sm leading-6 text-harlo-muted">Manage payment details, invoices, and subscription changes in Stripe.</p>
+            <p className="mt-1 text-sm leading-6 text-harlo-muted">
+              {isTrialing
+                ? `Start your paid ${billing.plan.name} plan in Stripe when you are ready to unlock monthly credits.`
+                : "Manage payment details, invoices, and subscription changes in Stripe."}
+            </p>
           </div>
         </div>
         <div className="mt-5 space-y-3 rounded-lg border border-harlo-line bg-harlo-canvas p-3">
@@ -147,14 +152,14 @@ export function BillingControls({ billing }: BillingWorkspaceProps) {
             <Badge>{billing.cancelAtPeriodEnd ? "Canceling" : formatBillingStatus(billing.status)}</Badge>
           </div>
           <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-medium text-harlo-muted">Renewal</span>
+            <span className="text-sm font-medium text-harlo-muted">{isTrialing ? "Trial ends" : "Renewal"}</span>
             <span className="text-right text-sm font-semibold text-harlo-ink">{formatDate(periodEnd)}</span>
           </div>
         </div>
-        {billing.status === "trialing" ? (
-          <Button type="button" variant="primary" className="mt-4 w-full" onClick={() => startPaidNow()} disabled={pendingAction === "Start paid now"}>
-            {pendingAction === "Start paid now" ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
-            {pendingAction === "Start paid now" ? "Opening Stripe..." : "Start paid now"}
+        {isTrialing ? (
+          <Button type="button" variant="primary" className="mt-4 w-full" onClick={() => startPaidNow()} disabled={pendingAction === "Continue to Stripe"}>
+            {pendingAction === "Continue to Stripe" ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
+            {pendingAction === "Continue to Stripe" ? "Opening Stripe..." : "Continue to Stripe"}
           </Button>
         ) : (
           <Button type="button" variant="primary" className="mt-4 w-full" onClick={() => openBillingPortal()} disabled={pendingAction === "Manage billing"}>
@@ -181,7 +186,8 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
     extra_seat: billing.addOns.find((item) => item.key === "extra_seat")?.quantity ?? 0
   });
   const { toast, showToast, dismissToast } = useToast();
-  const currentPlanIndex = BILLING_PLANS.findIndex((plan) => plan.key === billing.planKey);
+  const hasCurrentPlanAccess = billing.status === "active" || billing.status === "trialing";
+  const currentPlanIndex = hasCurrentPlanAccess ? BILLING_PLANS.findIndex((plan) => plan.key === billing.planKey) : -1;
   const addOnsLocked = billing.isInternal || billing.status !== "active";
 
   useEffect(() => {
@@ -203,7 +209,7 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
     if (checkout === "canceled") {
       showToast("error", "Checkout was canceled. No billing changes were made.");
     }
-    if (checkout !== "success" || !sessionId || !addOnKey || checkoutSyncStarted.current === sessionId) {
+    if (checkout !== "success" || !sessionId || checkoutSyncStarted.current === sessionId) {
       return;
     }
 
@@ -222,7 +228,7 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
           throw new Error(payload.error ?? "Checkout could not be synced.");
         }
 
-        showToast("success", "Your add-on is active.");
+        showToast("success", addOnKey ? "Your add-on is active." : "Your paid plan is active.");
         router.refresh();
       })
       .catch((error) => {
@@ -269,7 +275,7 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
     }
   }
 
-  async function startPaidNow(actionLabel = "Start paid now") {
+  async function startPaidNow(actionLabel = "Continue to Stripe") {
     setPendingAction(actionLabel);
 
     try {
@@ -293,7 +299,7 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
         return;
       }
 
-      showToast("success", "Your paid Starter subscription is active.");
+      showToast("success", `Your paid ${billing.plan.name} plan is active.`);
       router.refresh();
     } catch {
       showToast("error", "Payment could not be collected.");
@@ -442,6 +448,30 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
         }
       `}</style>
 
+      {billing.status === "trialing" && billing.percentUsed >= 100 ? (
+        <section id="trial-limit-reached" className="overflow-hidden rounded-lg border border-harlo-teal/30 bg-gradient-to-r from-harlo-mist via-white to-cyan-50 p-[1px] shadow-sm shadow-harlo-teal/10">
+          <div className="rounded-[calc(0.5rem-1px)] bg-white/90 p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-harlo-teal to-cyan-500 text-white shadow-sm shadow-harlo-teal/20">
+                  <Sparkles size={19} />
+                </span>
+                <div>
+                  <h2 className="text-lg font-semibold text-harlo-ink">Trial credits are used up</h2>
+                  <p className="mt-1 max-w-2xl text-sm leading-6 text-harlo-muted">
+                    Continue to Stripe to start the paid {billing.plan.name} plan, unlock {billing.plan.monthlyCredits.toLocaleString()} monthly credits, and resume the website chatbot.
+                  </p>
+                </div>
+              </div>
+              <Button type="button" variant="primary" className="shrink-0" onClick={() => startPaidNow("Continue to Stripe")} disabled={pendingAction === "Continue to Stripe"}>
+                {pendingAction === "Continue to Stripe" ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
+                {pendingAction === "Continue to Stripe" ? "Opening Stripe..." : "Continue to Stripe"}
+              </Button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <div className="flex flex-col gap-4 rounded-lg border border-harlo-line bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-harlo-ink">Billing interval</p>
@@ -473,14 +503,22 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
 
       <section id="plans" className="grid gap-4 lg:grid-cols-3">
         {BILLING_PLANS.map((plan, index) => {
-          const isCurrent = plan.key === billing.planKey;
+          const isCurrent = hasCurrentPlanAccess && plan.key === billing.planKey;
           const isCurrentInterval = isCurrent && interval === billing.interval;
-          const isUpgrade = index > currentPlanIndex;
+          const isUpgrade = hasCurrentPlanAccess && index > currentPlanIndex;
           const price = interval === "annual" ? plan.annualMonthlyPrice : plan.monthlyPrice;
           const previousPrice = interval === "annual" ? plan.monthlyPrice : plan.annualMonthlyPrice;
           const annualTotal = plan.annualMonthlyPrice * 12;
           const canStartPaidNow = isCurrent && billing.status === "trialing";
-          const actionLabel = canStartPaidNow ? "Start paid now" : isCurrent ? "Switch interval" : isUpgrade ? `Upgrade to ${plan.name}` : `Downgrade to ${plan.name}`;
+          const actionLabel = canStartPaidNow
+            ? "Continue to Stripe"
+            : isCurrent
+              ? "Switch interval"
+              : hasCurrentPlanAccess
+                ? isUpgrade
+                  ? `Upgrade to ${plan.name}`
+                  : `Downgrade to ${plan.name}`
+                : `Subscribe to ${plan.name}`;
           const planIcon = planIcons[plan.key];
 
           return (
@@ -527,7 +565,19 @@ export function BillingWorkspace({ billing }: BillingWorkspaceProps) {
                 onClick={() => canStartPaidNow ? startPaidNow(actionLabel) : startCheckout(plan.key, actionLabel)}
               >
                 {pendingAction === actionLabel ? <Loader2 size={16} className="animate-spin" /> : null}
-                {pendingAction === actionLabel ? "Opening Stripe..." : canStartPaidNow ? "Start paid now" : isCurrentInterval ? "Current plan" : isCurrent ? "Switch interval" : isUpgrade ? "Upgrade" : "Downgrade"}
+                {pendingAction === actionLabel
+                  ? "Opening Stripe..."
+                  : canStartPaidNow
+                    ? "Continue to Stripe"
+                    : isCurrentInterval
+                      ? "Current plan"
+                      : isCurrent
+                        ? "Switch interval"
+                        : hasCurrentPlanAccess
+                          ? isUpgrade
+                            ? "Upgrade"
+                            : "Downgrade"
+                          : "Subscribe"}
               </Button>
               <div className="mt-5 space-y-2">
                 {plan.features.map((feature) => (

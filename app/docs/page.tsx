@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowRight, BookOpen, CheckCircle2, ChevronRight, Code2, Library, Mail, MessageCircle, Plug, Sparkles } from "lucide-react";
 import { DocsNav } from "@/components/docs/docs-nav";
 import { MarketingFooter } from "@/components/marketing-footer";
-import { docs } from "@/lib/docs";
+import { docs, widgetInstallDocs } from "@/lib/docs";
 import { siteConfig } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -41,23 +41,24 @@ export default function DocsPage() {
     <main className="min-h-screen bg-white text-harlo-ink">
       <DocsNav />
 
-      <section className="relative overflow-hidden bg-[#07111a] px-4 py-16 text-white sm:px-6 sm:py-20 lg:px-8 lg:py-24">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_20%,rgba(13,143,170,0.28),transparent_32%),linear-gradient(135deg,#07111a_0%,#081621_62%,#073c47_100%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.045)_1px,transparent_1px)] bg-[size:64px_64px] opacity-40" />
-        <div className="relative mx-auto grid max-w-[1536px] gap-12 lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,0.72fr)] lg:items-center">
+      <section className="relative bg-white px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pt-8">
+        <div className="relative mx-auto overflow-hidden rounded-[22px] bg-harlo-blue px-5 py-12 text-white sm:rounded-[24px] sm:px-10 sm:py-16 lg:px-16 lg:py-20 xl:px-24">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_33%,rgba(255,255,255,0.14),transparent_23%),linear-gradient(135deg,rgba(255,255,255,0.08),transparent_36%)]" />
+        <div className="relative mx-auto grid max-w-[1440px] gap-12 lg:grid-cols-[minmax(0,1.02fr)_minmax(420px,0.68fr)] lg:items-center">
           <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-bold uppercase text-harlo-blue">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-xs font-black uppercase tracking-[0.16em] text-harlo-blue">
               <BookOpen size={14} />
               Harlo documentation
             </span>
             <div className="mt-7">
-              <h1 className="max-w-4xl text-4xl font-semibold leading-[1.04] sm:text-5xl lg:text-6xl">
-                Everything you need to get Harlo working for your business.
+              <h1 className="max-w-4xl text-[clamp(2.7rem,9vw,4.1rem)] font-black leading-[0.94] tracking-[-0.055em] text-white sm:text-[clamp(4.2rem,6.5vw,7.3rem)]">
+                Everything you need to get{" "}
+                <span className="inline-block rounded-[13px] bg-white px-[0.12em] pb-[0.04em] text-harlo-blue sm:rounded-[16px]">Harlo live.</span>
               </h1>
-              <p className="mt-5 max-w-3xl text-base leading-7 text-slate-300 sm:text-lg sm:leading-8">
+              <p className="mt-7 max-w-3xl text-xl leading-8 text-white/92 sm:text-2xl sm:leading-9">
                 Follow practical guides for setup, daily workflows, lead follow-up, reporting, and connected actions.
               </p>
-              <Link href="/docs/widget-install" className="mt-8 inline-flex h-12 w-fit items-center justify-center gap-2 rounded-lg bg-harlo-blue px-6 text-sm font-semibold text-white transition hover:bg-harlo-teal">
+              <Link href="/docs/widget-install" className="mt-9 inline-flex h-[58px] w-full items-center justify-center gap-2 rounded-[16px] bg-white px-6 text-sm font-bold text-harlo-blue shadow-[0_5px_0_rgba(6,99,117,0.55)] transition hover:-translate-y-0.5 sm:w-fit">
                 Start with installation
                 <ArrowRight size={16} />
               </Link>
@@ -65,20 +66,19 @@ export default function DocsPage() {
           </div>
 
           <div className="relative mx-auto w-full max-w-[620px]">
-            <div className="absolute -inset-5 rounded-lg border border-white/5 bg-white/[0.025]" />
-            <div className="relative overflow-hidden rounded-lg border border-white/15 bg-[#0b1d28] shadow-[0_28px_80px_rgba(0,0,0,0.35)]">
-              <div className="flex h-11 items-center justify-between border-b border-white/10 px-4">
+            <div className="relative overflow-hidden rounded-[22px] border border-white/35 bg-white shadow-[0_24px_80px_rgba(3,16,32,0.22)]">
+              <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4">
                 <div className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-[#ff6b6b]" />
                   <span className="h-2.5 w-2.5 rounded-full bg-[#f6c453]" />
                   <span className="h-2.5 w-2.5 rounded-full bg-[#4fc98b]" />
                 </div>
-                <span className="text-xs font-semibold text-white/45">docs.harloai.co</span>
+                <span className="text-xs font-semibold text-slate-400">docs.harloai.co</span>
               </div>
               <div className="grid min-h-[350px] grid-cols-[132px_minmax(0,1fr)] sm:grid-cols-[165px_minmax(0,1fr)]">
-                <div className="border-r border-white/10 bg-black/10 p-3 sm:p-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                    <span className="grid h-8 w-8 place-items-center rounded-lg bg-harlo-blue/20 text-harlo-blue">
+                <div className="border-r border-slate-200 bg-[#f8fafc] p-3 sm:p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-[#031020]">
+                    <span className="grid h-8 w-8 place-items-center rounded-lg bg-harlo-mist text-harlo-blue">
                       <BookOpen size={15} />
                     </span>
                     <span className="hidden sm:inline">Guides</span>
@@ -92,33 +92,34 @@ export default function DocsPage() {
                 </div>
                 <div className="p-5 sm:p-7">
                   <span className="text-xs font-bold uppercase text-harlo-blue">Getting started</span>
-                  <h2 className="mt-3 text-2xl font-semibold text-white sm:text-3xl">Install the Harlo widget</h2>
-                  <p className="mt-3 text-sm leading-6 text-slate-300">Add Harlo to your website and test your first customer conversation.</p>
+                  <h2 className="mt-3 text-2xl font-black tracking-[-0.03em] text-[#031020] sm:text-3xl">Install the Harlo widget</h2>
+                  <p className="mt-3 text-sm leading-6 text-slate-600">Add Harlo to your website and test your first customer conversation.</p>
                   <div className="mt-6 grid gap-3">
                     {["Copy your install code", "Add it to your website", "Test as a visitor"].map((label, index) => (
-                      <div key={label} className="flex items-center gap-3 border-b border-white/10 pb-3 last:border-0">
-                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white/10 text-xs font-bold text-harlo-blue">{index + 1}</span>
-                        <span className="text-sm font-medium text-white/85">{label}</span>
+                      <div key={label} className="flex items-center gap-3 border-b border-slate-200 pb-3 last:border-0">
+                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-harlo-blue text-xs font-bold text-white">{index + 1}</span>
+                        <span className="text-sm font-semibold text-[#031020]">{label}</span>
                       </div>
                     ))}
                   </div>
-                  <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                  <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-slate-100">
                     <div className="h-full w-2/3 rounded-full bg-harlo-blue" />
                   </div>
-                  <p className="mt-2 text-xs font-medium text-white/45">Guide progress</p>
+                  <p className="mt-2 text-xs font-medium text-slate-400">Guide progress</p>
                 </div>
               </div>
             </div>
-            <span className="absolute -bottom-4 -right-3 inline-flex items-center gap-2 rounded-lg border border-white/15 bg-[#0d3342] px-4 py-3 text-sm font-semibold text-white shadow-xl sm:-right-5">
-              <CheckCircle2 size={17} className="text-harlo-blue" />
+            <span className="absolute -bottom-4 -right-3 inline-flex items-center gap-2 rounded-[16px] bg-[#031020] px-4 py-3 text-sm font-bold text-white shadow-xl sm:-right-5">
+              <CheckCircle2 size={17} className="text-white" />
               Ready to launch
             </span>
           </div>
         </div>
+        </div>
       </section>
 
       <section className="px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
-        <div className="mx-auto max-w-[1536px]">
+        <div className="mx-auto max-w-[1440px]">
           <div className="flex flex-col gap-3 border-b border-harlo-line pb-8 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm font-bold uppercase text-harlo-teal">Browse the guides</p>
@@ -146,7 +147,7 @@ export default function DocsPage() {
                         <Link
                           key={doc.id}
                           href={doc.path as NextRoute}
-                          className="group flex min-h-[190px] flex-col rounded-lg border border-harlo-line bg-harlo-canvas p-5 transition hover:-translate-y-0.5 hover:border-harlo-blue hover:bg-white hover:shadow-soft"
+                          className="group flex min-h-[190px] flex-col rounded-[18px] border border-harlo-line bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-harlo-blue hover:shadow-[0_22px_55px_rgba(15,23,42,0.12)]"
                         >
                           <div className="flex items-center justify-between gap-4">
                             <span className="grid h-10 w-10 place-items-center rounded-lg bg-white text-harlo-teal shadow-sm ring-1 ring-harlo-line">
@@ -160,10 +161,10 @@ export default function DocsPage() {
                       );
                     })}
                   {group.ids.includes("integrations") ? (
-                    <Link href="/docs/integrations/slack" className="group flex min-h-[190px] flex-col rounded-lg bg-[#0a2633] p-5 text-white transition hover:-translate-y-0.5 hover:bg-[#0d3342] hover:shadow-soft">
+                    <Link href="/docs/integrations/slack" className="group flex min-h-[190px] flex-col rounded-[18px] bg-harlo-blue p-5 text-white shadow-[0_16px_40px_rgba(13,143,170,0.24)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(13,143,170,0.3)]">
                       <div className="flex items-center justify-between gap-4">
-                        <span className="grid h-10 w-10 place-items-center rounded-lg bg-white/10 text-harlo-blue">
-                          <Plug size={19} />
+                        <span className="grid h-10 w-10 place-items-center rounded-lg bg-white text-harlo-blue shadow-sm">
+                          <Plug size={19} strokeWidth={2.4} />
                         </span>
                         <ArrowRight size={17} className="text-white/50 transition group-hover:translate-x-0.5 group-hover:text-white" />
                       </div>
@@ -178,8 +179,46 @@ export default function DocsPage() {
         </div>
       </section>
 
+      <section className="border-y border-slate-200 bg-[#f8fafc] px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
+        <div className="mx-auto max-w-[1440px]">
+          <div className="max-w-3xl">
+            <p className="text-sm font-black uppercase tracking-[0.16em] text-harlo-blue">No-code installs</p>
+            <h2 className="mt-3 text-4xl font-black tracking-[-0.04em] text-[#222222] sm:text-5xl">Pick your website builder.</h2>
+            <p className="mt-4 text-base leading-7 text-slate-600">
+              Each install guide includes the right placement, what to publish, how to test, and the platform-specific checks that usually trip people up.
+            </p>
+          </div>
+          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {widgetInstallDocs.map((platform) => (
+              <Link
+                key={platform.id}
+                href={platform.path as NextRoute}
+                className="group rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-harlo-blue/70 hover:shadow-[0_22px_55px_rgba(15,23,42,0.12)]"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#f8fafc] ring-1 ring-slate-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={platform.logoUrl} alt="" className="h-7 w-7 object-contain" />
+                  </span>
+                  <ArrowRight size={17} className="text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-harlo-blue" />
+                </div>
+                <h3 className="mt-5 text-2xl font-black tracking-[-0.03em] text-[#222222]">{platform.name}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{platform.description}</p>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {platform.bestFor.slice(0, 2).map((item) => (
+                    <span key={item} className="rounded-full bg-harlo-mist px-3 py-1 text-xs font-bold text-harlo-blue">
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section className="border-y border-harlo-line bg-harlo-canvas px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
-        <div className="mx-auto grid max-w-[1536px] gap-10 lg:grid-cols-[minmax(0,0.78fr)_minmax(420px,0.72fr)] lg:items-center lg:gap-16">
+        <div className="mx-auto grid max-w-[1440px] gap-10 lg:grid-cols-[minmax(0,0.78fr)_minmax(420px,0.72fr)] lg:items-center lg:gap-16">
           <div>
             <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#0a2633] text-harlo-blue">
               <Sparkles size={20} />
@@ -252,7 +291,7 @@ export default function DocsPage() {
 
 function DocPreviewNav({ icon: Icon, label, active = false }: { icon: typeof Code2; label: string; active?: boolean }) {
   return (
-    <div className={`flex h-10 items-center gap-2 rounded-lg px-2.5 text-xs font-semibold sm:text-sm ${active ? "bg-white/10 text-white" : "text-white/45"}`}>
+    <div className={`flex h-10 items-center gap-2 rounded-lg px-2.5 text-xs font-semibold sm:text-sm ${active ? "bg-harlo-blue text-white" : "text-slate-500"}`}>
       <Icon size={14} className="shrink-0" />
       <span className="truncate">{label}</span>
     </div>

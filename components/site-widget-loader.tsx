@@ -12,6 +12,13 @@ const WIDGET_EXCLUDED_PATHS = [
   "/terms",
   "/widget-test"
 ];
+const DASHBOARD_WIDGET_GREETING = "Hi! I can help with Harlo setup, billing, widget install, integrations, and improving your AI agent.";
+const DASHBOARD_WIDGET_PROMPTS = [
+  "Install the widget",
+  "Update knowledge",
+  "Connect an integration",
+  "Message credits"
+];
 
 export function SiteWidgetLoader() {
   const pathname = usePathname();
@@ -40,6 +47,8 @@ export function SiteWidgetLoader() {
     script.setAttribute("data-harlo-organization", HARLO_ORGANIZATION_ID);
     if (isDashboardPath(pathname)) {
       script.setAttribute("data-harlo-hide-greeting", "true");
+      script.setAttribute("data-harlo-greeting", DASHBOARD_WIDGET_GREETING);
+      script.setAttribute("data-harlo-prompts", JSON.stringify(DASHBOARD_WIDGET_PROMPTS));
     }
     document.body.appendChild(script);
     loadedPathRef.current = pathname;

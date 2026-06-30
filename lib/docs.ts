@@ -64,6 +64,26 @@ export type IntegrationDoc = {
   troubleshooting: { title: string; body: string }[];
 };
 
+export type WidgetInstallPlatformId = "wordpress" | "wix" | "squarespace" | "webflow" | "shopify" | "framer";
+
+export type WidgetInstallDoc = {
+  id: WidgetInstallPlatformId;
+  name: string;
+  slug: string;
+  path: string;
+  eyebrow: string;
+  description: string;
+  logoUrl: string;
+  accentClass: string;
+  sourceHref: string;
+  sourceLabel: string;
+  bestFor: string[];
+  beforeYouStart: string[];
+  steps: { title: string; body: string; details?: string[] }[];
+  verifySteps: string[];
+  troubleshooting: { title: string; body: string }[];
+};
+
 const appOrigin = normalizeWidgetOrigin(process.env.NEXT_PUBLIC_WIDGET_ORIGIN ?? "https://www.harloai.co");
 
 export const workspaceSnippet = `<script src="${appOrigin}/widget.js" data-harlo-organization="YOUR_ORGANIZATION_ID" async></script>`;
@@ -115,12 +135,12 @@ export const docs: DocSection[] = [
       { title: "Test as a visitor", body: "Open your site, ask realistic customer questions, and confirm Harlo records conversations and leads correctly." }
     ],
     details: [
-      { title: "WordPress", body: "Use a trusted header/footer plugin or your theme footer area, add the Harlo install code, then clear your site cache." },
-      { title: "Wix", body: "Go to Settings -> Custom Code, add the Harlo install code, choose the pages where it should load, and publish." },
-      { title: "Squarespace", body: "Use Settings -> Advanced -> Code Injection and add the Harlo install code in the Footer field." },
-      { title: "Webflow", body: "Use Site settings -> Custom Code -> Footer Code, publish the site, then confirm Harlo appears on the right pages." },
-      { title: "Shopify", body: "Open your theme code, add the Harlo install code near the end of the page, then test the storefront." },
-      { title: "Framer", body: "Add the Harlo install code to Project Settings -> Custom Code, then publish." }
+      { title: "WordPress", body: "Use the WordPress guide when you want a plugin-based install through WPCode or a similar header/footer manager." },
+      { title: "Wix", body: "Use the Wix guide to add Harlo from Dashboard -> Settings -> Custom Code and place it at the end of the body." },
+      { title: "Squarespace", body: "Use the Squarespace guide to paste Harlo in the Code Injection Footer field so it loads across the site." },
+      { title: "Webflow", body: "Use the Webflow guide for site-level Footer Code, or page-level custom code when only a few pages need Harlo." },
+      { title: "Shopify", body: "Use the Shopify guide to place Harlo above the closing body tag in theme.liquid after duplicating the live theme." },
+      { title: "Framer", body: "Use the Framer guide to add Harlo from Project Settings -> Custom Code and publish the site." }
     ]
   },
   {
@@ -328,6 +348,341 @@ export const docs: DocSection[] = [
     ]
   }
 ];
+
+export const widgetInstallDocs: WidgetInstallDoc[] = [
+  {
+    id: "wordpress",
+    name: "WordPress",
+    slug: "wordpress",
+    path: "/docs/widget-install/wordpress",
+    eyebrow: "Plugin-based install",
+    description: "Add Harlo to WordPress with a simple plugin, then check the live site to make sure the chat button appears.",
+    logoUrl: "https://www.google.com/s2/favicons?domain=wordpress.org&sz=128",
+    accentClass: "from-sky-500 to-blue-700",
+    sourceHref: "https://wpcode.com/docs/using-the-global-header-footer-settings/",
+    sourceLabel: "WPCode Header & Footer docs",
+    bestFor: ["WordPress.org", "Plugin-enabled WordPress.com", "Managed WordPress hosts"],
+    beforeYouStart: [
+      "Copy the Harlo install code from Dashboard -> Widget.",
+      "Make sure you can add plugins or ask your website manager to do it.",
+      "If your site uses caching, be ready to clear the cache after you save."
+    ],
+    steps: [
+      {
+        title: "Install WPCode",
+        body: "Log in to WordPress. Go to Plugins, choose Add New, search for WPCode, install it, and activate it. If your website already has a header/footer code tool, you can use that instead."
+      },
+      {
+        title: "Open the Header & Footer screen",
+        body: "In the WordPress left menu, go to Code Snippets, then Header & Footer. This is where you can add code that loads on every public page."
+      },
+      {
+        title: "Paste Harlo in the footer area",
+        body: "Paste the full Harlo code into the Footer field. This places Harlo near the bottom of every public page, which is the safest spot for the chat widget.",
+        details: [
+          "Paste the whole snippet exactly as copied.",
+          "Do not paste it into a blog post, page editor, or visual content block.",
+          "Only add the Harlo snippet once."
+        ]
+      },
+      {
+        title: "Save and clear cache",
+        body: "Save the WPCode settings. If your site has a cache plugin or hosting cache, clear it so visitors receive the newest version of the page."
+      },
+      {
+        title: "Test the public site",
+        body: "Open the public website in a private or incognito window. Wait for the page to load, then look for the Harlo chat button in the corner."
+      }
+    ],
+    verifySteps: [
+      "Visit the homepage and one high-intent page such as pricing, services, contact, or booking.",
+      "Ask a normal customer question and confirm the conversation appears in Dashboard -> Conversations.",
+      "If the widget is missing, check that the code was saved in WPCode and clear cache once more."
+    ],
+    troubleshooting: [
+      { title: "The widget is not visible", body: "Clear the cache first. Then confirm the Harlo code is in the Footer field, not inside a page or post." },
+      { title: "It appears while logged in but not for visitors", body: "Open the public site in an incognito window. Some WordPress cache tools show different pages to admins." },
+      { title: "The snippet disappears after a theme update", body: "Keep Harlo in WPCode or another plugin-based code tool instead of editing theme files directly." }
+    ]
+  },
+  {
+    id: "wix",
+    name: "Wix",
+    slug: "wix",
+    path: "/docs/widget-install/wix",
+    eyebrow: "Dashboard custom code",
+    description: "Add Harlo through Wix Custom Code, choose where it should appear, and publish the site.",
+    logoUrl: "https://www.google.com/s2/favicons?domain=wix.com&sz=128",
+    accentClass: "from-indigo-500 to-slate-950",
+    sourceHref: "https://support.wix.com/en/article/wix-editor-embedding-custom-code-on-your-site",
+    sourceLabel: "Wix Custom Code docs",
+    bestFor: ["Wix Editor", "Wix Studio", "Sites with connected domains"],
+    beforeYouStart: [
+      "Copy the Harlo install code from Dashboard -> Widget.",
+      "Make sure the Wix site is published and connected to the domain visitors use.",
+      "Open the Wix dashboard for the site. The visual editor alone is not enough."
+    ],
+    steps: [
+      {
+        title: "Open Custom Code",
+        body: "In the Wix dashboard, open Settings. Find Custom Code under Development & integrations."
+      },
+      {
+        title: "Create a Harlo code snippet",
+        body: "Click Add Custom Code. Paste the full Harlo code and name it Harlo widget so you can recognize it later."
+      },
+      {
+        title: "Choose where Harlo loads",
+        body: "Choose All pages if Harlo should appear throughout your website. If you only want it on certain pages, select those pages one by one.",
+        details: [
+          "Choose a body placement when Wix asks where the code should go.",
+          "If Wix asks when the code should run, choose the option that runs when each page loads."
+        ]
+      },
+      {
+        title: "Place the code at Body - end",
+        body: "Set Place Code in to Body - end. This helps Harlo load after the rest of the page."
+      },
+      {
+        title: "Apply and publish",
+        body: "Click Apply, then publish the site. Test the public website, not only the editor preview."
+      }
+    ],
+    verifySteps: [
+      "Open the published site in an incognito window.",
+      "Move between two Wix pages and confirm the chat button stays available.",
+      "Ask a test question and confirm the conversation appears in Harlo."
+    ],
+    troubleshooting: [
+      { title: "Custom Code is unavailable", body: "Wix usually requires a published site with a connected domain before Custom Code is available." },
+      { title: "The widget only appears on one page", body: "Reopen the Harlo snippet and confirm it is applied to All pages, or select every page where visitors should see it." },
+      { title: "It works in preview but not live", body: "Publish again and test the connected domain. Wix editor previews can behave differently from the public site." }
+    ]
+  },
+  {
+    id: "squarespace",
+    name: "Squarespace",
+    slug: "squarespace",
+    path: "/docs/widget-install/squarespace",
+    eyebrow: "Footer code injection",
+    description: "Install Harlo from Squarespace Code Injection so the chat widget loads on your published pages.",
+    logoUrl: "https://www.google.com/s2/favicons?domain=squarespace.com&sz=128",
+    accentClass: "from-neutral-700 to-black",
+    sourceHref: "https://support.squarespace.com/hc/en-us/articles/205815908-Using-code-injection",
+    sourceLabel: "Squarespace Code Injection docs",
+    bestFor: ["Squarespace 7.1", "Business sites", "Commerce sites"],
+    beforeYouStart: [
+      "Copy the Harlo install code from Dashboard -> Widget.",
+      "Confirm your Squarespace plan includes Code Injection.",
+      "Decide whether Harlo should load site-wide or only on selected pages."
+    ],
+    steps: [
+      {
+        title: "Open Code Injection",
+        body: "In Squarespace, open your website settings and find Code Injection."
+      },
+      {
+        title: "Use the Footer field",
+        body: "Paste the full Harlo code into the Footer field. This adds Harlo near the bottom of supported pages.",
+        details: [
+          "Do not paste Harlo into Custom CSS.",
+          "Do not split the snippet into multiple fields.",
+          "Squarespace checkout pages may not support injected code."
+        ]
+      },
+      {
+        title: "Save the site settings",
+        body: "Click Save. Wait a moment for Squarespace to apply the change."
+      },
+      {
+        title: "Check page-specific needs",
+        body: "If only one page should show Harlo, use that page's advanced code injection area instead of the site-wide Footer field."
+      },
+      {
+        title: "Test the live site",
+        body: "Open the public website and confirm the Harlo chat button appears on the pages where customers ask questions."
+      }
+    ],
+    verifySteps: [
+      "Visit at least one normal content page and one conversion page.",
+      "Ask a realistic customer question and confirm the response uses the right information.",
+      "Check Dashboard -> Conversations for the test chat."
+    ],
+    troubleshooting: [
+      { title: "Code Injection is missing", body: "Confirm your Squarespace plan includes Code Injection and that you are editing the correct site." },
+      { title: "The widget appears on public pages but not checkout", body: "Squarespace does not support injected code on some checkout surfaces." },
+      { title: "The widget loads twice", body: "Search site-wide and page-level injection fields for duplicate Harlo snippets and keep only one." }
+    ]
+  },
+  {
+    id: "webflow",
+    name: "Webflow",
+    slug: "webflow",
+    path: "/docs/widget-install/webflow",
+    eyebrow: "Site-level footer code",
+    description: "Add Harlo through Webflow Site settings so it loads on the published site, or add it to only one page when needed.",
+    logoUrl: "https://www.google.com/s2/favicons?domain=webflow.com&sz=128",
+    accentClass: "from-blue-500 to-violet-700",
+    sourceHref: "https://university.webflow.com/videos/page-site-level-code",
+    sourceLabel: "Webflow page and site code docs",
+    bestFor: ["Marketing sites", "CMS sites", "Landing pages"],
+    beforeYouStart: [
+      "Copy the Harlo install code from Dashboard -> Widget.",
+      "Make sure the Webflow site has custom code available on its site plan.",
+      "Decide whether Harlo should load site-wide or only on selected pages."
+    ],
+    steps: [
+      {
+        title: "Open Site settings",
+        body: "From the Webflow dashboard, choose the site and open Site settings."
+      },
+      {
+        title: "Go to Custom code",
+        body: "Choose the Custom code tab. Use site-level custom code if Harlo should appear on every page."
+      },
+      {
+        title: "Paste in Footer code",
+        body: "Paste the full Harlo code into Footer code so it loads after the page content.",
+        details: [
+          "Use page-level custom code only if Harlo should appear on a specific page.",
+          "Paste the snippet exactly as copied.",
+          "Avoid placing the snippet inside a Designer embed element unless you only need Harlo on that one page area."
+        ]
+      },
+      {
+        title: "Save and publish",
+        body: "Save the custom code changes and publish to staging or production. Webflow custom code usually needs a published page before it works fully."
+      },
+      {
+        title: "Test route changes",
+        body: "Open the live site, visit a few pages, and confirm the Harlo chat button stays available where expected."
+      }
+    ],
+    verifySteps: [
+      "Publish, then open the staging or production URL.",
+      "Check a static page and a CMS page if the site uses CMS templates.",
+      "Ask a test question and confirm it appears in Harlo."
+    ],
+    troubleshooting: [
+      { title: "The widget is missing in Designer preview", body: "Publish to staging or production and test there. Some custom code does not fully run in the Designer." },
+      { title: "CMS pages do not show Harlo", body: "Use site-level Footer code for all pages, or add the snippet to the CMS template's custom code area." },
+      { title: "Only one page should have Harlo", body: "Move the snippet from Site settings to that page's custom code field." }
+    ]
+  },
+  {
+    id: "shopify",
+    name: "Shopify",
+    slug: "shopify",
+    path: "/docs/widget-install/shopify",
+    eyebrow: "Theme code install",
+    description: "Place Harlo in your Shopify theme so it appears on the customer-facing storefront.",
+    logoUrl: "https://www.google.com/s2/favicons?domain=shopify.com&sz=128",
+    accentClass: "from-lime-500 to-emerald-700",
+    sourceHref: "https://help.shopify.com/en/manual/online-store/themes/customizing-themes/edit-code/edit-theme-code",
+    sourceLabel: "Shopify theme code docs",
+    bestFor: ["Shopify storefronts", "Online Store 2.0 themes", "Service and product businesses"],
+    beforeYouStart: [
+      "Copy the Harlo install code from Dashboard -> Widget.",
+      "Duplicate the live theme before editing, so you have a backup.",
+      "Confirm you can edit the active theme's code. Some paid trial themes restrict code changes until purchased."
+    ],
+    steps: [
+      {
+        title: "Duplicate the current theme",
+        body: "In Shopify admin, go to Online Store, then Themes. Open the menu for the live theme and duplicate it so you have a backup copy."
+      },
+      {
+        title: "Open Edit code",
+        body: "Open the theme menu again and choose Edit code."
+      },
+      {
+        title: "Open theme.liquid",
+        body: "In the Layout folder, open theme.liquid. This file controls the main storefront page layout."
+      },
+      {
+        title: "Paste above the closing body tag",
+        body: "Find the closing body tag near the bottom of the file and paste the full Harlo code directly above it.",
+        details: [
+          "Do not paste Harlo inside another script tag.",
+          "Do not put the snippet inside a product, section, or cart template unless Harlo should only load there.",
+          "Keep the duplicate theme until you have confirmed the widget works."
+        ]
+      },
+      {
+        title: "Save, preview, then publish",
+        body: "Save the file, preview the theme, and publish the edited theme only after the chat button works correctly."
+      }
+    ],
+    verifySteps: [
+      "Open the storefront homepage and a product or service page.",
+      "Confirm the launcher appears and does not cover key purchase controls.",
+      "Ask a question and confirm Harlo records the conversation."
+    ],
+    troubleshooting: [
+      { title: "Edit code is unavailable", body: "Confirm the theme is editable and not a paid trial theme that must be purchased before code changes." },
+      { title: "The widget appears in preview but not live", body: "Publish the edited theme or repeat the install on the active theme after testing." },
+      { title: "Theme updates remove Harlo", body: "Reapply the snippet after major theme updates, or ask support about a theme-app style install path." }
+    ]
+  },
+  {
+    id: "framer",
+    name: "Framer",
+    slug: "framer",
+    path: "/docs/widget-install/framer",
+    eyebrow: "Project custom code",
+    description: "Add Harlo from Framer Project Settings with Custom Code, then publish and test the live site.",
+    logoUrl: "https://www.google.com/s2/favicons?domain=framer.com&sz=128",
+    accentClass: "from-pink-500 to-purple-700",
+    sourceHref: "https://www.framer.com/help/articles/how-to-add-custom-code/",
+    sourceLabel: "Framer Custom Code docs",
+    bestFor: ["Framer marketing sites", "Portfolio sites", "Startup landing pages"],
+    beforeYouStart: [
+      "Copy the Harlo install code from Dashboard -> Widget.",
+      "Open the Framer project where the live domain is managed.",
+      "Decide whether Harlo should run on every page or only selected pages."
+    ],
+    steps: [
+      {
+        title: "Open Project Settings",
+        body: "In Framer, open Project Settings for the website."
+      },
+      {
+        title: "Open Custom Code",
+        body: "Select Custom Code in the left sidebar, then create a new script with Add Script or the plus button."
+      },
+      {
+        title: "Name and paste the script",
+        body: "Name the script Harlo widget and paste the full Harlo code into the code field."
+      },
+      {
+        title: "Choose placement and scope",
+        body: "Place the script at the end of the body when that option is available. Select all pages unless Harlo should only appear on specific pages.",
+        details: [
+          "Choose Once for a normal chat widget install.",
+          "If Harlo appears only on the first route after publish, switch the script to run on every page visit."
+        ]
+      },
+      {
+        title: "Publish and test",
+        body: "Publish the site, open the live domain, and confirm the Harlo chat button appears after the page loads."
+      }
+    ],
+    verifySteps: [
+      "Open the published Framer domain, not only the canvas preview.",
+      "Navigate between pages and confirm Harlo remains available.",
+      "Ask a test question and confirm the chat appears in Harlo."
+    ],
+    troubleshooting: [
+      { title: "The widget does not appear in preview", body: "Publish the site and test the public URL. Custom code is most reliable on published Framer pages." },
+      { title: "It disappears after client-side navigation", body: "Change the script execution option from Once to Run on every page visit." },
+      { title: "Only some pages should show Harlo", body: "Edit the custom code scope and select only the desired pages." }
+    ]
+  }
+];
+
+export function getWidgetInstallDocBySlug(slug: string) {
+  return widgetInstallDocs.find((doc) => doc.slug === slug);
+}
 
 export const integrationDocs: IntegrationDoc[] = [
   {

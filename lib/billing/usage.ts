@@ -1,4 +1,4 @@
-import { getPlanCreditLimit, type BillingPlanKey, type BillingStatus } from "@/lib/billing/plans";
+import { getEffectiveBillingStatus, getPlanCreditLimit, isCardlessTrialExpired, type BillingPlanKey, type BillingStatus } from "@/lib/billing/plans";
 import { INTERNAL_WORKSPACE_CREDIT_LIMIT, isInternalWorkspaceMetadata } from "@/lib/internal-admin";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 
@@ -58,7 +58,7 @@ export async function getCreditUsageStatus(
   const [{ data: billing }, { data: organization }] = await Promise.all([
     supabase
       .from("organization_billing")
-      .select("plan_key, status, current_period_start, current_period_end")
+      .select("plan_key, status, trial_end, stripe_subscription_id, current_period_start, current_period_end")
       .eq("organization_id", organizationId)
       .maybeSingle(),
     supabase
@@ -70,10 +70,33 @@ export async function getCreditUsageStatus(
   const fallbackPeriod = getFallbackUsagePeriod();
   const isInternalWorkspace = isInternalWorkspaceMetadata(organization?.metadata);
   const planKey = isInternalWorkspace ? "pro" : normalizePlanKey(billing?.plan_key);
-  const status = isInternalWorkspace ? "active" : normalizeBillingStatus(billing?.status);
+  const rawStatus = normalizeBillingStatus(billing?.status);
+  const trialEnd = typeof billing?.trial_end === "string" ? billing.trial_end : null;
+  const stripeSubscriptionId = typeof billing?.stripe_subscription_id === "string" ? billing.stripe_subscription_id : null;
+  const status = isInternalWorkspace ? "active" : getEffectiveBillingStatus({
+    status: rawStatus,
+    trialEnd,
+    stripeSubscriptionId
+  });
   const start = typeof billing?.current_period_start === "string" ? billing.current_period_start : fallbackPeriod.start;
   const end = typeof billing?.current_period_end === "string" ? billing.current_period_end : fallbackPeriod.end;
   const planCreditLimit = isInternalWorkspace ? INTERNAL_WORKSPACE_CREDIT_LIMIT : getPlanCreditLimit(planKey, status);
+
+  if (!isInternalWorkspace && isCardlessTrialExpired({
+    status: rawStatus,
+    trialEnd,
+    stripeSubscriptionId
+  })) {
+    await supabase
+      .from("organization_billing")
+      .update({
+        status: "incomplete",
+        updated_at: new Date().toISOString()
+      })
+      .eq("organization_id", organizationId)
+      .eq("status", "trialing")
+      .is("stripe_subscription_id", null);
+  }
   const [assistantCreditsUsed, addOnCreditsUsed, addOnCreditsAvailable] = await Promise.all([
     getAssistantCreditsUsed(supabase, organizationId, start, end),
     getAddOnCreditsUsed(supabase, organizationId, start, end),

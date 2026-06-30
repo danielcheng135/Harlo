@@ -1,5 +1,6 @@
 import { embedText } from "@/lib/ai/rag";
 import { chunkKnowledgeText, cleanKnowledgeText, formatEmbeddingForPgvector } from "@/lib/knowledge/chunking";
+import { getFallbackLogoUrl } from "@/lib/onboarding/website";
 import type { createSupabaseServiceClient } from "@/lib/supabase/server";
 
 type ServiceClient = ReturnType<typeof createSupabaseServiceClient>;
@@ -30,6 +31,11 @@ type PreparedPage = {
 
 const MAX_CHUNKS = 120;
 const MAX_FILE_BYTES = 10_000_000;
+const CRAWL_USER_AGENTS = [
+  "HarloBot/1.0 (+https://harloai.co)",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+];
+const RETRYABLE_CRAWL_STATUSES = new Set([403, 408, 429, 500, 502, 503, 504, 520, 522, 524]);
 const SUPPORTED_FILE_TYPES = new Set([
   "text/plain",
   "text/markdown",
@@ -143,6 +149,7 @@ export async function createPendingUrlSource({
   maxPages = 8
 }: IngestUrlSourceInput) {
   const normalizedUrl = normalizeUrl(url);
+  const logoUrl = getUrlLogoFallback(normalizedUrl);
   const { data: source, error } = await serviceClient
     .from("knowledge_sources")
     .insert({
@@ -153,7 +160,8 @@ export async function createPendingUrlSource({
       status: "pending",
       metadata: {
         url: normalizedUrl,
-        max_pages: maxPages
+        max_pages: maxPages,
+        ...(logoUrl ? { logo_url: logoUrl } : {})
       }
     })
     .select("id")
@@ -180,6 +188,7 @@ export async function ingestUrlSource({
   maxPages = 8
 }: IngestUrlSourceInput) {
   const normalizedUrl = normalizeUrl(url);
+  const logoUrl = getUrlLogoFallback(normalizedUrl);
   const { data: source, error: sourceError } = await serviceClient
     .from("knowledge_sources")
     .insert({
@@ -190,7 +199,8 @@ export async function ingestUrlSource({
       status: "processing",
       metadata: {
         url: normalizedUrl,
-        max_pages: maxPages
+        max_pages: maxPages,
+        ...(logoUrl ? { logo_url: logoUrl } : {})
       }
     })
     .select("id")
@@ -243,6 +253,7 @@ export async function ingestUrlSource({
     const characterCount = pages.reduce((total, page) => total + page.text.length, 0);
     const metadata = {
       url: normalizedUrl,
+      ...(logoUrl ? { logo_url: logoUrl } : {}),
       page_count: pages.length,
       character_count: characterCount,
       chunk_count: chunksWithPage.length,
@@ -271,6 +282,7 @@ export async function ingestUrlSource({
   } catch (error) {
     await markSourceFailed(serviceClient, source.id, {
       url: normalizedUrl,
+      ...(logoUrl ? { logo_url: logoUrl } : {}),
       error: error instanceof Error ? error.message : "Unknown crawl error"
     });
     throw error;
@@ -288,6 +300,7 @@ export async function reingestUrlSource({
   maxPages = 8
 }: IngestUrlSourceInput & { sourceId: string }) {
   const normalizedUrl = normalizeUrl(url);
+  const logoUrl = getUrlLogoFallback(normalizedUrl);
 
   try {
     const pages = await crawlWebsite(normalizedUrl, maxPages);
@@ -318,7 +331,8 @@ ${page.text}`);
         status: "processing",
         metadata: {
           url: normalizedUrl,
-          max_pages: maxPages
+          max_pages: maxPages,
+          ...(logoUrl ? { logo_url: logoUrl } : {})
         }
       })
       .eq("id", sourceId)
@@ -349,6 +363,7 @@ ${page.text}`);
     const characterCount = pages.reduce((total, page) => total + page.text.length, 0);
     const metadata = {
       url: normalizedUrl,
+      ...(logoUrl ? { logo_url: logoUrl } : {}),
       page_count: pages.length,
       character_count: characterCount,
       chunk_count: chunksWithPage.length,
@@ -379,6 +394,7 @@ ${page.text}`);
   } catch (error) {
     await markSourceFailed(serviceClient, sourceId, {
       url: normalizedUrl,
+      ...(logoUrl ? { logo_url: logoUrl } : {}),
       error: error instanceof Error ? error.message : "Unknown crawl error"
     });
     throw error;
@@ -475,25 +491,65 @@ async function crawlWebsite(startUrl: string, maxPages: number): Promise<Prepare
 }
 
 async function fetchHtml(url: string) {
-  const response = await fetch(url, {
-    headers: {
-      "accept": "text/html,application/xhtml+xml",
-      "user-agent": "HarloBot/1.0 (+https://harloai.co)"
-    },
-    signal: AbortSignal.timeout(12000)
-  });
+  let lastError: Error | null = null;
 
-  if (!response.ok) {
-    throw new Error(`Could not fetch ${url} (${response.status}).`);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const userAgent = CRAWL_USER_AGENTS[Math.min(attempt, CRAWL_USER_AGENTS.length - 1)];
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "accept": "text/html,application/xhtml+xml",
+          "user-agent": userAgent
+        },
+        signal: AbortSignal.timeout(attempt === 0 ? 12000 : 16000)
+      });
+
+      if (!response.ok) {
+        const challenged = response.headers.get("cf-mitigated") === "challenge";
+        const reason = challenged ? "Cloudflare challenge" : response.status.toString();
+        throw new CrawlFetchError(`Could not fetch ${url} (${reason}).`, response.status);
+      }
+
+      const contentType = response.headers.get("content-type") ?? "";
+
+      if (!contentType.includes("text/html") && !contentType.includes("application/xhtml+xml")) {
+        throw new Error(`${url} did not return an HTML page.`);
+      }
+
+      return response.text();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(`Could not crawl ${url}.`);
+      const shouldRetry = attempt < 2 && (!(lastError instanceof CrawlFetchError) || RETRYABLE_CRAWL_STATUSES.has(lastError.status));
+
+      if (!shouldRetry) {
+        break;
+      }
+
+      await wait(400 * (attempt + 1));
+    }
   }
 
-  const contentType = response.headers.get("content-type") ?? "";
+  throw lastError ?? new Error(`Could not crawl ${url}.`);
+}
 
-  if (!contentType.includes("text/html") && !contentType.includes("application/xhtml+xml")) {
-    throw new Error(`${url} did not return an HTML page.`);
+class CrawlFetchError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = "CrawlFetchError";
   }
+}
 
-  return response.text();
+function getUrlLogoFallback(url: string) {
+  try {
+    return getFallbackLogoUrl(url);
+  } catch {
+    return null;
+  }
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function getSitemapUrls(origin: string, maxUrls: number) {
