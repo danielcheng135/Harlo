@@ -263,7 +263,7 @@ These mechanisms should be reviewed and tested before production deployment. The
 
 Harlo was developed through an AI-assisted software development workflow using OpenAI Codex.
 
-Project direction, feature planning, technology selection, and architectural requirements were guided by the project owner, with AI-assisted generation and iteration used extensively during implementation.
+Project direction, feature planning, technology selection, and architectural requirements were guided by me, with AI-assisted generation and iteration used extensively during implementation.
 
 The project explores how modern AI development tools can be used to build and iterate on full-stack SaaS applications.
 
